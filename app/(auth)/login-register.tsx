@@ -1,144 +1,176 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Alert,
+} from "react-native";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import { useState } from "react";
-
-import { Button, Text, TextInput, View } from "react-native";
-
-const handleLogin = async (email: string, password: string) => {
-  const res = await authClient.signIn.email(
-    {
-      email: email,
-      password: password,
-    },
-    {
-      onSuccess: async () => {
-        const token = await SecureStore.getItemAsync("better-auth-token");
-        console.log("SecureStore token after login:", token);
-        router.push("/");
-      },
-      onError: (ctx) => alert(ctx.error.message),
-    },
-  );
-
-  console.log(res);
-};
-
-const handleRegister = async (
-  email: string,
-  password: string,
-  name: string,
-) => {
-  await authClient.signUp.email(
-    {
-      email,
-      password,
-      name,
-    },
-    {
-      onSuccess: async () => {
-        const token = await SecureStore.getItemAsync("better-auth-token");
-        console.log("SecureStore token after register:", token);
-        router.push("/");
-      },
-      onError: (ctx) => alert(ctx.error.message),
-    },
-  );
-};
-
-const handleGoogleLogin = async () => {
-  await authClient.signIn.social({
-    provider: "google",
-    callbackURL: "/", // The plugin handles the conversion to deep link
-  });
-};
 
 export default function LoginRegister() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Form State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
 
+  // 1. Session Check: If already logged in, send to Home
+  const { data: session, isPending } = authClient.useSession();
+
+  useEffect(() => {
+    if (!isPending && session?.session) {
+      router.replace("/");
+    }
+  }, [session, isPending]);
+
+  // 2. Auth Handlers
+  const handleAuthAction = async () => {
+    if (!email || !password || (!isLogin && !name)) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    setIsLoading(true);
+
+    const options = {
+      onSuccess: () => {
+        setIsLoading(false);
+        router.replace("/");
+      },
+      onError: (ctx: any) => {
+        setIsLoading(false);
+        Alert.alert("Authentication Error", ctx.error.message);
+      },
+    };
+
+    if (isLogin) {
+      await authClient.signIn.email({ email, password }, options);
+    } else {
+      await authClient.signUp.email({ email, password, name }, options);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/", // Better Auth Expo plugin handles the deep link
+      });
+    } catch (err) {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <View style={{ padding: 24 }}>
-      <Text style={{ fontSize: 24, fontWeight: "bold", marginBottom: 16 }}>
-        {isLogin ? "Login" : "Register"}
-      </Text>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={{
-          borderWidth: 1,
-          borderColor: "#ccc",
-          marginBottom: 12,
-          padding: 8,
-          borderRadius: 6,
-        }}
-      />
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={{
-          borderWidth: 1,
-          borderColor: "#ccc",
-          marginBottom: 12,
-          padding: 8,
-          borderRadius: 6,
-        }}
-      />
-      {!isLogin && (
+    <View style={styles.container}>
+      <Text style={styles.title}>{isLogin ? "Welcome Back" : "Create Account"}</Text>
+
+      <View style={styles.form}>
+        {!isLogin && (
+          <TextInput
+            placeholder="Full Name"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+          />
+        )}
+
         <TextInput
-          placeholder="Name"
-          value={name}
-          onChangeText={setName}
-          style={{
-            borderWidth: 1,
-            borderColor: "#ccc",
-            marginBottom: 12,
-            padding: 8,
-            borderRadius: 6,
-          }}
+          placeholder="Email Address"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={styles.input}
         />
-      )}
-      <Button
-        title={isLogin ? "Login" : "Register"}
-        onPress={async () => {
-          if (
-            !email ||
-            typeof email !== "string" ||
-            !password ||
-            typeof password !== "string"
-          ) {
-            alert("Please enter a valid email and password.");
-            return;
-          }
-          if (!isLogin && !name) {
-            alert("Please enter your name.");
-            return;
-          }
-          if (isLogin) {
-            await handleLogin(email, password);
-          } else {
-            await handleRegister(email, password, name);
-          }
-        }}
-      />
-      <View style={{ height: 12 }} />
-      <Button
-        title={
-          isLogin
-            ? "Don't have an account? Register"
-            : "Already have an account? Login"
-        }
-        onPress={() => setIsLogin((prev) => !prev)}
-      />
-      <View style={{ height: 12 }} />
-      <Button title="Sign in with Google" onPress={handleGoogleLogin} />
+
+        <TextInput
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+        />
+
+        <TouchableOpacity 
+          style={[styles.button, isLoading && styles.buttonDisabled]} 
+          onPress={handleAuthAction}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>{isLogin ? "Login" : "Register"}</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.dividerContainer}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.divider} />
+        </View>
+
+        <TouchableOpacity 
+          style={styles.googleButton} 
+          onPress={handleGoogleLogin}
+          disabled={isLoading}
+        >
+          <Text style={styles.googleButtonText}>Continue with Google</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          onPress={() => setIsLogin(!isLogin)} 
+          style={styles.switchContainer}
+        >
+          <Text style={styles.switchText}>
+            {isLogin ? "New here? Create an account" : "Already have an account? Sign In"}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 24, justifyContent: "center", backgroundColor: "#fff" },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 32, textAlign: "center", color: "#1a1a1a" },
+  form: { width: "100%" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#e1e1e1",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    backgroundColor: "#f9f9f9",
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  buttonDisabled: { backgroundColor: "#99caff" },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  dividerContainer: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
+  divider: { flex: 1, height: 1, backgroundColor: "#e1e1e1" },
+  dividerText: { marginHorizontal: 16, color: "#8e8e93" },
+  googleButton: {
+    borderWidth: 1,
+    borderColor: "#e1e1e1",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  googleButtonText: { color: "#1a1a1a", fontSize: 16, fontWeight: "600" },
+  switchContainer: { marginTop: 24, alignItems: "center" },
+  switchText: { color: "#007AFF", fontSize: 14, fontWeight: "500" },
+});

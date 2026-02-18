@@ -1,44 +1,42 @@
 import { authClient } from "@/lib/auth-client";
-import { Link, router } from "expo-router";
-import { useEffect } from "react";
-import { Text, View } from "react-native";
+
+import { Text, View, ActivityIndicator, StyleSheet } from "react-native";
+import LoginRegister from "./(auth)/login-register";
 
 export default function Index() {
-  const handleSignOut = async () => {
-    await authClient.signOut();
-  };
-  const { data: session, isPending, error } = authClient.useSession();
-  console.log(
-    "Session:",
-    session?.session?.token,
-    "Pending:",
-    isPending,
-    "Error:",
-    error,
-  );
 
-  useEffect(() => {
-    if (!isPending && !session?.session) {
-      router.push("/login-register");
+  const { data: session, isPending } = authClient.useSession();
+
+    if(!session && !isPending) {
+      return <LoginRegister/>
     }
-  }, [session, isPending]);
+  // ⚡ 2. PREVENT THE FLICKER: Show a splash spinner while checking storage
+  if (isPending) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
+      </View>
+    );
+  }
+
+  // ⚡ 3. Only render the actual home content if we have a session
+  if (!session) return null;
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
-      <Link href="/login-register">Lo.gin/Register</Link>
-      <Text>Hiiii</Text>
-      <Text>Bye</Text>
-      <Text>{JSON.stringify(session, null, 2)}</Text>
-      <Text onPress={handleSignOut} style={{ marginTop: 20, color: "red" }}>
+    <View style={styles.container}>
+      <Text style={styles.welcomeText}>Welcome, {session.user.name}!</Text>
+      <Text onPress={() => authClient.signOut()} style={styles.signOut}>
         Sign Out
       </Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
+  loadingText: { marginTop: 10, color: "#8e8e93" },
+  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  welcomeText: { fontSize: 20, fontWeight: "600" },
+  signOut: { marginTop: 20, color: "red", fontWeight: "bold" },
+});
