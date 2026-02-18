@@ -14,20 +14,11 @@ import { router } from "expo-router";
 export default function LoginRegister() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Form State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-
-  // 1. Session Check: If already logged in, send to Home
-  const { data: session, isPending } = authClient.useSession();
-
-  useEffect(() => {
-    if (!isPending && session?.session) {
-      router.replace("/");
-    }
-  }, [session, isPending]);
 
   // 2. Auth Handlers
   const handleAuthAction = async () => {
@@ -57,20 +48,23 @@ export default function LoginRegister() {
   };
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true);
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/", // Better Auth Expo plugin handles the deep link
+        callbackURL: "food-delivery-customer:///", // Better Auth Expo plugin handles the deep link
       });
     } catch (err) {
+      console.log(err);
+
       setIsLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{isLogin ? "Welcome Back" : "Create Account"}</Text>
+      <Text style={styles.title}>
+        {isLogin ? "Welcome Back" : "Create Account"}
+      </Text>
 
       <View style={styles.form}>
         {!isLogin && (
@@ -99,15 +93,17 @@ export default function LoginRegister() {
           style={styles.input}
         />
 
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
+        <TouchableOpacity
+          style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleAuthAction}
           disabled={isLoading}
         >
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>{isLogin ? "Login" : "Register"}</Text>
+            <Text style={styles.buttonText}>
+              {isLogin ? "Login" : "Register"}
+            </Text>
           )}
         </TouchableOpacity>
 
@@ -117,20 +113,22 @@ export default function LoginRegister() {
           <View style={styles.divider} />
         </View>
 
-        <TouchableOpacity 
-          style={styles.googleButton} 
+        <TouchableOpacity
+          style={styles.googleButton}
           onPress={handleGoogleLogin}
           disabled={isLoading}
         >
           <Text style={styles.googleButtonText}>Continue with Google</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={() => setIsLogin(!isLogin)} 
+        <TouchableOpacity
+          onPress={() => setIsLogin(!isLogin)}
           style={styles.switchContainer}
         >
           <Text style={styles.switchText}>
-            {isLogin ? "New here? Create an account" : "Already have an account? Sign In"}
+            {isLogin
+              ? "New here? Create an account"
+              : "Already have an account? Sign In"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -139,8 +137,19 @@ export default function LoginRegister() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: "center", backgroundColor: "#fff" },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 32, textAlign: "center", color: "#1a1a1a" },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 32,
+    textAlign: "center",
+    color: "#1a1a1a",
+  },
   form: { width: "100%" },
   input: {
     borderWidth: 1,
@@ -160,7 +169,11 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { backgroundColor: "#99caff" },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  dividerContainer: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 24,
+  },
   divider: { flex: 1, height: 1, backgroundColor: "#e1e1e1" },
   dividerText: { marginHorizontal: 16, color: "#8e8e93" },
   googleButton: {
