@@ -1,3 +1,4 @@
+import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
@@ -6,6 +7,8 @@ import {
     ActivityIndicator,
     Alert,
     Image,
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -13,7 +16,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-
 
 export default function Register() {
     const [isLoading, setIsLoading] = useState(false);
@@ -29,23 +31,20 @@ export default function Register() {
 
         setIsLoading(true);
 
-        const result = await authClient.signUp.email(
+        await authClient.signUp.email(
             { name, email, password },
             {
-                onSuccess: (ctx: any) => {
-                    console.log("[Register] onSuccess ctx:", JSON.stringify(ctx));
+                onSuccess: () => {
                     setIsLoading(false);
                     Alert.alert("Registration Successful", "Account created successfully");
-                    router.replace("/")
+                    router.replace("/");
                 },
                 onError: (ctx: any) => {
-                    console.log("[Register] onError ctx:", JSON.stringify(ctx));
                     setIsLoading(false);
                     Alert.alert("Registration Failed", ctx.error.message);
                 },
             }
         );
-        console.log("[Register] signUp result:", JSON.stringify(result));
     };
 
     const handleGoogleRegister = async () => {
@@ -60,84 +59,98 @@ export default function Register() {
     };
 
     return (
-        <ScrollView
-            contentContainerStyle={styles.container}
-            keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-            <Image
-                source={require("@/assets/images/app-logo.png")}
-                style={styles.logo}
-                resizeMode="contain"
-            />
-            <Text style={styles.title}>Create Account</Text>
-
-            <View style={styles.form}>
-                <TextInput
-                    placeholderTextColor="#888"
-                    placeholder="Full Name"
-                    value={name}
-                    onChangeText={setName}
-                    style={styles.input}
+            <ScrollView
+                contentContainerStyle={styles.container}
+                keyboardShouldPersistTaps="handled"
+            >
+                {/* Logo */}
+                <Image
+                    source={require("@/assets/images/app-logo.png")}
+                    style={styles.logo}
+                    resizeMode="contain"
                 />
 
-                <TextInput
-                    placeholderTextColor="#888"
-                    placeholder="Email Address"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    style={styles.input}
-                />
+                {/* ── Email Sign-up Section ── */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionLabel}>Create Account</Text>
 
-                <TextInput
-                    placeholderTextColor="#888"
-                    placeholder="Password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    style={styles.input}
-                />
+                    <TextInput
+                        placeholder="Full Name"
+                        placeholderTextColor={Colors.muted}
+                        value={name}
+                        onChangeText={setName}
+                        style={styles.input}
+                    />
 
-                <TouchableOpacity
-                    style={[styles.button, isLoading && styles.buttonDisabled]}
-                    onPress={handleRegister}
-                    disabled={isLoading}
-                >
-                    {isLoading ? (
-                        <>
-                            <ActivityIndicator color="#fff" />
-                            <Text style={styles.buttonText}>Creating...</Text>
-                        </>
-                    ) : (
-                        <Text style={styles.buttonText}>Create Account</Text>
-                    )}
-                </TouchableOpacity>
+                    <TextInput
+                        placeholder="Email Address"
+                        placeholderTextColor={Colors.muted}
+                        value={email}
+                        onChangeText={setEmail}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        style={styles.input}
+                    />
 
+                    <TextInput
+                        placeholder="Password"
+                        placeholderTextColor={Colors.muted}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                        style={styles.input}
+                    />
+
+                    <TouchableOpacity
+                        style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+                        onPress={handleRegister}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? (
+                            <>
+                                <ActivityIndicator color="#fff" />
+                                <Text style={styles.primaryButtonText}>Creating Account...</Text>
+                            </>
+                        ) : (
+                            <Text style={styles.primaryButtonText}>Create Account</Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+
+                {/* ── Divider ── */}
                 <View style={styles.dividerContainer}>
                     <View style={styles.divider} />
-                    <Text style={styles.dividerText}>OR</Text>
+                    <Text style={styles.dividerText}>or continue with</Text>
                     <View style={styles.divider} />
                 </View>
 
+                {/* ── Google ── */}
                 <TouchableOpacity
                     style={styles.googleButton}
                     onPress={handleGoogleRegister}
                     disabled={isLoading}
                 >
+                    <Image
+                        source={require("@/assets/images/google-logo.png")}
+                        style={styles.googleIcon}
+                        resizeMode="contain"
+                    />
                     <Text style={styles.googleButtonText}>Continue with Google</Text>
                 </TouchableOpacity>
 
+                {/* ── Sign in link ── */}
                 <TouchableOpacity
                     onPress={() => router.push("/(auth)/login")}
                     style={styles.switchContainer}
                 >
-                    <Text style={styles.switchText}>
-                        Already have an account? Sign In
-                    </Text>
+                    <Text style={styles.switchText}>Already have an account? Sign In</Text>
                 </TouchableOpacity>
-            </View>
-        </ScrollView>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -145,86 +158,108 @@ const styles = StyleSheet.create({
     container: {
         flexGrow: 1,
         padding: 24,
+        paddingBottom: 40,
         justifyContent: "center",
-        backgroundColor: "#fff",
+        backgroundColor: Colors.background,
     },
     logo: {
-        width: 220,
-        height: 220,
+        width: 200,
+        height: 200,
         alignSelf: "center",
+        marginBottom: 4,
+    },
+
+    // ── Section ────────────────────────────────────────────────
+    section: {
+        width: "100%",
         marginBottom: 8,
     },
-    title: {
-        fontSize: FontSize.xxl,
+    sectionLabel: {
         fontFamily: Fonts.brandBold,
-        marginBottom: 32,
-        textAlign: "center",
-        color: "#3b1f0e",
+        fontSize: FontSize.sm,
+        color: Colors.textSecondary,
+        marginBottom: 10,
+        textTransform: "uppercase",
+        letterSpacing: 0.8,
     },
-    form: { width: "100%" },
+
+    // ── Inputs ───────────────────────────────────────────────
     input: {
         borderWidth: 1,
-        borderColor: "#c9b8ae",
-        padding: 16,
+        borderColor: Colors.border,
+        padding: 14,
         borderRadius: 12,
-        marginBottom: 16,
+        marginBottom: 14,
         fontSize: FontSize.md,
         fontFamily: Fonts.brand,
-        backgroundColor: "#fff",
-        color: "#1a1a1a",
+        backgroundColor: Colors.background,
+        color: Colors.text,
     },
-    button: {
-        backgroundColor: "#0d8def",
-        padding: 18,
+
+    // ── Buttons ──────────────────────────────────────────────
+    primaryButton: {
+        backgroundColor: Colors.primary,
+        padding: 16,
         borderRadius: 12,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        marginTop: 8,
     },
-    buttonDisabled: { backgroundColor: "#a07050" },
-    buttonText: {
-        color: "#fff",
+    primaryButtonText: {
+        color: Colors.white,
         fontSize: FontSize.md,
         fontFamily: Fonts.brandBold,
     },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+
+    // ── Divider ──────────────────────────────────────────────
     dividerContainer: {
         flexDirection: "row",
         alignItems: "center",
-        marginVertical: 24,
+        marginVertical: 20,
     },
-    divider: { flex: 1, height: 1, backgroundColor: "#c9b8ae" },
+    divider: { flex: 1, height: 1, backgroundColor: Colors.border },
     dividerText: {
-        marginHorizontal: 16,
-        color: "#5a2d0c",
+        marginHorizontal: 12,
+        color: Colors.muted,
         fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.sm,
+        fontSize: FontSize.xs,
+        textTransform: "uppercase",
+        letterSpacing: 0.6,
     },
+
+    // ── Google ───────────────────────────────────────────────
     googleButton: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 10,
+        gap: 8,
         borderWidth: 1,
-        borderColor: "#dadce0",
-        padding: 14,
+        borderColor: Colors.border,
+        padding: 12,
         borderRadius: 12,
-        backgroundColor: "#fff",
+        backgroundColor: Colors.background,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.06,
         shadowRadius: 3,
         elevation: 2,
+        marginBottom: 8,
     },
+    googleIcon: { width: 35, height: 35 },
     googleButtonText: {
-        color: "#3c4043",
+        color: Colors.text,
         fontSize: FontSize.md,
         fontFamily: Fonts.brandMedium,
     },
-    switchContainer: { marginTop: 24, alignItems: "center" },
+
+    // ── Switch ───────────────────────────────────────────────
+    switchContainer: { marginTop: 20, alignItems: "center" },
     switchText: {
-        color: "#3b1f0e",
+        color: Colors.primary,
         fontSize: FontSize.sm,
         fontFamily: Fonts.brandMedium,
     },
