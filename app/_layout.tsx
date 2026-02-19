@@ -17,8 +17,6 @@ ExpoSplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
-  console.log("session hai ji ki nhi", session);
-
   const [appReady, setAppReady] = useState<boolean>(false);
   const [splashDone, setSplashDone] = useState<boolean>(false);
 
