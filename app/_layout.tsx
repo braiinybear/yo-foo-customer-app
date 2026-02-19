@@ -19,8 +19,8 @@ export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
   console.log("session hai ji ki nhi", session);
 
-  const [appReady, setAppReady] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
+  const [appReady, setAppReady] = useState<boolean>(false);
+  const [splashDone, setSplashDone] = useState<boolean>(false);
 
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,

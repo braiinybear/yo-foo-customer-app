@@ -21,18 +21,18 @@ type Step = "phone" | "otp";
 
 export default function Login() {
 
-    const [toggleEmailPhoneLogin, settoggleEmailPhoneLogin] = useState(false);
+    const [toggleEmailPhoneLogin, settoggleEmailPhoneLogin] = useState<boolean>(false);
     // Phone / OTP state
-    const [phone, setPhone] = useState("");
-    const [otp, setOtp] = useState("");
+    const [phone, setPhone] = useState<string>("");
+    const [otp, setOtp] = useState<string>("");
     const [step, setStep] = useState<Step>("phone");
-    const [otpLoading, setOtpLoading] = useState(false);
-    const [verifyLoading, setVerifyLoading] = useState(false);
+    const [otpLoading, setOtpLoading] = useState<boolean>(false);
+    const [verifyLoading, setVerifyLoading] = useState<boolean>(false);
 
     // Email / password state
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [emailLoading, setEmailLoading] = useState(false);
+    const [email, setEmail] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
+    const [emailLoading, setEmailLoading] = useState<boolean>(false);
 
     // ── Phone OTP ──────────────────────────────────────────────
     const handleSendOtp = async () => {
