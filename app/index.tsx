@@ -5,7 +5,7 @@ import { useEffect } from "react";
 
 export default function Index() {
   const { data: session, isPending } = authClient.useSession();
-  
+
 
   useEffect(() => {
     const logStoredToken = async () => {
@@ -55,7 +55,7 @@ export default function Index() {
         Welcome, {session.user.name}!
 
       </Text>
-<Text>{JSON.stringify(session)}</Text>
+      <Text>{JSON.stringify(session)}</Text>
       <Text
         onPress={() => authClient.signOut()}
         style={styles.signOut}
