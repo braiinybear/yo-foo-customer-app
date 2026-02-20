@@ -1,4 +1,5 @@
 import SplashScreenView from "@/components/SplashScreenView";
+import { Colors } from "@/constants/colors";
 import { authClient } from "@/lib/auth-client";
 import {
   Nunito_400Regular,
@@ -6,11 +7,13 @@ import {
   Nunito_700Bold,
   Nunito_900Black,
 } from "@expo-google-fonts/nunito";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import React, { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 // Keep the native splash visible while we load
 ExpoSplashScreen.preventAutoHideAsync();
@@ -48,25 +51,82 @@ export default function RootLayout() {
   // Show nothing until fonts are ready
   if (!appReady) return null;
 
+  // Create a client
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 2,
+        staleTime: 1000 * 60 * 5, // 5 minutes cache
+      },
+    },
+  });
+
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      {/* Animated in-app splash overlaid on top while splashDone is false */}
-      {!splashDone && (
-        <SplashScreenView onFinish={() => setSplashDone(true)} />
-      )}
+    <QueryClientProvider client={queryClient}>
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        {/* Animated in-app splash on first load */}
+        {!splashDone && (
+          <SplashScreenView onFinish={() => setSplashDone(true)} />
+        )}
 
-      <Stack>
-        {/* Only accessible when not logged in */}
-        <Stack.Protected guard={isLoggedOut}>
-          <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
-        </Stack.Protected>
+        {/* Instant solid overlay during auth state transitions — no fade-in so no black flash */}
+        {splashDone && isPending && (
+          <View style={transitionStyles.overlay}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+          </View>
+        )}
 
-        {/* Only accessible when logged in */}
-        <Stack.Protected guard={isLoggedIn}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-        </Stack.Protected>
-      </Stack>
-    </View>
+        <Stack>
+          {/* Only accessible when not logged in */}
+          <Stack.Protected guard={isLoggedOut}>
+            <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
+          </Stack.Protected>
+
+          {/* Only accessible when logged in */}
+
+
+          <Stack.Protected guard={isLoggedIn}>
+            <Stack.Screen
+              name="(tabs)"
+              options={{
+                headerShown: false,
+              }}
+
+            />
+            <Stack.Screen
+              name="profile"
+              options={{
+                headerShown: true,
+              }}
+
+            />
+            <Stack.Screen
+              name="wallet"
+              options={{
+                headerShown: true,
+              }}
+
+            />
+            <Stack.Screen
+              name="search"
+              options={{
+                headerShown: false,
+              }}
+
+            />
+          </Stack.Protected>
+        </Stack>
+      </View>
+    </QueryClientProvider>
   );
 }
+const transitionStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.background,
+    zIndex: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

@@ -3,6 +3,7 @@ import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
 import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
 import {
     ActivityIndicator,
     Alert,
@@ -78,11 +79,42 @@ export default function Login() {
             Alert.alert("Error", "Please fill in all fields");
             return;
         }
+
         setEmailLoading(true);
+
         await authClient.signIn.email(
             { email, password },
             {
-                onSuccess: () => setEmailLoading(false),
+                onSuccess: async (ctx) => {
+                    setEmailLoading(false);
+
+                    // 1. Get the set-cookie header from the response
+                    const setCookie = ctx.response?.headers.get('set-cookie');
+
+                    // 2. Extract the value of better-auth.session_token
+                    let tokenToSave = "";
+
+                    if (setCookie) {
+                        const match = setCookie.match(/better-auth\.session_token=([^;]+)/);
+                        if (match && match[1]) {
+                            tokenToSave = decodeURIComponent(match[1]);
+                        }
+                    }
+
+                    // Fallback: If your backend returns 'token' in the JSON body like the signup did
+                    if (!tokenToSave && ctx.data?.token) {
+                        tokenToSave = ctx.data.token;
+                    }
+
+                    if (tokenToSave) {
+                        await SecureStore.setItemAsync("token", tokenToSave);
+                        console.log("✅ Login Session Saved:", tokenToSave);
+                        router.replace("/(tabs)");
+                    } else {
+                        console.error("❌ Failed to extract token from headers or body");
+                        Alert.alert("Login Error", "Could not retrieve session token.");
+                    }
+                },
                 onError: (ctx: any) => {
                     setEmailLoading(false);
                     Alert.alert("Login Failed", ctx.error.message);

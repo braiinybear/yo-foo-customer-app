@@ -3,6 +3,7 @@ import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
 import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
 import {
     ActivityIndicator,
     Alert,
@@ -34,10 +35,20 @@ export default function Register() {
         await authClient.signUp.email(
             { name, email, password },
             {
-                onSuccess: () => {
+                onSuccess: async (ctx) => {
+                    // 1. Extract token directly from the response body (ctx.data)
+                    const apiToken = ctx.data?.token;
+                    console.log(apiToken);
+                    if (apiToken) {
+                        // 2. Save it to SecureStore under the name "token"
+                        await SecureStore.setItemAsync("token", apiToken);
+                        console.log("✅ Token successfully saved as 'token':", apiToken);
+                    }
+
                     setIsLoading(false);
-                    Alert.alert("Registration Successful", "Account created successfully");
-                    router.replace("/");
+                    Alert.alert("Success", "Account created successfully", [
+                        { text: "OK", onPress: () => router.replace("/(tabs)") }
+                    ]);
                 },
                 onError: (ctx: any) => {
                     setIsLoading(false);
