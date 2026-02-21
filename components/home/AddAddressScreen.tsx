@@ -34,7 +34,7 @@ interface AddressTypeOption {
     icon: React.ComponentProps<typeof Ionicons>['name'];
 }
 
-export default function AddAddressScreen({setOpenAdressAddform}: {setOpenAdressAddform: React.Dispatch<React.SetStateAction<boolean>>}) {
+export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdressAddform: React.Dispatch<React.SetStateAction<boolean>> }) {
 
     const [form, setForm] = useState<AddressFormState>({
         type: '', // 👈 UPDATED: Starts blank instead of 'HOME'
@@ -206,8 +206,16 @@ export default function AddAddressScreen({setOpenAdressAddform}: {setOpenAdressA
 
             {/* Fixed Bottom Button */}
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.submitButton} onPress={handleSaveAddress}>
-                    <Text style={styles.submitButtonText}>Save Address</Text>
+                <TouchableOpacity
+                    disabled={isPending || isFetchingLocation}
+                    style={[styles.submitButton, (isPending || isFetchingLocation) && styles.submitButtonDisabled]}
+                    onPress={handleSaveAddress}
+                >
+                    {isPending ? (
+                        <ActivityIndicator color={Colors.white} />
+                    ) : (
+                        <Text style={styles.submitButtonText}>Save Address</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
@@ -346,6 +354,10 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    submitButtonDisabled: {
+        backgroundColor: Colors.muted,
+        opacity: 0.7,
     },
     submitButtonText: {
         color: Colors.white,

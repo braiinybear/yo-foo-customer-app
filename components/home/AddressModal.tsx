@@ -12,6 +12,7 @@ import {
     FlatList,
     Pressable,
     Dimensions,
+    Platform,
 } from "react-native";
 import AddAddressScreen from "./AddAddressScreen";
 
@@ -33,98 +34,90 @@ export default function AddressModal({
     selectedAddressId,
     onSelectAddress,
 }: AddressModalProps) {
-    const [openAdressAddform ,setOpenAdressAddform] = useState<boolean>(false)
+    const [openAdressAddform, setOpenAdressAddform] = useState<boolean>(false)
     return (
         <Modal
             visible={visible}
-            transparent={true}
             animationType="slide"
             onRequestClose={onClose}
         >
-            <Pressable style={styles.overlay} onPress={onClose}>
-                <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.handle} />
-
-                    <View style={styles.header}>
-                        <Text style={styles.title}>Select Address</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Ionicons name="close" size={24} color={Colors.text} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <FlatList
-                        data={addresses}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.listContent}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={[
-                                    styles.addressItem,
-                                    selectedAddressId === item.id && styles.selectedItem
-                                ]}
-                                onPress={() => {
-                                    onSelectAddress(item);
-                                    onClose();
-                                }}
-                            >
-                                <View style={styles.addressIcon}>
-                                    <Ionicons
-                                        name={item.type === "HOME" ? "home" : item.type === "WORK" ? "briefcase" : "location"}
-                                        size={20}
-                                        color={selectedAddressId === item.id ? Colors.primary : Colors.textSecondary}
-                                    />
-                                </View>
-                                <View style={styles.addressInfo}>
-                                    <Text style={styles.addressType}>{item.type}</Text>
-                                    <Text style={styles.addressLine} numberOfLines={2}>{item.addressLine}</Text>
-                                </View>
-                                {selectedAddressId === item.id && (
-                                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
-                                )}
+            <View style={styles.fullScreenContainer}>
+                {openAdressAddform ? (
+                    <>
+                        <View style={styles.header}>
+                            <TouchableOpacity onPress={() => setOpenAdressAddform(false)}>
+                                <Ionicons name="arrow-back" size={24} color={Colors.text} />
                             </TouchableOpacity>
-                        )}
-                        ListFooterComponent={() => (
-                            <TouchableOpacity onPress={() => setOpenAdressAddform(true)} style={styles.addButton} >
-                                <View style={styles.addIcon}>
-                                    <Ionicons name="add" size={24} color={Colors.primary} />
-                                </View>
-                                <Text style={styles.addButtonText}>Add New Address</Text>
+                            <Text style={styles.title}>Add New Address</Text>
+                            <TouchableOpacity onPress={onClose}>
+                                <Ionicons name="close" size={24} color={Colors.text} />
                             </TouchableOpacity>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <AddAddressScreen setOpenAdressAddform={setOpenAdressAddform} />
+                        </View>
+                    </>
+                ) : (
+                    <>
+                        <View style={styles.header}>
+                            <Text style={styles.title}>Select Address</Text>
+                            <TouchableOpacity onPress={onClose}>
+                                <Ionicons name="close" size={24} color={Colors.text} />
+                            </TouchableOpacity>
+                        </View>
 
-
-                        )}
-                    />
-                    {
-                        openAdressAddform && (
-                            <AddAddressScreen setOpenAdressAddform={setOpenAdressAddform}/>
-                        )
-                    }
-                </Pressable>
-            </Pressable>
+                        <FlatList
+                            data={addresses}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.listContent}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.addressItem,
+                                        selectedAddressId === item.id && styles.selectedItem
+                                    ]}
+                                    onPress={() => {
+                                        onSelectAddress(item);
+                                        onClose();
+                                    }}
+                                >
+                                    <View style={styles.addressIcon}>
+                                        <Ionicons
+                                            name={item.type === "HOME" ? "home" : item.type === "WORK" ? "briefcase" : "location"}
+                                            size={20}
+                                            color={selectedAddressId === item.id ? Colors.primary : Colors.textSecondary}
+                                        />
+                                    </View>
+                                    <View style={styles.addressInfo}>
+                                        <Text style={styles.addressType}>{item.type}</Text>
+                                        <Text style={styles.addressLine} numberOfLines={2}>{item.addressLine}</Text>
+                                    </View>
+                                    {selectedAddressId === item.id && (
+                                        <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                            ListFooterComponent={() => (
+                                <TouchableOpacity onPress={() => setOpenAdressAddform(true)} style={styles.addButton} >
+                                    <View style={styles.addIcon}>
+                                        <Ionicons name="add" size={24} color={Colors.primary} />
+                                    </View>
+                                    <Text style={styles.addButtonText}>Add New Address</Text>
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </>
+                )}
+            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
+    fullScreenContainer: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        justifyContent: "flex-end",
-    },
-    sheet: {
         backgroundColor: Colors.background,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        maxHeight: height * 0.7,
-        paddingBottom: 40,
-    },
-    handle: {
-        width: 40,
-        height: 5,
-        backgroundColor: Colors.border,
-        borderRadius: 2.5,
-        alignSelf: "center",
-        marginTop: 10,
+        paddingTop: Platform.OS === 'ios' ? 50 : 20, // To handle status bar
     },
     header: {
         flexDirection: "row",
