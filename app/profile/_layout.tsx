@@ -12,6 +12,7 @@ export default function ProfileLayout() {
         name="index"
         options={{
           title: "My Profile",
+          headerShown:false
         }}
       />
 

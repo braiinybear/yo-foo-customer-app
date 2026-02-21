@@ -14,111 +14,28 @@ import {
 import CuisineFilter from "@/components/home/CuisineFilter";
 import HeaderBar from "@/components/home/HeaderBar";
 import HeroBanner from "@/components/home/HeroBanner";
-import RestaurantCard, { Restaurant } from "@/components/home/RestaurantCard";
+import RestaurantCard from "@/components/home/RestaurantCard";
 import SearchBar from "@/components/home/SearchBar";
 import { router } from "expo-router";
 import { useRestaurants } from "@/hooks/useRestaurants";
-import { useAddresses } from "@/hooks/useAddresses";
+import { useUser } from "@/hooks/useUser";
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const RECOMMENDED: Restaurant[] = [
-  {
-    id: "r1",
-    name: "Uttarakhand Food Junction",
-    cuisine: "North Indian · Dal · Roti",
-    rating: 4.2,
-    deliveryTime: "20–25 mins",
-    distance: "1 km",
-    offer: "FLAT ₹100 OFF",
-    priceForOne: 150,
-    deliveryFee: "Free",
-    emoji: "🍛",
-    accentColor: "#fef3c7",
-  },
-  {
-    id: "r2",
-    name: "Nath's Chinese",
-    cuisine: "Chinese · Momos · Noodles",
-    rating: 4.1,
-    deliveryTime: "25–30 mins",
-    distance: "1.5 km",
-    offer: "FLAT ₹120 OFF",
-    priceForOne: 180,
-    deliveryFee: "Free",
-    emoji: "🥡",
-    accentColor: "#fce7f3",
-  },
-  {
-    id: "r3",
-    name: "Lemon Chilli Farm",
-    cuisine: "Continental · Salads · Wraps",
-    rating: 4.0,
-    deliveryTime: "30–35 mins",
-    distance: "2 km",
-    offer: "FLAT 50% OFF",
-    priceForOne: 220,
-    deliveryFee: "₹20",
-    emoji: "🥗",
-    accentColor: "#d1fae5",
-  },
-];
-
-const FEATURED: Restaurant[] = [
-  {
-    id: "f1",
-    name: "Dabba & Co.",
-    cuisine: "Home Food · Thali",
-    rating: 4.0,
-    deliveryTime: "25–30 mins",
-    distance: "900 m",
-    offer: "Get items @ ₹99 only",
-    priceForOne: 99,
-    deliveryFee: "Free",
-    emoji: "🥘",
-    accentColor: "#ffe4e6",
-  },
-  {
-    id: "f2",
-    name: "Punjabi Foods",
-    cuisine: "Punjabi · Butter Chicken",
-    rating: 3.7,
-    deliveryTime: "25–30 mins",
-    distance: "1.2 km",
-    offer: "FLAT ₹100 OFF",
-    priceForOne: 200,
-    deliveryFee: "₹30",
-    emoji: "🍗",
-    accentColor: "#fef9c3",
-  },
-  {
-    id: "f3",
-    name: "Punjabi Rasoi",
-    cuisine: "Punjab · Dal Makhni",
-    rating: 3.9,
-    deliveryTime: "25–30 mins",
-    distance: "1.8 km",
-    offer: "FLAT ₹120 OFF",
-    priceForOne: 170,
-    deliveryFee: "Free",
-    emoji: "🍲",
-    accentColor: "#ede9fe",
-  },
-];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function Index() {
   const { data: session } = authClient.useSession();
-
-  const { data: restaurants} = useRestaurants();
-  console.log(restaurants);
-  
-  const { data:addresses} = useAddresses();
-  console.log(addresses);
-  
-
+  const { data: restaurants, isLoading, error } = useRestaurants();
   const [search, setSearch] = useState("");
   const [vegMode, setVegMode] = useState(false);
   const [selectedCuisine, setSelectedCuisine] = useState("all");
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   // Derive user initials from session name
   const userInitial = session?.user?.name?.[0]?.toUpperCase() ?? "U";
@@ -163,16 +80,14 @@ export default function Index() {
         <View style={styles.section}>
           <View style={styles.sectionRow}>
             <Text style={styles.sectionHeading}>
-              {FEATURED.length + RECOMMENDED.length}+ Restaurants Delivering to You
+              {restaurants?.length}+ Restaurants Delivering to You
             </Text>
           </View>
           <Text style={styles.featuredLabel}>Featured</Text>
-          {FEATURED.map((r) => (
-            <RestaurantCard key={r.id} restaurant={r} />
+          {restaurants?.map((r) => (
+            <RestaurantCard key={r.id} onPress={() => router.push({ pathname: "/restaurants/[id]", params: { id: r.id } })} restaurant={r} />
           ))}
         </View>
-
-
         <TouchableOpacity style={styles.singOutButton} onPress={() => authClient.signOut()}><Text>Sign Out</Text></TouchableOpacity>
 
       </ScrollView>

@@ -23,6 +23,8 @@ export default function Register() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [haveReferralCode, setHaveReferralCode] = useState<boolean>(false);
+    const [referralCode, setReferralCode] = useState<string>("");
 
     const handleRegister = async () => {
         if (!name || !email || !password) {
@@ -35,19 +37,20 @@ export default function Register() {
         await authClient.signUp.email(
             { name, email, password },
             {
+                body: haveReferralCode ? { invitedByCode: referralCode } : undefined,
                 onSuccess: async (ctx) => {
                     // 1. Extract token directly from the response body (ctx.data)
                     const apiToken = ctx.data?.token;
-                    console.log(apiToken);
                     if (apiToken) {
                         // 2. Save it to SecureStore under the name "token"
                         await SecureStore.setItemAsync("token", apiToken);
                         console.log("✅ Token successfully saved as 'token':", apiToken);
+                        router.replace("/");
                     }
 
                     setIsLoading(false);
                     Alert.alert("Success", "Account created successfully", [
-                        { text: "OK", onPress: () => router.replace("/(tabs)") }
+                        { text: "OK", onPress: () => router.replace("/") }
                     ]);
                 },
                 onError: (ctx: any) => {
@@ -115,7 +118,22 @@ export default function Register() {
                         secureTextEntry
                         style={styles.input}
                     />
-
+                    {
+                        haveReferralCode && (
+                            <TextInput
+                                placeholder="Enter referral code"
+                                placeholderTextColor={Colors.muted}
+                                value={referralCode}
+                                onChangeText={setReferralCode}
+                                style={[styles.input, styles.referralCodeInput]}
+                            />
+                        )
+                    }
+                    {
+                        !haveReferralCode && (
+                            <Text onPress={() => setHaveReferralCode(true)} style={styles.referralCodeText}>Have a referral code?</Text>
+                        )
+                    }
                     <TouchableOpacity
                         style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
                         onPress={handleRegister}
@@ -274,4 +292,25 @@ const styles = StyleSheet.create({
         fontSize: FontSize.sm,
         fontFamily: Fonts.brandMedium,
     },
+    referralCodeText: {
+        color: Colors.primary,
+        fontSize: FontSize.sm,
+        fontFamily: Fonts.brandMedium,
+        textAlign: "center",
+        marginBottom: 10,
+        textDecorationLine: "underline",
+    },
+    referralCodeInput: {
+        borderWidth: 1,
+        borderColor: Colors.border,
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: Colors.background,
+        fontSize: FontSize.md,
+        fontFamily: Fonts.brand,
+        color: Colors.text,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        marginBottom: 8,
+    }
 });

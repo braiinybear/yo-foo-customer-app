@@ -55,8 +55,10 @@ export default function RootLayout() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        retry: 2,
-        staleTime: 1000 * 60 * 5, // 5 minutes cache
+        staleTime: 1000 * 60 * 5, // Data stays fresh for 5 minutes
+        gcTime: 1000 * 60 * 15, // Unused data is garbage collected after 15 minutes
+        retry: 2, // Retry failed requests twice before throwing an error
+        refetchOnWindowFocus: false, // Turn off for less aggressive fetching
       },
     },
   });
@@ -110,6 +112,13 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="search"
+              options={{
+                headerShown: false,
+              }}
+
+            />
+            <Stack.Screen
+              name="restaurants"
               options={{
                 headerShown: false,
               }}

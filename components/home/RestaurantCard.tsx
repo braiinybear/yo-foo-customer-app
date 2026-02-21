@@ -3,25 +3,14 @@ import { Fonts, FontSize } from "@/constants/typography";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import {
+    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
+import { Restaurant } from "@/types/restaurants";
 
-export interface Restaurant {
-    id: string;
-    name: string;
-    cuisine: string;
-    rating: number;
-    deliveryTime: string;
-    distance: string;
-    offer?: string;
-    priceForOne: number;
-    deliveryFee: string;
-    emoji: string; // placeholder for image
-    accentColor: string;
-}
 
 interface RestaurantCardProps {
     restaurant: Restaurant;
@@ -29,18 +18,24 @@ interface RestaurantCardProps {
 }
 
 export default function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
+    // Generate a consistent color based on the ID if no image is present
+    const placeholderColors = ["#fef3c7", "#fce7f3", "#d1fae5", "#ffe4e6", "#fef9c3", "#ede9fe"];
+    const bgColor = placeholderColors[restaurant.id.charCodeAt(0) % placeholderColors.length] || placeholderColors[0];
+
     return (
         <TouchableOpacity style={styles.card} activeOpacity={0.88} onPress={onPress}>
-            {/* Food visual placeholder */}
-            <View style={[styles.imageWrapper, { backgroundColor: restaurant.accentColor }]}>
-                <Text style={styles.foodEmoji}>{restaurant.emoji}</Text>
-
-                {/* Offer badge */}
-                {restaurant.offer && (
-                    <View style={styles.offerBadge}>
-                        <Text style={styles.offerText}>{restaurant.offer}</Text>
-                    </View>
+            {/* Food visual */}
+            <View style={[styles.imageWrapper, { backgroundColor: bgColor }]}>
+                {restaurant.image ? (
+                    <Image source={{ uri: restaurant.image }} style={styles.image} />
+                ) : (
+                    <Text style={styles.foodEmoji}>🍽️</Text>
                 )}
+
+                {/* Offer badge - placeholder since it's not in the JSON yet */}
+                <View style={styles.offerBadge}>
+                    <Text style={styles.offerText}>FREE DELIVERY</Text>
+                </View>
 
                 {/* Bookmark */}
                 <TouchableOpacity style={styles.bookmark} activeOpacity={0.7}>
@@ -54,20 +49,22 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
                     <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
                     <View style={styles.ratingBadge}>
                         <Ionicons name="star" size={11} color={Colors.white} />
-                        <Text style={styles.ratingText}>{restaurant.rating}</Text>
+                        <Text style={styles.ratingText}>4.0</Text>
                     </View>
                 </View>
 
-                <Text style={styles.cuisine} numberOfLines={1}>{restaurant.cuisine}</Text>
-                <Text style={styles.priceHint}>₹{restaurant.priceForOne} for one</Text>
+                <Text style={styles.cuisine} numberOfLines={1}>
+                    {restaurant.cuisineTypes?.join(" · ") || "Various Cuisines"}
+                </Text>
+                <Text style={styles.priceHint}>₹{restaurant.costForTwo} for two</Text>
 
                 <View style={styles.metaRow}>
                     <MaterialCommunityIcons name="lightning-bolt" size={12} color={Colors.success} />
-                    <Text style={styles.metaText}>{restaurant.deliveryTime}</Text>
+                    <Text style={styles.metaText}>30-35 mins</Text>
                     <Text style={styles.dot}>·</Text>
-                    <Text style={styles.metaText}>{restaurant.distance}</Text>
+                    <Text style={styles.metaText}>1.2 km</Text>
                     <Text style={styles.dot}>·</Text>
-                    <Text style={styles.metaText}>{restaurant.deliveryFee}</Text>
+                    <Text style={styles.metaText}>Free Delivery</Text>
                 </View>
             </View>
         </TouchableOpacity>
@@ -94,6 +91,11 @@ const styles = StyleSheet.create({
     },
     foodEmoji: {
         fontSize: 72,
+    },
+    image: {
+        width: "100%",
+        height: "100%",
+        resizeMode: "cover",
     },
     offerBadge: {
         position: "absolute",

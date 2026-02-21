@@ -29,6 +29,8 @@ export default function Login() {
     const [step, setStep] = useState<Step>("phone");
     const [otpLoading, setOtpLoading] = useState<boolean>(false);
     const [verifyLoading, setVerifyLoading] = useState<boolean>(false);
+    const [haveReferralCode, setHaveReferralCode] = useState<boolean>(false);
+    const [referralCode, setReferralCode] = useState<string>("");
 
     // Email / password state
     const [email, setEmail] = useState<string>("");
@@ -59,13 +61,25 @@ export default function Login() {
         }
         setVerifyLoading(true);
         try {
-            const { error } = await authClient.phoneNumber.verify({
-                phoneNumber: phone,
-                code: otp,
-            });
-            if (error) {
-                Alert.alert("Verification Failed", error.message);
-            }
+            await authClient.phoneNumber.verify(
+                {
+                    phoneNumber: phone,
+                    code: otp,
+                },
+                {
+                    body: haveReferralCode ? { invitedByCode: referralCode } : undefined,
+                    onSuccess: async (ctx) => {
+                        const apiToken = ctx.data?.token;
+                        if (apiToken) {
+                            await SecureStore.setItemAsync("token", apiToken);
+                        }
+                        router.replace("/");
+                    },
+                    onError: (ctx) => {
+                        Alert.alert("Verification Failed", ctx.error.message);
+                    }
+                }
+            );
         } catch (err: any) {
             Alert.alert("Error", err?.message ?? "Verification failed");
         } finally {
@@ -109,7 +123,7 @@ export default function Login() {
                     if (tokenToSave) {
                         await SecureStore.setItemAsync("token", tokenToSave);
                         console.log("✅ Login Session Saved:", tokenToSave);
-                        router.replace("/(tabs)");
+                        router.replace("/");
                     } else {
                         console.error("❌ Failed to extract token from headers or body");
                         Alert.alert("Login Error", "Could not retrieve session token.");
@@ -174,7 +188,6 @@ export default function Login() {
                                         style={styles.phoneInput}
                                     />
                                 </View>
-
                                 <TouchableOpacity
                                     style={[styles.primaryButton, otpLoading && styles.buttonDisabled]}
                                     onPress={handleSendOtp}
@@ -219,7 +232,22 @@ export default function Login() {
                                     maxLength={6}
                                     style={[styles.input, styles.otpInput]}
                                 />
-
+                                {
+                                    haveReferralCode && (
+                                        <TextInput
+                                            placeholder="Enter referral code"
+                                            placeholderTextColor={Colors.muted}
+                                            value={referralCode}
+                                            onChangeText={setReferralCode}
+                                            style={[styles.input, styles.referralCodeInput]}
+                                        />
+                                    )
+                                }
+                                {
+                                    !haveReferralCode && (
+                                        <Text onPress={() => setHaveReferralCode(true)} style={styles.referralCodeText}>Have a referral code?</Text>
+                                    )
+                                }
                                 <TouchableOpacity
                                     style={[styles.primaryButton, verifyLoading && styles.buttonDisabled]}
                                     onPress={handleVerifyOtp}
@@ -409,9 +437,8 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
     otpInput: {
-        textAlign: "center",
-        fontSize: FontSize.xl,
-        letterSpacing: 8,
+        textAlign: "left",
+        fontSize: FontSize.md,
         fontFamily: Fonts.brandBold,
     },
     resendRow: {
@@ -539,4 +566,25 @@ const styles = StyleSheet.create({
         fontSize: FontSize.sm,
         fontFamily: Fonts.brandMedium,
     },
+    referralCodeText: {
+        color: Colors.primary,
+        fontSize: FontSize.sm,
+        fontFamily: Fonts.brandMedium,
+        textAlign: "center",
+        marginBottom: 10,
+        textDecorationLine: "underline",
+    },
+    referralCodeInput: {
+        borderWidth: 1,
+        borderColor: Colors.border,
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: Colors.background,
+        fontSize: FontSize.md,
+        fontFamily: Fonts.brandBold,
+        color: Colors.text,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        marginBottom: 8,
+    }
 });

@@ -7,6 +7,16 @@ const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 export const authClient = createAuthClient({
   // ⚡ URL of your NestJS backend (use your machine's IP for physical devices)
   baseURL: API_URL,
+  user: {
+    additionalFields: {
+      referralCode: {
+        type: "string",
+      },
+      referredById: {
+        type: "string",
+      },
+    },
+  },
   plugins: [
     expoClient({
       storage: SecureStore, // Encrypted persistence
