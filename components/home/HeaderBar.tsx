@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
+import { UserAddress } from "@/types/user";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -10,7 +11,7 @@ import {
 } from "react-native";
 
 interface HeaderBarProps {
-    address: string;
+    address?: UserAddress[];
     subAddress: string;
     userInitial: string;
     onAddressPress?: () => void;
@@ -26,13 +27,17 @@ export default function HeaderBar({
     onWalletPress,
     onProfilePress,
 }: HeaderBarProps) {
+    const displayAddress = address && address.length > 0
+        ? address[0].addressLine
+        : "Select Address";
+
     return (
         <View style={styles.container}>
             {/* Address */}
             <TouchableOpacity style={styles.addressSection} onPress={onAddressPress} activeOpacity={0.7}>
                 <View style={styles.addressRow}>
                     <Ionicons name="location-sharp" size={16} color={Colors.primary} />
-                    <Text style={styles.addressName}>{address}</Text>
+                    <Text style={styles.addressName} numberOfLines={1}>{displayAddress}</Text>
                     <MaterialIcons name="keyboard-arrow-down" size={20} color={Colors.text} />
                 </View>
                 <Text style={styles.subAddress} numberOfLines={1}>{subAddress}</Text>
@@ -62,7 +67,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         paddingHorizontal: 16,
         paddingVertical: 10,
-       
+
     },
     addressSection: {
         flex: 1,

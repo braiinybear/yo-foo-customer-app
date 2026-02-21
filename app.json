@@ -38,6 +38,12 @@
           "backgroundColor": "#FFFFFF"
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to save your address."
+        }
+      ],
       "expo-secure-store",
       "expo-font"
     ],

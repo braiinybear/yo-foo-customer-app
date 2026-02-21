@@ -18,16 +18,31 @@ import RestaurantCard from "@/components/home/RestaurantCard";
 import SearchBar from "@/components/home/SearchBar";
 import { router } from "expo-router";
 import { useRestaurants } from "@/hooks/useRestaurants";
-import { useUser } from "@/hooks/useUser";
+import { useAddresses } from "@/hooks/useAddresses";
+import AddressModal from "@/components/home/AddressModal";
+import { UserAddress } from "@/types/user";
 
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function Index() {
   const { data: session } = authClient.useSession();
   const { data: restaurants, isLoading, error } = useRestaurants();
+  const { data: addresses, isLoading: addressesLoading, error: addressesError } = useAddresses();
+
+  const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
+
   const [search, setSearch] = useState("");
   const [vegMode, setVegMode] = useState(false);
   const [selectedCuisine, setSelectedCuisine] = useState("all");
+
+  // Update selected address once data is loaded
+  React.useEffect(() => {
+    if (addresses && addresses.length > 0 && !selectedAddress) {
+      const defaultAddr = addresses.find(a => a.isDefault) || addresses[0];
+      setSelectedAddress(defaultAddr);
+    }
+  }, [addresses]);
 
   if (isLoading) {
     return (
@@ -39,16 +54,15 @@ export default function Index() {
 
   // Derive user initials from session name
   const userInitial = session?.user?.name?.[0]?.toUpperCase() ?? "U";
-  const userName = session?.user?.name ?? "User";
 
   return (
     <View style={styles.root}>
       <View style={styles.stickyTop}>
         <HeaderBar
-          address={userName}
+          address={selectedAddress ? [selectedAddress] : addresses}
           subAddress="Tap to change delivery address"
           userInitial={userInitial}
-          onAddressPress={() => { }}
+          onAddressPress={() => setIsAddressModalVisible(true)}
           onWalletPress={() => { router.push("/wallet") }}
           onProfilePress={() => { router.push("/profile") }}
         />
@@ -92,7 +106,14 @@ export default function Index() {
 
       </ScrollView>
 
-
+      <AddressModal
+        visible={isAddressModalVisible}
+        onClose={() => setIsAddressModalVisible(false)}
+        addresses={addresses || []}
+        selectedAddressId={selectedAddress?.id}
+        onSelectAddress={(addr) => setSelectedAddress(addr)}
+       
+      />
     </View>
   );
 }

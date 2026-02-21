@@ -17,3 +17,24 @@ export interface CurrentUser {
     referrals: number;
   };
 }
+
+
+export interface UserAddress {
+  id: string;
+  userId: string;
+  type: string;
+  addressLine: string;
+  landmark?: string;
+  lat: number;
+  lng: number;
+  isDefault: boolean;
+}
+
+
+export interface AddressFormState {
+  type?: string;
+  addressLine: string;
+  landmark?: string;
+  lat: number | null;
+  lng: number | null;
+}
