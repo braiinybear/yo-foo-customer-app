@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anurag211824.fooddeliverycustomer"
+      "package": "com.braiinyfood.fooddeliverycustomer"
     },
     "web": {
       "output": "static",
