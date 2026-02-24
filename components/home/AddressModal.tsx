@@ -13,8 +13,11 @@ import {
     Pressable,
     Dimensions,
     Platform,
+    Alert,
+    ActivityIndicator,
 } from "react-native";
 import AddAddressScreen from "./AddAddressScreen";
+import { useDeleteAddress, useSetDefaultAddress } from "@/hooks/useAddresses";
 
 interface AddressModalProps {
     visible: boolean;
@@ -25,8 +28,6 @@ interface AddressModalProps {
 
 }
 
-const { height } = Dimensions.get("window");
-
 export default function AddressModal({
     visible,
     onClose,
@@ -35,6 +36,39 @@ export default function AddressModal({
     onSelectAddress,
 }: AddressModalProps) {
     const [openAdressAddform, setOpenAdressAddform] = useState<boolean>(false)
+    const deleteMutation = useDeleteAddress();
+    const setDefaultMutation = useSetDefaultAddress();
+
+    const handleDelete = (id: string) => {
+        Alert.alert(
+            "Delete Address",
+            "Are you sure you want to delete this address?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => deleteMutation.mutate(id)
+                }
+            ]
+        );
+    };
+
+    const handleSetDefault = (address: UserAddress) => {
+        if (address.isDefault) {
+            onSelectAddress(address);
+            onClose();
+            return;
+        }
+
+        setDefaultMutation.mutate(address.id, {
+            onSuccess: () => {
+                onSelectAddress(address);
+                onClose();
+            }
+        });
+    };
+
     return (
         <Modal
             visible={visible}
@@ -74,27 +108,51 @@ export default function AddressModal({
                                 <TouchableOpacity
                                     style={[
                                         styles.addressItem,
-                                        selectedAddressId === item.id && styles.selectedItem
+                                        selectedAddressId === item.id && styles.selectedItem,
+                                        setDefaultMutation.isPending && setDefaultMutation.variables === item.id && { opacity: 0.7 }
                                     ]}
-                                    onPress={() => {
-                                        onSelectAddress(item);
-                                        onClose();
-                                    }}
+                                    onPress={() => handleSetDefault(item)}
+                                    disabled={setDefaultMutation.isPending}
                                 >
                                     <View style={styles.addressIcon}>
-                                        <Ionicons
-                                            name={item.type === "HOME" ? "home" : item.type === "WORK" ? "briefcase" : "location"}
-                                            size={20}
-                                            color={selectedAddressId === item.id ? Colors.primary : Colors.textSecondary}
-                                        />
+                                        {setDefaultMutation.isPending && setDefaultMutation.variables === item.id ? (
+                                            <ActivityIndicator size="small" color={Colors.primary} />
+                                        ) : (
+                                            <Ionicons
+                                                name={item.type === "HOME" ? "home" : item.type === "WORK" ? "briefcase" : "location"}
+                                                size={20}
+                                                color={selectedAddressId === item.id ? Colors.primary : Colors.textSecondary}
+                                            />
+                                        )}
                                     </View>
                                     <View style={styles.addressInfo}>
-                                        <Text style={styles.addressType}>{item.type}</Text>
+                                        <View style={styles.addressHeader}>
+                                            <Text style={styles.addressType}>{item.type}</Text>
+                                            {item.isDefault && (
+                                                <View style={styles.defaultBadge}>
+                                                    <Text style={styles.defaultText}>Default</Text>
+                                                </View>
+                                            )}
+                                        </View>
                                         <Text style={styles.addressLine} numberOfLines={2}>{item.addressLine}</Text>
                                     </View>
-                                    {selectedAddressId === item.id && (
-                                        <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
-                                    )}
+
+                                    <View style={styles.actions}>
+                                        <TouchableOpacity
+                                            onPress={() => handleDelete(item.id)}
+                                            style={styles.actionButton}
+                                            disabled={deleteMutation.isPending || setDefaultMutation.isPending}
+                                        >
+                                            {deleteMutation.isPending && deleteMutation.variables === item.id ? (
+                                                <ActivityIndicator size="small" color={Colors.danger} />
+                                            ) : (
+                                                <Ionicons name="trash-outline" size={20} color={Colors.danger} />
+                                            )}
+                                        </TouchableOpacity>
+                                        {selectedAddressId === item.id && (
+                                            <Ionicons name="checkmark-circle" size={24} color={Colors.primary} style={{ marginLeft: 8 }} />
+                                        )}
+                                    </View>
                                 </TouchableOpacity>
                             )}
                             ListFooterComponent={() => (
@@ -147,7 +205,7 @@ const styles = StyleSheet.create({
     },
     selectedItem: {
         borderColor: Colors.primary,
-        backgroundColor: Colors.primary + "08", // Very light primary
+        backgroundColor: Colors.primary + "08",
     },
     addressIcon: {
         width: 40,
@@ -161,17 +219,41 @@ const styles = StyleSheet.create({
     addressInfo: {
         flex: 1,
     },
+    addressHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 2,
+    },
     addressType: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
         color: Colors.text,
         textTransform: "capitalize",
     },
+    defaultBadge: {
+        backgroundColor: Colors.primaryLight,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginLeft: 8,
+    },
+    defaultText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 10,
+        color: Colors.primary,
+    },
     addressLine: {
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
         color: Colors.textSecondary,
         marginTop: 2,
+    },
+    actions: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    actionButton: {
+        padding: 8,
     },
     addButton: {
         flexDirection: "row",

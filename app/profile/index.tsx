@@ -193,7 +193,7 @@ export default function ProfileScreen() {
 
                 <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
                     <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
-                    <Text style={styles.signOutText}>Sign Out from YoFoo</Text>
+                    <Text style={styles.signOutText}>Sign Out</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.versionText}>Version 1.0.0 (2026)</Text>

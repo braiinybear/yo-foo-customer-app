@@ -56,3 +56,10 @@ export interface RestaurantDetail {
   menuCategories: MenuCategory[];
   reviews: any[]; // You can replace 'any' with a Review interface if needed
 }
+
+
+export interface SearchParams {
+  query?: string;
+  type?: "VEG" | "NON_VEG" | "VEGAN";
+  minRating?: number;
+}

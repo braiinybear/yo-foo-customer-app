@@ -100,6 +100,7 @@ export default function RootLayout() {
               name="profile"
               options={{
                 headerShown: true,
+                headerTitle: "Profile",
               }}
 
             />
@@ -107,6 +108,7 @@ export default function RootLayout() {
               name="wallet"
               options={{
                 headerShown: true,
+                headerTitle: "Wallet",
               }}
 
             />
@@ -114,6 +116,7 @@ export default function RootLayout() {
               name="search"
               options={{
                 headerShown: false,
+                headerTitle: "Search",
               }}
 
             />
@@ -121,6 +124,7 @@ export default function RootLayout() {
               name="restaurants"
               options={{
                 headerShown: false,
+                headerTitle: "Restaurants",
               }}
 
             />

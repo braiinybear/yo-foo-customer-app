@@ -10,6 +10,9 @@ import {
     View,
 } from "react-native";
 
+import { useCartStore } from "@/store/useCartStore";
+import { router } from "expo-router";
+
 interface HeaderBarProps {
     address?: UserAddress[];
     subAddress: string;
@@ -27,6 +30,8 @@ export default function HeaderBar({
     onWalletPress,
     onProfilePress,
 }: HeaderBarProps) {
+  
+
     const displayAddress = address && address.length > 0
         ? address[0].addressLine
         : "Select Address";
@@ -114,5 +119,23 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
         color: Colors.white,
+    },
+    badge: {
+        position: "absolute",
+        top: -4,
+        right: -4,
+        backgroundColor: Colors.primary,
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 2,
+        borderColor: Colors.white,
+    },
+    badgeText: {
+        color: Colors.white,
+        fontSize: 10,
+        fontFamily: Fonts.brandBold,
     },
 });

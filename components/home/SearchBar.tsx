@@ -68,7 +68,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         gap: 10,
-        backgroundColor: Colors.background,
     },
     inputWrapper: {
         flex: 1,
