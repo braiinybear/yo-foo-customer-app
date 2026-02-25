@@ -4,10 +4,11 @@ import { useRestaurantDetail } from "@/hooks/useRestaurants";
 import { useCartStore } from "@/store/useCartStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Image,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -18,8 +19,16 @@ import {
 
 export default function RestaurantDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { data: restaurant, isPending, error } = useRestaurantDetail(id);
+    const { data: restaurant, isPending, error, refetch } = useRestaurantDetail(id);
     const { addItem, items, updateQuantity, totalAmount } = useCartStore();
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await refetch();
+        setRefreshing(false);
+    }, [refetch]);
 
     const cartCount = items.length;
     const cartTotal = totalAmount;
@@ -45,7 +54,17 @@ export default function RestaurantDetailScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[Colors.primary]}
+                        tintColor={Colors.primary}
+                    />
+                }
+            >
                 <View>
                     <View style={styles.imageHeader}>
                         {restaurant.image ? (

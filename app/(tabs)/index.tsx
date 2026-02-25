@@ -1,8 +1,9 @@
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,11 +24,12 @@ import AddressModal from "@/components/home/AddressModal";
 import { UserAddress } from "@/types/user";
 
 
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function Index() {
   const { data: session } = authClient.useSession();
-  const { data: restaurants, isLoading, error } = useRestaurants();
-  const { data: addresses, isLoading: addressesLoading, error: addressesError } = useAddresses();
+  const { data: restaurants, isLoading, error, refetch: refetchRestaurants } = useRestaurants();
+  const { data: addresses, isLoading: addressesLoading, error: addressesError, refetch: refetchAddresses } = useAddresses();
 
   const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
@@ -35,7 +37,21 @@ export default function Index() {
   const [search, setSearch] = useState("");
   const [vegMode, setVegMode] = useState(false);
   const [selectedCuisine, setSelectedCuisine] = useState("all");
-
+  const [refreshing, setRefreshing] = useState(false);
+  // 2. USE REFETCH IN THE HANDLER
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchRestaurants(),
+        refetchAddresses()
+      ]);
+    } catch (error) {
+      console.error("Failed to refresh:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchRestaurants, refetchAddresses]);
   // Update selected address once data is loaded
   React.useEffect(() => {
     if (addresses && addresses.length > 0 && !selectedAddress) {
@@ -81,6 +97,14 @@ export default function Index() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
         stickyHeaderIndices={[1]} // cuisine filter sticks (index 1, comments don't count)
       >
         {/* 0 – Hero Banner */}
@@ -102,8 +126,6 @@ export default function Index() {
             <RestaurantCard key={r.id} onPress={() => router.push({ pathname: "/restaurants/[id]", params: { id: r.id } })} restaurant={r} />
           ))}
         </View>
-        <TouchableOpacity style={styles.singOutButton} onPress={() => authClient.signOut()}><Text>Sign Out</Text></TouchableOpacity>
-
       </ScrollView>
 
       <AddressModal
@@ -112,7 +134,7 @@ export default function Index() {
         addresses={addresses || []}
         selectedAddressId={selectedAddress?.id}
         onSelectAddress={(addr) => setSelectedAddress(addr)}
-       
+
       />
     </View>
   );
@@ -172,12 +194,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: -8,
   },
-  singOutButton: {
-    marginHorizontal: 10,
-    padding: 12,
+  checkoutButton: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 16,
     backgroundColor: Colors.primary,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  checkoutButtonText: {
+    color: Colors.white,
+    fontSize: FontSize.md,
+    fontFamily: Fonts.brandBold,
   },
 });

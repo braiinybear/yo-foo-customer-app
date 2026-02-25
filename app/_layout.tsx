@@ -128,6 +128,14 @@ export default function RootLayout() {
               }}
 
             />
+            <Stack.Screen
+              name="checkout"
+              options={{
+                headerShown: true,
+                headerTitle: "Checkout",
+              }}
+
+            />
           </Stack.Protected>
         </Stack>
       </View>

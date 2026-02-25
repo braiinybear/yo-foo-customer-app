@@ -1,5 +1,3 @@
-import { Restaurant } from "./restaurants";
-
 export type OrderStatus =
     | "PLACED"
     | "CONFIRMED"
@@ -32,7 +30,7 @@ export interface UserOrder {
     tax: number;
     deliveryCharge: number;
     platformFee: number;
-    paymentMode: "COD" | "ONLINE";
+    paymentMode: "COD" | "UPI" | "CARD" | "NETBANKING" | "WALLET";
     isPaid: boolean;
     placedAt: string;
     deliveredAt: string | null;
@@ -43,7 +41,8 @@ export interface UserOrder {
     };
     items: OrderItem[];
 }
-export type PaymentMode = "COD" | "ONLINE";
+// Must match the backend Prisma enum: UPI | CARD | NETBANKING | WALLET | COD
+export type PaymentMode = "COD" | "UPI" | "CARD" | "NETBANKING" | "WALLET";
 
 export interface CreateOrderPayload {
     restaurantId: string;

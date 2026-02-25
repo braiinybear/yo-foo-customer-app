@@ -44,6 +44,7 @@
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to save your address."
         }
       ],
+      "expo-dev-client",
       "expo-secure-store",
       "expo-font"
     ],

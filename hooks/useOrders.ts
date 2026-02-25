@@ -28,10 +28,12 @@ export const useCreateOrder = () => {
 
     return useMutation({
         mutationFn: async (payload: CreateOrderPayload) => {
+            console.log(payload);
+            
             const { data } = await apiClient.post("/api/orders", payload);
             return data as UserOrder;
         },
-        onSuccess: () => {
+        onSuccess: () => { 
             queryClient.invalidateQueries({ queryKey: ["orders"] });
         },
     });

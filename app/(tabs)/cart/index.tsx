@@ -4,9 +4,7 @@ import {
     Text,
     StyleSheet,
     FlatList,
-    Image,
     TouchableOpacity,
-    SafeAreaView,
     ActivityIndicator,
     Alert,
 } from 'react-native';
@@ -34,32 +32,20 @@ export default function CartScreen() {
                 menuItemId: item.id,
                 quantity: item.quantity
             })),
-            paymentMode: "COD" as const
+            paymentMode: "UPI" as const,
         };
 
         createOrderMutation.mutate(payload, {
             onSuccess: (order) => {
-                Alert.alert(
-                    "Success!",
-                    "Your order has been placed successfully.",
-                    [
-                        {
-                            text: "View Orders",
-                            onPress: () => {
-                                clearCart();
-                                // Assuming we have a my-orders screen or similar
-                                router.replace('/(tabs)');
-                            }
-                        },
-                        {
-                            text: "Dismiss",
-                            onPress: () => clearCart()
-                        }
-                    ]
-                );
+                console.log("Order created successfully", order);
+                // Navigate to checkout with the freshly created order id
+                router.push({
+                    pathname: "/checkout",
+                    params: { orderId: order.id },
+                });
             },
-            onError: (error) => {
-                Alert.alert("Ordering Failed", "Something went wrong while placing your order.");
+            onError: () => {
+                Alert.alert("Order Failed", "Something went wrong while placing your order. Please try again.");
             }
         });
     };
@@ -126,7 +112,7 @@ export default function CartScreen() {
                         <ActivityIndicator color={Colors.white} />
                     ) : (
                         <>
-                            <Text style={styles.checkoutText}>Place Order</Text>
+                            <Text style={styles.checkoutText}>Proceed to Payment</Text>
                         </>
                     )}
                 </TouchableOpacity>
