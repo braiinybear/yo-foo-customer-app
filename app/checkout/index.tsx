@@ -235,7 +235,6 @@ export default function CheckoutScreen() {
                 {/* Processing step indicator */}
                 {isProcessing && (
                     <View style={styles.stepIndicator}>
-                        <ActivityIndicator size="small" color={Colors.primary} />
                         <Text style={styles.stepIndicatorText}>
                             {step === "creating_razorpay_order" && "Setting up secure payment..."}
                             {step === "awaiting_payment" && "Waiting for payment confirmation..."}

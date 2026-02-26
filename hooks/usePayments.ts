@@ -1,27 +1,14 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../lib/axios";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface CreatePaymentOrderResponse {
-    razorpayOrder: {
-        id: string;                  // e.g. "order_SKIgtlfSOIdxKi"
-        amount: number;              // in paise   e.g. 49700
-        currency: string;            // "INR"
-        receipt: string;
-        status: string;
-    };
-    paymentId: string;              // internal payment record id
-    orderId: string;                // our DB order id
-    amount: number;                 // in rupees  e.g. 497
-}
-
-export interface VerifyPaymentPayload {
-    razorpayPaymentId: string;
-    razorpayOrderId: string;
-    razorpaySignature: string;
-    orderId: string;
-}
+import {
+    CreatePaymentOrderResponse,
+    VerifyPaymentPayload,
+    WalletBalanceResponse,
+    WalletTopUpPayload,
+    WalletTopUpResponse,
+    VerifyWalletTopUpRequest,
+    WalletTransaction,
+} from "@/types/razorpay";
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +28,55 @@ export const useVerifyPayment = () => {
         mutationFn: async (payload: VerifyPaymentPayload) => {
             const { data } = await apiClient.post("/api/payments/verify", payload);
             return data;
+        },
+    });
+};
+
+// ── Wallet Queries & Mutations ────────────────────────────────────────────────
+
+/** Fetch the current user's wallet balance */
+export const useWalletBalance = () => {
+    return useQuery({
+        queryKey: ["wallet", "balance"],
+        queryFn: async (): Promise<WalletBalanceResponse> => {
+            const { data } = await apiClient.get("/api/wallets/balance");
+            return data as WalletBalanceResponse;
+        },
+    });
+};
+
+/** Fetch wallet transaction history */
+export const useWalletTransactions = () => {
+    return useQuery({
+        queryKey: ["wallet", "transactions"],
+        queryFn: async (): Promise<WalletTransaction[]> => {
+            const { data } = await apiClient.get("/api/wallets/transactions");
+            return data as WalletTransaction[];
+        },
+    });
+};
+
+/** Step 1 – Initiate a wallet top-up via Razorpay */
+export const useWalletTopUp = () => {
+    return useMutation({
+        mutationFn: async (payload: WalletTopUpPayload): Promise<WalletTopUpResponse> => {
+            const { data } = await apiClient.post("/api/wallets/topup", payload);
+            return data as WalletTopUpResponse;
+        },
+    });
+};
+
+/** Step 2 – Verify top-up signature and credit the wallet */
+export const useVerifyWalletTopUp = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (payload: VerifyWalletTopUpRequest) => {
+            const { data } = await apiClient.post("/api/wallets/verify", payload);
+            return data;
+        },
+        onSuccess: () => {
+            // Refresh wallet balance + transactions after successful top-up
+            queryClient.invalidateQueries({ queryKey: ["wallet"] });
         },
     });
 };
