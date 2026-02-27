@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
+import { getPlaceholderImage } from "@/constants/images";
 import { useRestaurantDetail } from "@/hooks/useRestaurants";
 import { useCartStore } from "@/store/useCartStore";
 import { Ionicons } from "@expo/vector-icons";
@@ -67,13 +68,10 @@ export default function RestaurantDetailScreen() {
             >
                 <View>
                     <View style={styles.imageHeader}>
-                        {restaurant.image ? (
-                            <Image source={{ uri: restaurant.image }} style={styles.bannerImage} />
-                        ) : (
-                            <View style={[styles.bannerImage, styles.placeholderImage]}>
-                                <Text style={styles.placeholderEmoji}>🍽️</Text>
-                            </View>
-                        )}
+                        <Image
+                            source={{ uri: restaurant.image ?? getPlaceholderImage(restaurant.id) }}
+                            style={styles.bannerImage}
+                        />
                         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                             <Ionicons name="arrow-back" size={24} color={Colors.white} />
                         </TouchableOpacity>
@@ -122,9 +120,10 @@ export default function RestaurantDetailScreen() {
                                             {item.image ? (
                                                 <Image source={{ uri: item.image }} style={styles.itemImage} />
                                             ) : (
-                                                <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
-                                                    <Ionicons name="fast-food-outline" size={24} color={Colors.border} />
-                                                </View>
+                                                <Image
+                                                    source={{ uri: getPlaceholderImage(item.id) }}
+                                                    style={styles.itemImage}
+                                                />
                                             )}
                                             <View style={styles.actionButtonWrapper}>
                                                 {cartItem ? (

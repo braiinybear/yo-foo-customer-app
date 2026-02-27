@@ -9,10 +9,12 @@ import {
     ActivityIndicator,
     RefreshControl,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useOrders } from '@/hooks/useOrders';
 import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { Ionicons } from '@expo/vector-icons';
+import { getPlaceholderImage } from '@/constants/images';
 import { UserOrder, OrderStatus } from '@/types/orders';
 
 const StatusBadge = ({ status }: { status: OrderStatus }) => {
@@ -40,6 +42,7 @@ const StatusBadge = ({ status }: { status: OrderStatus }) => {
 };
 
 export default function OrderHistoryScreen() {
+    const router = useRouter();
     const { data: orders, isLoading, isError, refetch } = useOrders();
 
     if (isLoading) {
@@ -80,17 +83,18 @@ export default function OrderHistoryScreen() {
         });
 
         return (
-            <TouchableOpacity style={uiStyles.card} activeOpacity={0.7}>
+            <TouchableOpacity
+                style={uiStyles.card}
+                activeOpacity={0.7}
+                onPress={() => router.push(`/(tabs)/orders/${item.id}`)}
+            >
                 <View style={uiStyles.cardHeader}>
                     <View style={uiStyles.restaurantInfo}>
                         <View style={uiStyles.imgWrapper}>
-                            {item.restaurant.image ? (
-                                <Image source={{ uri: item.restaurant.image }} style={uiStyles.resImage} />
-                            ) : (
-                                <View style={uiStyles.placeholderImg}>
-                                    <Ionicons name="restaurant" size={20} color={Colors.muted} />
-                                </View>
-                            )}
+                            <Image
+                                source={{ uri: item.restaurant.image ?? getPlaceholderImage(item.restaurantId) }}
+                                style={uiStyles.resImage}
+                            />
                         </View>
                         <View>
                             <Text style={uiStyles.resName}>{item.restaurant.name}</Text>

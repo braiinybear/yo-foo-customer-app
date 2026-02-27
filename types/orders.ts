@@ -52,3 +52,72 @@ export interface CreateOrderPayload {
     }[];
     paymentMode: PaymentMode;
 }
+
+export interface OrderDetails {
+    id: string;
+    customerId: string;
+    restaurantId: string;
+    driverId: string | null;
+    status: OrderStatus;
+    otp: string | null;
+    cancellationReason: string | null;
+    itemTotal: number;
+    tax: number;
+    deliveryCharge: number;
+    platformFee: number;
+    driverTip: number;
+    totalAmount: number;
+    paymentMode: PaymentMode;
+    isPaid: boolean;
+    placedAt: string;
+    acceptedAt: string | null;
+    pickedUpAt: string | null;
+    deliveredAt: string | null;
+    driver: {
+        id: string;
+        name: string;
+        phone: string;
+    } | null;
+    items: {
+        id: string;
+        orderId: string;
+        menuItemId: string;
+        quantity: number;
+        price: number;
+        menuItem: {
+            id: string;
+            categoryId: string;
+            name: string;
+            description: string | null;
+            price: number;
+            image: string | null;
+            type: "VEG" | "NON_VEG" | "EGG";
+            isAvailable: boolean;
+            isBestseller: boolean;
+            spiceLevel: string | null;
+            prepTime: number;
+            createdAt: string;
+            updatedAt: string;
+        };
+    }[];
+    restaurant: {
+        id: string;
+        managerId: string;
+        name: string;
+        description: string | null;
+        image: string | null;
+        costForTwo: number;
+        cuisineTypes: string[];
+        address: string;
+        lat: number;
+        lng: number;
+        isActive: boolean;
+        isOpen: boolean;
+        isVerified: boolean;
+        rating: number;
+        ratingCount: number;
+        type: "VEG" | "NON_VEG" | "BOTH";
+        createdAt: string;
+        updatedAt: string;
+    };
+}

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../lib/axios";
-import { UserOrder, CreateOrderPayload } from "@/types/orders";
+import { UserOrder, CreateOrderPayload, OrderDetails } from "@/types/orders";
 
 export const useOrders = () => {
     return useQuery({
@@ -17,7 +17,7 @@ export const useOrderDetail = (orderId: string) => {
         queryKey: ["orders", orderId],
         queryFn: async () => {
             const { data } = await apiClient.get(`/api/orders/${orderId}`);
-            return data as UserOrder;
+            return data as OrderDetails;
         },
         enabled: !!orderId,
     });

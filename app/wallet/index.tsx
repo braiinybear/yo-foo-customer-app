@@ -49,27 +49,34 @@ function formatDate(dateStr: string) {
 
 /** Returns true for any transaction type that represents a credit/top-up */
 function isCredit(tx: WalletTransaction): boolean {
-    return tx.type?.toUpperCase() === "TOPUP";
+    const t = tx.type?.toUpperCase() ?? '';
+    return (
+        t === 'TOPUP' ||
+        t.startsWith('REFERRAL_BONUS') ||
+        t === 'REFUND'
+    );
 }
 
-/** Returns true for any debit — catches DEBIT, ORDER_PAYMENT, or any unknown type */
+/** Returns true for any debit — ORDER_PAYMENT, DEBIT, or any unrecognised type */
 function isDebit(tx: WalletTransaction): boolean {
     return !isCredit(tx);
 }
 
 /** Human-readable label for each transaction type */
 function txLabel(tx: WalletTransaction): string {
-    const t = tx.type?.toUpperCase() ?? "";
-    if (t === "TOPUP") return "Wallet Top-up";
-    if (t === "DEBIT") return "Order Payment";
-    if (t.startsWith("ORDER_PAYMENT")) return "Order Payment";
-    return "Transaction";
+    const t = tx.type?.toUpperCase() ?? '';
+    if (t === 'TOPUP') return 'Wallet Top-up';
+    if (t === 'DEBIT') return 'Order Payment';
+    if (t === 'ORDER_PAYMENT' || t.startsWith('ORDER_PAYMENT')) return 'Order Payment';
+    if (t === 'REFERRAL_BONUS_WELCOME') return 'Referral Bonus 🎉';
+    if (t.startsWith('REFERRAL_BONUS')) return 'Referral Reward 🎁';
+    if (t === 'REFUND') return 'Refund';
+    return 'Transaction';
 }
 
 // ─── Transaction Row ──────────────────────────────────────────────────────────
 const TxRow = ({ tx }: { tx: WalletTransaction }) => {
     const credit = isCredit(tx);
-
     return (
         <View style={styles.txRow}>
             {/* Icon */}

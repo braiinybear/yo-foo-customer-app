@@ -51,6 +51,8 @@ export const useWalletTransactions = () => {
         queryKey: ["wallet", "transactions"],
         queryFn: async (): Promise<WalletTransaction[]> => {
             const { data } = await apiClient.get("/api/wallets/transactions");
+            console.log("Wallet Transactions", data);
+
             return data as WalletTransaction[];
         },
     });

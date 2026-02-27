@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
+import { getPlaceholderBgColor, getPlaceholderImage } from "@/constants/images";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -18,21 +19,16 @@ interface RestaurantCardProps {
 }
 
 export default function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
-    // Generate a consistent color based on the ID if no image is present
-    const placeholderColors = ["#fef3c7", "#fce7f3", "#d1fae5", "#ffe4e6", "#fef9c3", "#ede9fe"];
-    const bgColor = placeholderColors[restaurant.id.charCodeAt(0) % placeholderColors.length] || placeholderColors[0];
+    const imageUri = restaurant.image ?? getPlaceholderImage(restaurant.id);
+    const bgColor = getPlaceholderBgColor(restaurant.id);
 
     return (
         <TouchableOpacity style={styles.card} activeOpacity={0.88} onPress={onPress}>
             {/* Food visual */}
             <View style={[styles.imageWrapper, { backgroundColor: bgColor }]}>
-                {restaurant.image ? (
-                    <Image source={{ uri: restaurant.image }} style={styles.image} />
-                ) : (
-                    <Text style={styles.foodEmoji}>🍽️</Text>
-                )}
+                <Image source={{ uri: imageUri }} style={styles.image} />
 
-                {/* Offer badge - placeholder since it's not in the JSON yet */}
+                {/* Offer badge */}
                 <View style={styles.offerBadge}>
                     <Text style={styles.offerText}>FREE DELIVERY</Text>
                 </View>
