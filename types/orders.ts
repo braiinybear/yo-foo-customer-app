@@ -30,7 +30,7 @@ export interface UserOrder {
     tax: number;
     deliveryCharge: number;
     platformFee: number;
-    paymentMode: "COD" | "UPI" | "CARD" | "NETBANKING" | "WALLET";
+    paymentMode: "COD" | "UPI" | "CARD" | "NETBANKING" | "WALLET" | "RAZORPAY";
     isPaid: boolean;
     placedAt: string;
     deliveredAt: string | null;
@@ -41,8 +41,8 @@ export interface UserOrder {
     };
     items: OrderItem[];
 }
-// Must match the backend Prisma enum: UPI | CARD | NETBANKING | WALLET | COD
-export type PaymentMode = "COD" | "UPI" | "CARD" | "NETBANKING" | "WALLET";
+// Must match the backend Prisma enum: UPI | CARD | NETBANKING | WALLET | COD | RAZORPAY
+export type PaymentMode = "COD" | "UPI" | "CARD" | "NETBANKING" | "WALLET" | "RAZORPAY";
 
 export interface CreateOrderPayload {
     restaurantId: string;

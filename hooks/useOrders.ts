@@ -6,7 +6,7 @@ export const useOrders = () => {
     return useQuery({
         queryKey: ["orders", "history"],
         queryFn: async () => {
-            const { data } = await apiClient.get("/api/orders/my-history");
+            const { data } = await apiClient.get("/api/orders/my-history")
             return data as UserOrder[];
         },
     });
@@ -29,12 +29,14 @@ export const useCreateOrder = () => {
     return useMutation({
         mutationFn: async (payload: CreateOrderPayload) => {
             console.log(payload);
-            
+
             const { data } = await apiClient.post("/api/orders", payload);
             return data as UserOrder;
         },
-        onSuccess: () => { 
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["orders"] });
+            // Refresh wallet balance in case WALLET payment was used
+            queryClient.invalidateQueries({ queryKey: ["wallet"] });
         },
     });
 };

@@ -32,79 +32,93 @@ const RAZORPAY_KEY_ID =
 // ─── Quick-add amounts (₹) ────────────────────────────────────────────────────
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n: number) => `₹${n.toFixed(2)}`;
 
 function formatDate(dateStr: string) {
     const d = new Date(dateStr);
-    return d.toLocaleDateString("en-IN", {
+    return d.toLocaleString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: true,
     });
 }
 
-// ─── Transaction Row ─────────────────────────────────────────────────────────
-const TxRow = ({ tx }: { tx: WalletTransaction }) => {
-    // API uses "TOPUP" for credits into wallet, "DEBIT" for spending
-    const isCredit = tx.type?.toUpperCase() === "TOPUP";
+/** Returns true for any transaction type that represents a credit/top-up */
+function isCredit(tx: WalletTransaction): boolean {
+    return tx.type?.toUpperCase() === "TOPUP";
+}
 
-    const label =
-        tx.type?.toUpperCase() === "TOPUP"
-            ? "Wallet Top-up"
-            : tx.type?.toUpperCase() === "DEBIT"
-                ? "Order Payment"
-                : tx.type ?? "Transaction";
+/** Returns true for any debit — catches DEBIT, ORDER_PAYMENT, or any unknown type */
+function isDebit(tx: WalletTransaction): boolean {
+    return !isCredit(tx);
+}
+
+/** Human-readable label for each transaction type */
+function txLabel(tx: WalletTransaction): string {
+    const t = tx.type?.toUpperCase() ?? "";
+    if (t === "TOPUP") return "Wallet Top-up";
+    if (t === "DEBIT") return "Order Payment";
+    if (t.startsWith("ORDER_PAYMENT")) return "Order Payment";
+    return "Transaction";
+}
+
+// ─── Transaction Row ──────────────────────────────────────────────────────────
+const TxRow = ({ tx }: { tx: WalletTransaction }) => {
+    const credit = isCredit(tx);
 
     return (
         <View style={styles.txRow}>
+            {/* Icon */}
             <View
                 style={[
                     styles.txIconWrap,
-                    { backgroundColor: isCredit ? "#E8FAF0" : "#FFF0F0" },
+                    { backgroundColor: credit ? Colors.success + "18" : Colors.danger + "14" },
                 ]}
             >
                 <Ionicons
-                    name={isCredit ? "arrow-down-circle" : "arrow-up-circle"}
+                    name={credit ? "arrow-down-circle" : "arrow-up-circle"}
                     size={22}
-                    color={isCredit ? Colors.success : Colors.danger}
+                    color={credit ? Colors.success : Colors.danger}
                 />
             </View>
 
+            {/* Label + date */}
             <View style={styles.txMeta}>
                 <Text style={styles.txDesc} numberOfLines={1}>
-                    {label}
+                    {txLabel(tx)}
                 </Text>
-                <Text style={styles.txDate}>{formatDate(tx.createdAt)}</Text>
+                <Text style={styles.txDate} numberOfLines={1}>
+                    {formatDate(tx.createdAt)}
+                </Text>
             </View>
 
+            {/* Amount + badge */}
             <View style={styles.txRight}>
                 <Text
                     style={[
                         styles.txAmount,
-                        { color: isCredit ? Colors.success : Colors.danger },
+                        { color: credit ? Colors.success : Colors.danger },
                     ]}
                 >
-                    {isCredit ? "+" : "-"}
-                    {fmt(Number(tx.amount))}
+                    {credit ? "+" : ""}{fmt(Math.abs(Number(tx.amount)))}
                 </Text>
                 <View
                     style={[
                         styles.txBadge,
-                        {
-                            backgroundColor: isCredit ? "#E8FAF0" : "#FFF0F0",
-                        },
+                        { backgroundColor: credit ? Colors.success + "18" : Colors.danger + "14" },
                     ]}
                 >
                     <Text
                         style={[
                             styles.txBadgeText,
-                            { color: isCredit ? Colors.success : Colors.danger },
+                            { color: credit ? Colors.success : Colors.danger },
                         ]}
                     >
-                        {tx.type?.toUpperCase()}
+                        {credit ? "TOPUP" : "DEBIT"}
                     </Text>
                 </View>
             </View>
@@ -148,7 +162,19 @@ export default function WalletScreen() {
         setRefreshing(false);
     };
 
-    // ── Resolve amount to top-up ──────────────────────────────────────────────
+    // ── Computed stats ────────────────────────────────────────────────────────
+    const txList = transactions ?? [];
+
+    const totalAdded = txList
+        .filter(isCredit)
+        .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+    // "Total Spent" = every transaction that is NOT a top-up
+    const totalSpent = txList
+        .filter(isDebit)
+        .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+    // ── Resolve top-up amount ─────────────────────────────────────────────────
     const resolvedAmount = selectedAmount ?? parseInt(customAmount || "0", 10);
 
     // ── Full top-up flow ──────────────────────────────────────────────────────
@@ -161,18 +187,16 @@ export default function WalletScreen() {
 
         setErrorMsg(null);
         try {
-            // Step 1 – Call backend to create Razorpay order
             setTopUpStep("creating");
             const topUpData = await topUpMutation.mutateAsync({ amount });
             const { razorpayOrder } = topUpData;
 
-            // Step 2 – Open Razorpay checkout
             setTopUpStep("awaiting");
             const options = {
                 description: "Yo Foo Wallet Top-up",
                 currency: razorpayOrder.currency ?? "INR",
                 key: RAZORPAY_KEY_ID,
-                amount: String(razorpayOrder.amount), // paise
+                amount: String(razorpayOrder.amount),
                 name: "Yo Foo",
                 order_id: razorpayOrder.id,
                 prefill: {
@@ -185,7 +209,6 @@ export default function WalletScreen() {
 
             const razorpayResponse = await RazorpayCheckout.open(options);
 
-            // Step 3 – Verify signature
             setTopUpStep("verifying");
             await verifyMutation.mutateAsync({
                 razorpayPaymentId: razorpayResponse.razorpay_payment_id,
@@ -217,9 +240,6 @@ export default function WalletScreen() {
         topUpStep === "awaiting" ||
         topUpStep === "verifying";
 
-    // ── Loading skeleton ──────────────────────────────────────────────────────
-    const isLoading = balanceLoading;
-
     return (
         <View style={styles.root}>
             <ScrollView
@@ -234,31 +254,32 @@ export default function WalletScreen() {
                     />
                 }
             >
-                {/* ── Balance Card ── */}
+                {/* ── Balance Card ─────────────────────────────────────── */}
                 <View style={styles.balanceCard}>
-                    {/* Decorative circles */}
                     <View style={styles.circle1} />
                     <View style={styles.circle2} />
 
-                    <View style={styles.balanceTop}>
-                        <View style={styles.balanceIconWrap}>
-                            <Ionicons name="wallet" size={24} color={Colors.white} />
+                    {/* Top row */}
+                    <View style={styles.cardTopRow}>
+                        <View style={styles.cardIconWrap}>
+                            <Ionicons name="wallet" size={22} color={Colors.white} />
                         </View>
-                        <Text style={styles.balanceLabel}>Available Balance</Text>
+                        <Text style={styles.cardLabel}>Available Balance</Text>
                         <TouchableOpacity
                             style={styles.cardRefreshBtn}
                             onPress={onRefresh}
-                            activeOpacity={0.7}
+                            activeOpacity={0.75}
                         >
-                            <Ionicons name="refresh" size={16} color={Colors.white} />
+                            <Ionicons name="refresh" size={15} color={Colors.white} />
                         </TouchableOpacity>
                     </View>
 
-                    {isLoading ? (
+                    {/* Amount */}
+                    {balanceLoading ? (
                         <ActivityIndicator
                             color={Colors.white}
                             size="large"
-                            style={{ marginVertical: 16 }}
+                            style={{ marginVertical: 18 }}
                         />
                     ) : (
                         <Text style={styles.balanceAmount}>
@@ -266,91 +287,81 @@ export default function WalletScreen() {
                         </Text>
                     )}
 
-                    <View style={styles.balanceSeparator} />
+                    <View style={styles.cardDivider} />
 
-                    <View style={styles.balanceFooter}>
-                        <View style={styles.balanceFooterItem}>
+                    {/* Footer row */}
+                    <View style={styles.cardFooterRow}>
+                        <View style={styles.cardFooterLeft}>
                             <Ionicons
                                 name="shield-checkmark-outline"
-                                size={14}
-                                color="rgba(255,255,255,0.8)"
+                                size={13}
+                                color="rgba(255,255,255,0.75)"
                             />
-                            <Text style={styles.balanceFooterText}>Secured Balance</Text>
+                            <Text style={styles.cardFooterText}>Secured Balance</Text>
                         </View>
                         <TouchableOpacity
-                            style={styles.topUpChip}
+                            style={styles.addMoneyChip}
                             onPress={() => setShowModal(true)}
                             activeOpacity={0.85}
                         >
                             <Ionicons name="add" size={16} color={Colors.primary} />
-                            <Text style={styles.topUpChipText}>Add Money</Text>
+                            <Text style={styles.addMoneyChipText}>Add Money</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                {/* ── Quick Stat Pills ── */}
+                {/* ── Stat Pills ───────────────────────────────────────── */}
                 <View style={styles.statsRow}>
-                    <View style={styles.statPill}>
-                        <Ionicons
-                            name="arrow-down-circle-outline"
-                            size={18}
-                            color={Colors.success}
-                        />
+                    {/* Total Added */}
+                    <View style={styles.statCard}>
+                        <View style={[styles.statIconWrap, { backgroundColor: Colors.success + "18" }]}>
+                            <Ionicons name="arrow-down-circle-outline" size={20} color={Colors.success} />
+                        </View>
                         <Text style={styles.statLabel}>Total Added</Text>
                         <Text style={[styles.statValue, { color: Colors.success }]}>
-                            {fmt(
-                                (transactions ?? [])
-                                    .filter((t) => t.type?.toUpperCase() === "TOPUP")
-                                    .reduce((s, t) => s + (Number(t.amount) || 0), 0)
-                            )}
+                            {txLoading ? "—" : fmt(totalAdded)}
                         </Text>
                     </View>
-                    <View style={styles.statPill}>
-                        <Ionicons
-                            name="arrow-up-circle-outline"
-                            size={18}
-                            color={Colors.danger}
-                        />
+
+                    {/* Total Spent */}
+                    <View style={styles.statCard}>
+                        <View style={[styles.statIconWrap, { backgroundColor: Colors.danger + "14" }]}>
+                            <Ionicons name="arrow-up-circle-outline" size={20} color={Colors.danger} />
+                        </View>
                         <Text style={styles.statLabel}>Total Spent</Text>
                         <Text style={[styles.statValue, { color: Colors.danger }]}>
-                            {fmt(
-                                (transactions ?? [])
-                                    .filter((t) => t.type?.toUpperCase() === "DEBIT")
-                                    .reduce((s, t) => s + (Number(t.amount) || 0), 0)
-                            )}
+                            {txLoading ? "—" : fmt(Math.abs(totalSpent))}
                         </Text>
                     </View>
-                    <View style={styles.statPill}>
-                        <Ionicons
-                            name="receipt-outline"
-                            size={18}
-                            color={Colors.secondary}
-                        />
+
+                    {/* Transactions count */}
+                    <View style={styles.statCard}>
+                        <View style={[styles.statIconWrap, { backgroundColor: Colors.secondary + "20" }]}>
+                            <Ionicons name="receipt-outline" size={20} color={Colors.secondary} />
+                        </View>
                         <Text style={styles.statLabel}>Transactions</Text>
                         <Text style={[styles.statValue, { color: Colors.secondary }]}>
-                            {(transactions ?? []).length}
+                            {txLoading ? "—" : txList.length}
                         </Text>
                     </View>
                 </View>
 
-                {/* ── Transactions ── */}
+                {/* ── Transaction History ───────────────────────────────── */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Transaction History</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Transaction History</Text>
+                    </View>
 
                     {txLoading ? (
-                        <View style={styles.txLoadingWrap}>
+                        <View style={styles.centerWrap}>
                             <ActivityIndicator color={Colors.primary} />
-                            <Text style={styles.txLoadingText}>
-                                Loading transactions…
-                            </Text>
+                            <Text style={styles.muteText}>Loading transactions…</Text>
                         </View>
-                    ) : !transactions || transactions.length === 0 ? (
+                    ) : txList.length === 0 ? (
                         <View style={styles.emptyWrap}>
-                            <Ionicons
-                                name="receipt-outline"
-                                size={56}
-                                color={Colors.border}
-                            />
+                            <View style={styles.emptyIconWrap}>
+                                <Ionicons name="receipt-outline" size={40} color={Colors.muted} />
+                            </View>
                             <Text style={styles.emptyTitle}>No Transactions Yet</Text>
                             <Text style={styles.emptySubtitle}>
                                 Add money to your wallet and start ordering!
@@ -359,13 +370,13 @@ export default function WalletScreen() {
                                 style={styles.emptyAddBtn}
                                 onPress={() => setShowModal(true)}
                             >
-                                <Ionicons name="add" size={18} color={Colors.white} />
+                                <Ionicons name="add" size={16} color={Colors.white} />
                                 <Text style={styles.emptyAddBtnText}>Add Money</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <View style={styles.txList}>
-                            {transactions.map((tx) => (
+                            {txList.map((tx) => (
                                 <TxRow key={tx.id} tx={tx} />
                             ))}
                         </View>
@@ -373,7 +384,7 @@ export default function WalletScreen() {
                 </View>
             </ScrollView>
 
-            {/* ── Top-up Bottom Sheet Modal ── */}
+            {/* ── Top-up Modal ─────────────────────────────────────────── */}
             <Modal
                 visible={showModal}
                 animationType="slide"
@@ -384,22 +395,21 @@ export default function WalletScreen() {
                     <TouchableOpacity
                         style={StyleSheet.absoluteFillObject}
                         activeOpacity={1}
-                        onPress={topUpStep === "idle" || topUpStep === "failed" ? closeModal : undefined}
+                        onPress={
+                            topUpStep === "idle" || topUpStep === "failed"
+                                ? closeModal
+                                : undefined
+                        }
                     />
 
                     <View style={styles.modalSheet}>
-                        {/* Handle */}
                         <View style={styles.modalHandle} />
 
-                        {/* ─── Success state ─── */}
+                        {/* ── Success ── */}
                         {topUpStep === "success" ? (
                             <View style={styles.modalSuccess}>
                                 <View style={styles.successCircle}>
-                                    <Ionicons
-                                        name="checkmark"
-                                        size={40}
-                                        color={Colors.white}
-                                    />
+                                    <Ionicons name="checkmark" size={40} color={Colors.white} />
                                 </View>
                                 <Text style={styles.successTitle}>
                                     ₹{resolvedAmount} Added!
@@ -428,8 +438,7 @@ export default function WalletScreen() {
                                             key={a}
                                             style={[
                                                 styles.quickChip,
-                                                selectedAmount === a &&
-                                                styles.quickChipActive,
+                                                selectedAmount === a && styles.quickChipActive,
                                             ]}
                                             onPress={() => {
                                                 setSelectedAmount(a);
@@ -450,7 +459,7 @@ export default function WalletScreen() {
                                     ))}
                                 </View>
 
-                                {/* Custom amount input */}
+                                {/* Custom amount */}
                                 <View style={styles.inputWrapper}>
                                     <Text style={styles.inputCurrency}>₹</Text>
                                     <TextInput
@@ -478,16 +487,17 @@ export default function WalletScreen() {
                                     </View>
                                 )}
 
-                                {/* Processing indicator */}
+                                {/* Processing */}
                                 {isProcessing && (
                                     <View style={styles.processingRow}>
+                                        <ActivityIndicator
+                                            size="small"
+                                            color={Colors.primary}
+                                        />
                                         <Text style={styles.processingText}>
-                                            {topUpStep === "creating" &&
-                                                "Setting up payment…"}
-                                            {topUpStep === "awaiting" &&
-                                                "Waiting for payment…"}
-                                            {topUpStep === "verifying" &&
-                                                "Verifying payment…"}
+                                            {topUpStep === "creating" && "Setting up payment…"}
+                                            {topUpStep === "awaiting" && "Waiting for payment…"}
+                                            {topUpStep === "verifying" && "Verifying payment…"}
                                         </Text>
                                     </View>
                                 )}
@@ -550,28 +560,19 @@ export default function WalletScreen() {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#F5F6FA",
+        backgroundColor: Colors.surface,
     },
-    refreshBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Colors.primaryLight,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-
-    // ── Scroll ──────────────────────────────────────────────────────────────
     scroll: {
-        padding: 13,
-        gap: 16,
+        padding: 16,
+        gap: 14,
+        paddingBottom: 32,
     },
 
-    // ── Balance Card ─────────────────────────────────────────────────────────
+    // ── Balance Card ──────────────────────────────────────────────────────────
     balanceCard: {
         backgroundColor: Colors.primary,
         borderRadius: 20,
-        padding: 22,
+        padding: 20,
         overflow: "hidden",
         shadowColor: Colors.primary,
         shadowOffset: { width: 0, height: 8 },
@@ -581,113 +582,120 @@ const styles = StyleSheet.create({
     },
     circle1: {
         position: "absolute",
-        width: 180,
-        height: 180,
-        borderRadius: 90,
+        width: 190,
+        height: 190,
+        borderRadius: 95,
         backgroundColor: "rgba(255,255,255,0.08)",
-        top: -60,
-        right: -40,
+        top: -65,
+        right: -45,
     },
     circle2: {
         position: "absolute",
-        width: 120,
-        height: 120,
-        borderRadius: 60,
+        width: 130,
+        height: 130,
+        borderRadius: 65,
         backgroundColor: "rgba(255,255,255,0.06)",
-        bottom: -30,
-        left: 20,
+        bottom: -35,
+        left: 15,
     },
-    balanceTop: {
+    cardTopRow: {
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
         gap: 10,
-        marginBottom: 12,
+        marginBottom: 14,
     },
-    balanceIconWrap: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+    cardIconWrap: {
+        width: 38,
+        height: 38,
+        borderRadius: 11,
         backgroundColor: "rgba(255,255,255,0.2)",
         alignItems: "center",
         justifyContent: "center",
     },
-    balanceLabel: {
+    cardLabel: {
+        flex: 1,
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.sm,
         color: "rgba(255,255,255,0.85)",
-        letterSpacing: 0.5,
-        flex: 1,
+        letterSpacing: 0.4,
     },
     cardRefreshBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         backgroundColor: "rgba(255,255,255,0.2)",
         alignItems: "center",
         justifyContent: "center",
     },
-
-
     balanceAmount: {
         fontFamily: Fonts.brandBlack,
-        fontSize: 42,
+        fontSize: 40,
         color: Colors.white,
         letterSpacing: 0.5,
-        marginBottom: 18,
+        marginBottom: 16,
     },
-    balanceSeparator: {
+    cardDivider: {
         height: 1,
         backgroundColor: "rgba(255,255,255,0.2)",
         marginBottom: 14,
     },
-    balanceFooter: {
+    cardFooterRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
     },
-    balanceFooterItem: {
+    cardFooterLeft: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
+        gap: 5,
     },
-    balanceFooterText: {
+    cardFooterText: {
         fontFamily: Fonts.brand,
-        fontSize: 12,
-        color: "rgba(255,255,255,0.8)",
+        fontSize: FontSize.xs,
+        color: "rgba(255,255,255,0.75)",
     },
-    topUpChip: {
+    addMoneyChip: {
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
         backgroundColor: Colors.white,
         paddingHorizontal: 14,
-        paddingVertical: 8,
+        paddingVertical: 7,
         borderRadius: 20,
     },
-    topUpChipText: {
+    addMoneyChipText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
         color: Colors.primary,
     },
 
-    // ── Stat Pills ───────────────────────────────────────────────────────────
+    // ── Stat Cards ────────────────────────────────────────────────────────────
     statsRow: {
         flexDirection: "row",
         gap: 10,
     },
-    statPill: {
+    statCard: {
         flex: 1,
         backgroundColor: Colors.white,
         borderRadius: 14,
-        padding: 14,
+        padding: 12,
         alignItems: "center",
-        gap: 6,
+        gap: 5,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
-        shadowRadius: 4,
+        shadowRadius: 6,
         elevation: 2,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    statIconWrap: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 2,
     },
     statLabel: {
         fontFamily: Fonts.brand,
@@ -701,33 +709,65 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
 
-    // ── Section ──────────────────────────────────────────────────────────────
+    // ── Section ───────────────────────────────────────────────────────────────
     section: {
         backgroundColor: Colors.white,
         borderRadius: 16,
         padding: 16,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.04,
         shadowRadius: 6,
         elevation: 2,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    sectionHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 14,
     },
     sectionTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
         color: Colors.text,
-        marginBottom: 14,
+        flex: 1,
+    },
+    countBadge: {
+        backgroundColor: Colors.primaryLight,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    countBadgeText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.xs,
+        color: Colors.primary,
     },
 
-    // ── Transaction List ─────────────────────────────────────────────────────
+    centerWrap: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        justifyContent: "center",
+        paddingVertical: 24,
+    },
+    muteText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.sm,
+        color: Colors.muted,
+    },
+
+    // ── Transaction list ──────────────────────────────────────────────────────
     txList: {
-        gap: 4,
+        gap: 0,
     },
     txRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        paddingVertical: 12,
+        paddingVertical: 13,
         borderBottomWidth: 1,
         borderBottomColor: Colors.light,
     },
@@ -737,24 +777,28 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
+        flexShrink: 0,
     },
     txMeta: {
         flex: 1,
+        gap: 3,
+        minWidth: 0,             // allow flex shrink on children
     },
     txDesc: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.sm,
         color: Colors.text,
-        marginBottom: 3,
     },
     txDate: {
         fontFamily: Fonts.brand,
         fontSize: 11,
         color: Colors.muted,
+        flexShrink: 1,           // prevent date from wrapping
     },
     txRight: {
         alignItems: "flex-end",
         gap: 4,
+        flexShrink: 0,
     },
     txAmount: {
         fontFamily: Fonts.brandBold,
@@ -770,29 +814,25 @@ const styles = StyleSheet.create({
         fontSize: 10,
     },
 
-    // ── Loading / Empty ──────────────────────────────────────────────────────
-    txLoadingWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        justifyContent: "center",
-        paddingVertical: 24,
-    },
-    txLoadingText: {
-        fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.sm,
-        color: Colors.muted,
-    },
+    // ── Empty state ───────────────────────────────────────────────────────────
     emptyWrap: {
         alignItems: "center",
-        paddingVertical: 32,
+        paddingVertical: 28,
         gap: 8,
+    },
+    emptyIconWrap: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: Colors.surface,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 4,
     },
     emptyTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.lg,
         color: Colors.text,
-        marginTop: 8,
     },
     emptySubtitle: {
         fontFamily: Fonts.brand,
@@ -809,7 +849,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 12,
-        marginTop: 12,
+        marginTop: 10,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 4,
     },
     emptyAddBtnText: {
         fontFamily: Fonts.brandBold,
@@ -817,7 +862,7 @@ const styles = StyleSheet.create({
         color: Colors.white,
     },
 
-    // ── Modal ────────────────────────────────────────────────────────────────
+    // ── Modal ─────────────────────────────────────────────────────────────────
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.45)",
@@ -829,6 +874,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 24,
         paddingHorizontal: 20,
         paddingTop: 12,
+        paddingBottom: 32,
     },
     modalHandle: {
         width: 40,
@@ -851,7 +897,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
 
-    // ── Quick amounts ────────────────────────────────────────────────────────
+    // ── Quick amounts ─────────────────────────────────────────────────────────
     quickAmounts: {
         flexDirection: "row",
         flexWrap: "wrap",
@@ -879,7 +925,7 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
 
-    // ── Custom input ─────────────────────────────────────────────────────────
+    // ── Custom amount input ───────────────────────────────────────────────────
     inputWrapper: {
         flexDirection: "row",
         alignItems: "center",
@@ -904,13 +950,13 @@ const styles = StyleSheet.create({
         color: Colors.text,
     },
 
-    // ── Error ────────────────────────────────────────────────────────────────
+    // ── Error ─────────────────────────────────────────────────────────────────
     errorBanner: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        backgroundColor: "#FFF0F0",
-        borderColor: Colors.danger,
+        backgroundColor: Colors.danger + "12",
+        borderColor: Colors.danger + "40",
         borderWidth: 1,
         borderRadius: 10,
         padding: 12,
@@ -923,7 +969,7 @@ const styles = StyleSheet.create({
         color: Colors.danger,
     },
 
-    // ── Processing ───────────────────────────────────────────────────────────
+    // ── Processing ────────────────────────────────────────────────────────────
     processingRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -937,7 +983,7 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
     },
 
-    // ── Pay button ───────────────────────────────────────────────────────────
+    // ── Pay button ────────────────────────────────────────────────────────────
     payBtn: {
         flexDirection: "row",
         alignItems: "center",
@@ -964,10 +1010,9 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.brand,
         fontSize: 12,
         color: Colors.muted,
-        marginBottom: 4,
     },
 
-    // ── Success ──────────────────────────────────────────────────────────────
+    // ── Success state ─────────────────────────────────────────────────────────
     modalSuccess: {
         alignItems: "center",
         paddingVertical: 24,
@@ -981,6 +1026,11 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 8,
+        shadowColor: Colors.success,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        elevation: 6,
     },
     successTitle: {
         fontFamily: Fonts.brandBlack,
