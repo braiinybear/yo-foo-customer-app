@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -15,9 +15,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCartStore } from '@/store/useCartStore';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { useWalletBalance } from '@/hooks/usePayments';
+import { useAddresses } from '@/hooks/useAddresses';
 import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { PaymentMode } from '@/types/orders';
+import { UserAddress } from '@/types/user';
+import AddressModal from '@/components/home/AddressModal';
 
 // ─── Payment option config ────────────────────────────────────────────────────
 type PaymentOption = {
@@ -63,10 +66,21 @@ export default function CartScreen() {
     const createOrderMutation = useCreateOrder();
 
     const [selectedMode, setSelectedMode] = useState<PaymentMode>('WALLET');
+    const [addressModalVisible, setAddressModalVisible] = useState(false);
+    const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
 
     const { data: walletData, isLoading: walletLoading } = useWalletBalance();
+    const { data: addresses = [] } = useAddresses();
     const walletBalance = walletData?.balance ?? 0;
     const isWalletInsufficient = selectedMode === 'WALLET' && !walletLoading && walletBalance < totalAmount;
+
+    // Auto-select the default address on load
+    useEffect(() => {
+        if (addresses.length > 0 && !selectedAddress) {
+            const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
+            setSelectedAddress(defaultAddr);
+        }
+    }, [addresses]);
 
     // ── Checkout ──────────────────────────────────────────────────────────────
     const handleCheckout = () => {
@@ -101,13 +115,14 @@ export default function CartScreen() {
 
         createOrderMutation.mutate(payload, {
             onSuccess: (order) => {
-                clearCart();
                 if (selectedMode === 'WALLET') {
+                    clearCart();
                     router.replace('/wallet');
                 } else if (selectedMode === 'COD') {
-                    router.replace({ pathname: '/checkout', params: { orderId: order.id } });
+                    clearCart();
+                    router.replace('/(tabs)/orders');
                 } else {
-                    router.push({ pathname: '/checkout', params: { orderId: order.id } });
+                    router.push({ pathname: '/checkout', params: { orderId: order.id, amount: String(totalAmount) } });
                 }
             },
             onError: (err: any) => {
@@ -190,6 +205,7 @@ export default function CartScreen() {
                         <Text style={styles.totalValue}>₹{totalAmount}</Text>
                     </View>
                 </View>
+
 
                 {/* ── Payment Method ──────────────────────────────────── */}
                 <Text style={styles.sectionTitle}>Payment Method</Text>
@@ -293,46 +309,129 @@ export default function CartScreen() {
                 )}
             </ScrollView>
 
+            {/* ── Address Modal ────────────────────────────────────────── */}
+            <AddressModal
+                visible={addressModalVisible}
+                onClose={() => setAddressModalVisible(false)}
+                addresses={addresses}
+                selectedAddressId={selectedAddress?.id}
+                onSelectAddress={(addr) => {
+                    setSelectedAddress(addr);
+                    setAddressModalVisible(false);
+                }}
+            />
+
             {/* ── Sticky Footer ───────────────────────────────────────── */}
             <View style={styles.footer}>
-                <TouchableOpacity
-                    style={[
-                        styles.checkoutBtn,
-                        {
-                            backgroundColor:
-                                PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.color ??
-                                Colors.primary,
-                            shadowColor:
-                                PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.color ??
-                                Colors.primary,
-                        },
-                        (createOrderMutation.isPending || isWalletInsufficient) &&
-                        styles.checkoutBtnDisabled,
-                    ]}
-                    onPress={handleCheckout}
-                    disabled={createOrderMutation.isPending}
-                    activeOpacity={0.85}
-                >
-                    {createOrderMutation.isPending ? (
-                        <ActivityIndicator color={Colors.white} />
-                    ) : (
-                        <>
-                            <Ionicons
-                                name={
-                                    PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.icon ??
-                                    'card-outline'
-                                }
-                                size={20}
-                                color={Colors.white}
-                            />
-                            <Text style={styles.checkoutBtnText}>
-                                Pay ₹{totalAmount}
-                                {' · '}
-                                {PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.label}
-                            </Text>
-                        </>
-                    )}
-                </TouchableOpacity>
+                {!selectedAddress ? (
+                    /* ── Step 1: No address yet ── */
+                    <TouchableOpacity
+                        style={styles.selectAddressBtn}
+                        onPress={() => setAddressModalVisible(true)}
+                        activeOpacity={0.85}
+                    >
+                        <View style={styles.selectAddrLeft}>
+                            <View style={styles.selectAddrIconWrap}>
+                                <Ionicons name="location" size={18} color={Colors.primary} />
+                            </View>
+                            <View>
+                                <Text style={styles.selectAddrTitle}>Select Delivery Address</Text>
+                                <Text style={styles.selectAddrSub}>Where should we deliver?</Text>
+                            </View>
+                        </View>
+                        <View style={styles.selectAddrChevron}>
+                            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+                        </View>
+                    </TouchableOpacity>
+                ) : (
+                    /* ── Step 2: Address confirmed ── */
+                    <>
+                        {/* Address card */}
+                        <TouchableOpacity
+                            style={styles.confirmedAddressChip}
+                            onPress={() => setAddressModalVisible(true)}
+                            activeOpacity={0.8}
+                        >
+                            <View style={styles.confirmedAddrIconWrap}>
+                                <Ionicons
+                                    name={
+                                        selectedAddress.type === 'HOME'
+                                            ? 'home'
+                                            : selectedAddress.type === 'WORK'
+                                                ? 'briefcase'
+                                                : 'location'
+                                    }
+                                    size={16}
+                                    color={Colors.primary}
+                                />
+                            </View>
+                            <View style={styles.confirmedAddrText}>
+                                <Text style={styles.confirmedAddrType}>
+                                    Delivering to {selectedAddress.type}
+                                </Text>
+                                <Text style={styles.confirmedAddressText} numberOfLines={1}>
+                                    {selectedAddress.addressLine}
+                                </Text>
+                            </View>
+                            <View style={styles.changeBtn}>
+                                <Text style={styles.changeAddressText}>Change</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Pay button */}
+                        <TouchableOpacity
+                            style={[
+                                styles.checkoutBtn,
+                                {
+                                    backgroundColor:
+                                        PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.color ??
+                                        Colors.primary,
+                                    shadowColor:
+                                        PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.color ??
+                                        Colors.primary,
+                                },
+                                (createOrderMutation.isPending || isWalletInsufficient) &&
+                                styles.checkoutBtnDisabled,
+                            ]}
+                            onPress={handleCheckout}
+                            disabled={createOrderMutation.isPending || isWalletInsufficient}
+                            activeOpacity={0.85}
+                        >
+                            {createOrderMutation.isPending ? (
+                                <ActivityIndicator color={Colors.white} />
+                            ) : (
+                                <>
+                                    {/* Left: payment icon in frosted circle */}
+                                    <View style={styles.payBtnIcon}>
+                                        <Ionicons
+                                            name={
+                                                PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.icon ??
+                                                'card-outline'
+                                            }
+                                            size={20}
+                                            color={Colors.white}
+                                        />
+                                    </View>
+
+                                    {/* Center: amount + method */}
+                                    <View style={styles.payBtnCenter}>
+                                        <Text style={styles.checkoutBtnText}>
+                                            Pay ₹{totalAmount}
+                                        </Text>
+                                        <Text style={styles.checkoutBtnSub}>
+                                            via {PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.label}
+                                        </Text>
+                                    </View>
+
+                                    {/* Right: lock badge */}
+                                    <View style={styles.payBtnLock}>
+                                        <Ionicons name="lock-closed" size={13} color={Colors.white} />
+                                    </View>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </>
+                )}
             </View>
         </View>
     );
@@ -536,6 +635,104 @@ const styles = StyleSheet.create({
         color: Colors.white,
     },
 
+    // ── Footer: select address button ─────────────────────────────────────
+    selectAddressBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Colors.white,
+        borderWidth: 2,
+        borderColor: Colors.primary + '40',
+        borderStyle: 'dashed',
+        paddingVertical: 14,
+        paddingHorizontal: 14,
+        borderRadius: 14,
+        gap: 12,
+    },
+    selectAddrLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    selectAddrIconWrap: {
+        width: 40,
+        height: 40,
+        borderRadius: 11,
+        backgroundColor: Colors.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    selectAddrTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.sm,
+        color: Colors.text,
+    },
+    selectAddrSub: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.muted,
+        marginTop: 1,
+    },
+    selectAddrChevron: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        backgroundColor: Colors.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    // ── Footer: confirmed address card ─────────────────────────────────
+    confirmedAddressChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: Colors.primaryLight,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: Colors.primary + '25',
+    },
+    confirmedAddrIconWrap: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: Colors.white,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    confirmedAddrText: {
+        flex: 1,
+        gap: 2,
+    },
+    confirmedAddrType: {
+        fontFamily: Fonts.brand,
+        fontSize: 10,
+        color: Colors.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+    },
+    confirmedAddressText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.xs,
+        color: Colors.text,
+    },
+    changeBtn: {
+        backgroundColor: Colors.primary + '18',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+    },
+    changeAddressText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.xs,
+        color: Colors.primary,
+    },
+
     // ── Footer ────────────────────────────────────────────────────────────────
     footer: {
         padding: 16,
@@ -544,28 +741,58 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: Colors.border,
     },
+
+    // ── Pay button ─────────────────────────────────────────────────────────────
     checkoutBtn: {
         flexDirection: 'row',
+
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
-        backgroundColor: Colors.primary,
-        paddingVertical: 16,
-        borderRadius: 14,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 6,
+        gap: 0,
+        paddingVertical: 15,
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        elevation: 7,
     },
     checkoutBtnDisabled: {
-        opacity: 0.55,
+        opacity: 0.5,
+    },
+    payBtnIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 11,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    payBtnCenter: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    payBtnLock: {
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 10,
     },
     checkoutBtnText: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.md,
+        fontFamily: Fonts.brandBlack,
+        fontSize: FontSize.lg,
         color: Colors.white,
-        letterSpacing: 0.3,
+        letterSpacing: 0.2,
+    },
+    checkoutBtnSub: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.75)',
+        marginTop: 1,
     },
 
     // ── Empty state ───────────────────────────────────────────────────────────

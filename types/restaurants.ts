@@ -1,9 +1,21 @@
 export interface Restaurant {
-    id: string;
-    name: string;
-    cuisineTypes: string[];
-    costForTwo: number;
-    image: string | null;
+  id: string;
+  name: string;
+  cuisineTypes: string[];
+  costForTwo: number;
+  image: string | null;
+}
+
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginatedRestaurantsResponse {
+  data: Restaurant[];
+  meta: PaginationMeta;
 }
 
 export interface MenuItem {
@@ -62,4 +74,9 @@ export interface SearchParams {
   query?: string;
   type?: "VEG" | "NON_VEG" | "VEGAN";
   minRating?: number;
+  sortBy?: "rating" | "costForTwo" | "deliveryTime";
+  sortOrder?: "asc" | "desc";
+  /** Automatically injected by the hook when sortBy === 'deliveryTime' */
+  userLat?: number;
+  userLng?: number;
 }

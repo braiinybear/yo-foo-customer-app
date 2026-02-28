@@ -29,10 +29,13 @@ type PaymentStep = "idle" | "creating_razorpay_order" | "awaiting_payment" | "ve
 export default function CheckoutScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { orderId } = useLocalSearchParams<{ orderId: string }>();
+    const { orderId, amount } = useLocalSearchParams<{ orderId: string; amount: string }>();
 
     const { data: session } = authClient.useSession();
-    const { items, totalAmount, clearCart } = useCartStore();
+    const { items, clearCart } = useCartStore();
+
+    // itemTotal comes from the route param so it survives cart being cleared
+    const itemTotal = parseFloat(amount ?? '0');
 
     const createPaymentOrder = useCreatePaymentOrder();
     const verifyPayment = useVerifyPayment();
@@ -177,7 +180,7 @@ export default function CheckoutScreen() {
 
                     <View style={styles.billRow}>
                         <Text style={styles.billLabel}>Item Total</Text>
-                        <Text style={styles.billValue}>{formatCurrency(totalAmount)}</Text>
+                        <Text style={styles.billValue}>{formatCurrency(itemTotal)}</Text>
                     </View>
                     <View style={styles.billRow}>
                         <View style={styles.billLabelRow}>
@@ -191,7 +194,7 @@ export default function CheckoutScreen() {
                     </View>
                     <View style={styles.billRow}>
                         <Text style={styles.billLabel}>GST & Charges</Text>
-                        <Text style={styles.billValue}>{formatCurrency(totalAmount * 0.05)}</Text>
+                        <Text style={styles.billValue}>{formatCurrency(itemTotal * 0.05)}</Text>
                     </View>
 
                     <View style={styles.divider} />
@@ -199,7 +202,7 @@ export default function CheckoutScreen() {
                     <View style={styles.billRow}>
                         <Text style={styles.grandTotalLabel}>Grand Total</Text>
                         <Text style={styles.grandTotalValue}>
-                            {formatCurrency(totalAmount + 45 + totalAmount * 0.05)}
+                            {formatCurrency(itemTotal + 45 + itemTotal * 0.05)}
                         </Text>
                     </View>
                 </View>
@@ -261,7 +264,7 @@ export default function CheckoutScreen() {
                             <>
                                 <Ionicons name="lock-closed" size={18} color={Colors.white} />
                                 <Text style={styles.payButtonText}>
-                                    Pay {formatCurrency(totalAmount + 45 + totalAmount * 0.05)} Securely
+                                    Pay {formatCurrency(itemTotal + 45 + itemTotal * 0.05)} Securely
                                 </Text>
                             </>
                         )}

@@ -60,6 +60,16 @@ export interface WalletTransaction {
     createdAt: string;
 }
 
+export interface PaginatedTransactionsResponse {
+    data: WalletTransaction[];
+    meta: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    };
+}
+
 
 
 export interface VerifyWalletTopUpRequest {

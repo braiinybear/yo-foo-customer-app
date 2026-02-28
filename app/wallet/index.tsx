@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -144,15 +144,24 @@ export default function WalletScreen() {
     } = useWalletBalance();
 
     const {
-        data: transactions,
+        data: txPagedData,
         isLoading: txLoading,
+        isFetchingNextPage: txFetchingMore,
+        hasNextPage: txHasNextPage,
+        fetchNextPage: txFetchNextPage,
         refetch: refetchTx,
     } = useWalletTransactions();
+
+    // Flatten all pages into a single array
+    const txList: WalletTransaction[] = useMemo(
+        () => txPagedData?.pages.flatMap((p) => p.data) ?? [],
+        [txPagedData]
+    );
+    const txTotal = txPagedData?.pages[0]?.meta.total ?? 0;
 
     const topUpMutation = useWalletTopUp();
     const verifyMutation = useVerifyWalletTopUp();
 
-    // ── Local state ───────────────────────────────────────────────────────────
     const [showModal, setShowModal] = useState(false);
     const [customAmount, setCustomAmount] = useState("");
     const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
@@ -169,14 +178,16 @@ export default function WalletScreen() {
         setRefreshing(false);
     };
 
-    // ── Computed stats ────────────────────────────────────────────────────────
-    const txList = transactions ?? [];
+    // ── Infinite scroll handler ───────────────────────────────────────────────
+    const handleEndReached = useCallback(() => {
+        if (txHasNextPage && !txFetchingMore) txFetchNextPage();
+    }, [txHasNextPage, txFetchingMore, txFetchNextPage]);
 
+    // ── Computed stats ────────────────────────────────────────────────────────
     const totalAdded = txList
         .filter(isCredit)
         .reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
-    // "Total Spent" = every transaction that is NOT a top-up
     const totalSpent = txList
         .filter(isDebit)
         .reduce((s, t) => s + (Number(t.amount) || 0), 0);
@@ -247,6 +258,146 @@ export default function WalletScreen() {
         topUpStep === "awaiting" ||
         topUpStep === "verifying";
 
+    // ── FlatList header: balance card + stats ─────────────────────────────────
+    const ListHeader = (
+        <View style={styles.headerSection}>
+            {/* ── Balance Card ─────────────────────────────────────── */}
+            <View style={styles.balanceCard}>
+                <View style={styles.circle1} />
+                <View style={styles.circle2} />
+
+                {/* Top row */}
+                <View style={styles.cardTopRow}>
+                    <View style={styles.cardIconWrap}>
+                        <Ionicons name="wallet" size={22} color={Colors.white} />
+                    </View>
+                    <Text style={styles.cardLabel}>Available Balance</Text>
+                    <TouchableOpacity
+                        style={styles.cardRefreshBtn}
+                        onPress={onRefresh}
+                        activeOpacity={0.75}
+                    >
+                        <Ionicons name="refresh" size={15} color={Colors.white} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Amount */}
+                {balanceLoading ? (
+                    <ActivityIndicator
+                        color={Colors.white}
+                        size="large"
+                        style={{ marginVertical: 18 }}
+                    />
+                ) : (
+                    <Text style={styles.balanceAmount}>
+                        {fmt(wallet?.balance ?? 0)}
+                    </Text>
+                )}
+
+                <View style={styles.cardDivider} />
+
+                {/* Footer row */}
+                <View style={styles.cardFooterRow}>
+                    <View style={styles.cardFooterLeft}>
+                        <Ionicons
+                            name="shield-checkmark-outline"
+                            size={13}
+                            color="rgba(255,255,255,0.75)"
+                        />
+                        <Text style={styles.cardFooterText}>Secured Balance</Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.addMoneyChip}
+                        onPress={() => setShowModal(true)}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons name="add" size={16} color={Colors.primary} />
+                        <Text style={styles.addMoneyChipText}>Add Money</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* ── Stat Pills ───────────────────────────────────────── */}
+            <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                    <View style={[styles.statIconWrap, { backgroundColor: Colors.success + "18" }]}>
+                        <Ionicons name="arrow-down-circle-outline" size={20} color={Colors.success} />
+                    </View>
+                    <Text style={styles.statLabel}>Total Added</Text>
+                    <Text style={[styles.statValue, { color: Colors.success }]}>
+                        {txLoading ? "—" : fmt(totalAdded)}
+                    </Text>
+                </View>
+
+                <View style={styles.statCard}>
+                    <View style={[styles.statIconWrap, { backgroundColor: Colors.danger + "14" }]}>
+                        <Ionicons name="arrow-up-circle-outline" size={20} color={Colors.danger} />
+                    </View>
+                    <Text style={styles.statLabel}>Total Spent</Text>
+                    <Text style={[styles.statValue, { color: Colors.danger }]}>
+                        {txLoading ? "—" : fmt(Math.abs(totalSpent))}
+                    </Text>
+                </View>
+
+                <View style={styles.statCard}>
+                    <View style={[styles.statIconWrap, { backgroundColor: Colors.secondary + "20" }]}>
+                        <Ionicons name="receipt-outline" size={20} color={Colors.secondary} />
+                    </View>
+                    <Text style={styles.statLabel}>Transactions</Text>
+                    <Text style={[styles.statValue, { color: Colors.secondary }]}>
+                        {txLoading ? "—" : txTotal}
+                    </Text>
+                </View>
+            </View>
+
+            {/* ── Transaction History header ────────────────────────── */}
+            <View style={[styles.section, { paddingBottom: 0 }]}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Transaction History</Text>
+                    {txTotal > 0 && (
+                        <View style={styles.countBadge}>
+                            <Text style={styles.countBadgeText}>{txTotal}</Text>
+                        </View>
+                    )}
+                </View>
+
+                {/* Loading / empty state */}
+                {txLoading ? (
+                    <View style={styles.centerWrap}>
+                        <ActivityIndicator color={Colors.primary} />
+                        <Text style={styles.muteText}>Loading transactions…</Text>
+                    </View>
+                ) : txList.length === 0 ? (
+                    <View style={styles.emptyWrap}>
+                        <View style={styles.emptyIconWrap}>
+                            <Ionicons name="receipt-outline" size={40} color={Colors.muted} />
+                        </View>
+                        <Text style={styles.emptyTitle}>No Transactions Yet</Text>
+                        <Text style={styles.emptySubtitle}>
+                            Add money to your wallet and start ordering!
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.emptyAddBtn}
+                            onPress={() => setShowModal(true)}
+                        >
+                            <Ionicons name="add" size={16} color={Colors.white} />
+                            <Text style={styles.emptyAddBtnText}>Add Money</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
+            </View>
+        </View>
+    );
+
+    // ── Footer spinner ────────────────────────────────────────────────────────
+    const ListFooter = txFetchingMore ? (
+        <ActivityIndicator
+            size="small"
+            color={Colors.primary}
+            style={styles.footerSpinner}
+        />
+    ) : null;
+
     return (
         <View style={styles.root}>
             <ScrollView
@@ -265,52 +416,27 @@ export default function WalletScreen() {
                 <View style={styles.balanceCard}>
                     <View style={styles.circle1} />
                     <View style={styles.circle2} />
-
-                    {/* Top row */}
                     <View style={styles.cardTopRow}>
                         <View style={styles.cardIconWrap}>
                             <Ionicons name="wallet" size={22} color={Colors.white} />
                         </View>
                         <Text style={styles.cardLabel}>Available Balance</Text>
-                        <TouchableOpacity
-                            style={styles.cardRefreshBtn}
-                            onPress={onRefresh}
-                            activeOpacity={0.75}
-                        >
+                        <TouchableOpacity style={styles.cardRefreshBtn} onPress={onRefresh} activeOpacity={0.75}>
                             <Ionicons name="refresh" size={15} color={Colors.white} />
                         </TouchableOpacity>
                     </View>
-
-                    {/* Amount */}
                     {balanceLoading ? (
-                        <ActivityIndicator
-                            color={Colors.white}
-                            size="large"
-                            style={{ marginVertical: 18 }}
-                        />
+                        <ActivityIndicator color={Colors.white} size="large" style={{ marginVertical: 18 }} />
                     ) : (
-                        <Text style={styles.balanceAmount}>
-                            {fmt(wallet?.balance ?? 0)}
-                        </Text>
+                        <Text style={styles.balanceAmount}>{fmt(wallet?.balance ?? 0)}</Text>
                     )}
-
                     <View style={styles.cardDivider} />
-
-                    {/* Footer row */}
                     <View style={styles.cardFooterRow}>
                         <View style={styles.cardFooterLeft}>
-                            <Ionicons
-                                name="shield-checkmark-outline"
-                                size={13}
-                                color="rgba(255,255,255,0.75)"
-                            />
+                            <Ionicons name="shield-checkmark-outline" size={13} color="rgba(255,255,255,0.75)" />
                             <Text style={styles.cardFooterText}>Secured Balance</Text>
                         </View>
-                        <TouchableOpacity
-                            style={styles.addMoneyChip}
-                            onPress={() => setShowModal(true)}
-                            activeOpacity={0.85}
-                        >
+                        <TouchableOpacity style={styles.addMoneyChip} onPress={() => setShowModal(true)} activeOpacity={0.85}>
                             <Ionicons name="add" size={16} color={Colors.primary} />
                             <Text style={styles.addMoneyChipText}>Add Money</Text>
                         </TouchableOpacity>
@@ -319,7 +445,6 @@ export default function WalletScreen() {
 
                 {/* ── Stat Pills ───────────────────────────────────────── */}
                 <View style={styles.statsRow}>
-                    {/* Total Added */}
                     <View style={styles.statCard}>
                         <View style={[styles.statIconWrap, { backgroundColor: Colors.success + "18" }]}>
                             <Ionicons name="arrow-down-circle-outline" size={20} color={Colors.success} />
@@ -329,8 +454,6 @@ export default function WalletScreen() {
                             {txLoading ? "—" : fmt(totalAdded)}
                         </Text>
                     </View>
-
-                    {/* Total Spent */}
                     <View style={styles.statCard}>
                         <View style={[styles.statIconWrap, { backgroundColor: Colors.danger + "14" }]}>
                             <Ionicons name="arrow-up-circle-outline" size={20} color={Colors.danger} />
@@ -340,25 +463,34 @@ export default function WalletScreen() {
                             {txLoading ? "—" : fmt(Math.abs(totalSpent))}
                         </Text>
                     </View>
-
-                    {/* Transactions count */}
                     <View style={styles.statCard}>
                         <View style={[styles.statIconWrap, { backgroundColor: Colors.secondary + "20" }]}>
                             <Ionicons name="receipt-outline" size={20} color={Colors.secondary} />
                         </View>
                         <Text style={styles.statLabel}>Transactions</Text>
                         <Text style={[styles.statValue, { color: Colors.secondary }]}>
-                            {txLoading ? "—" : txList.length}
+                            {txLoading ? "—" : txTotal}
                         </Text>
                     </View>
                 </View>
 
-                {/* ── Transaction History ───────────────────────────────── */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Transaction History</Text>
+                {/* ── Transaction History Card ──────────────────────────── */}
+                <View style={styles.txCard}>
+                    {/* Card header */}
+                    <View style={styles.txCardHeader}>
+                        <View style={styles.txCardTitleRow}>
+                            <View style={styles.txCardIconWrap}>
+                                <Ionicons name="list" size={16} color={Colors.primary} />
+                            </View>
+                            <Text style={styles.sectionTitle}>Transaction History</Text>
+                        </View>
+    
                     </View>
 
+                    {/* Divider */}
+                    <View style={styles.txCardDivider} />
+
+                    {/* Body */}
                     {txLoading ? (
                         <View style={styles.centerWrap}>
                             <ActivityIndicator color={Colors.primary} />
@@ -373,26 +505,50 @@ export default function WalletScreen() {
                             <Text style={styles.emptySubtitle}>
                                 Add money to your wallet and start ordering!
                             </Text>
-                            <TouchableOpacity
-                                style={styles.emptyAddBtn}
-                                onPress={() => setShowModal(true)}
-                            >
+                            <TouchableOpacity style={styles.emptyAddBtn} onPress={() => setShowModal(true)}>
                                 <Ionicons name="add" size={16} color={Colors.white} />
                                 <Text style={styles.emptyAddBtnText}>Add Money</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <View style={styles.txList}>
-                            {txList.map((tx) => (
-                                <TxRow key={tx.id} tx={tx} />
-                            ))}
-                        </View>
+                        <ScrollView
+                            nestedScrollEnabled
+                            showsVerticalScrollIndicator={false}
+                            style={styles.txInnerScroll}
+                            onScroll={({ nativeEvent }) => {
+                                const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+                                const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
+                                if (nearBottom) handleEndReached();
+                            }}
+                            scrollEventThrottle={200}
+                        >
+                            {txList.map((tx) => <TxRow key={tx.id} tx={tx} />)}
+
+                            {txFetchingMore && (
+                                <View style={styles.centerWrap}>
+                                    <ActivityIndicator size="small" color={Colors.primary} />
+                                    <Text style={styles.muteText}>Loading more…</Text>
+                                </View>
+                            )}
+
+                            {!txFetchingMore && txHasNextPage && (
+                                <TouchableOpacity
+                                    style={styles.loadMoreBtn}
+                                    onPress={() => txFetchNextPage()}
+                                    activeOpacity={0.75}
+                                >
+                                    <Ionicons name="chevron-down" size={14} color={Colors.primary} />
+                                    <Text style={styles.loadMoreText}>Load More</Text>
+                                </TouchableOpacity>
+                            )}
+                        </ScrollView>
                     )}
                 </View>
             </ScrollView>
 
+
             {/* ── Top-up Modal ─────────────────────────────────────────── */}
-            <Modal
+            < Modal
                 visible={showModal}
                 animationType="slide"
                 transparent
@@ -497,10 +653,7 @@ export default function WalletScreen() {
                                 {/* Processing */}
                                 {isProcessing && (
                                     <View style={styles.processingRow}>
-                                        <ActivityIndicator
-                                            size="small"
-                                            color={Colors.primary}
-                                        />
+
                                         <Text style={styles.processingText}>
                                             {topUpStep === "creating" && "Setting up payment…"}
                                             {topUpStep === "awaiting" && "Waiting for payment…"}
@@ -558,8 +711,8 @@ export default function WalletScreen() {
                         )}
                     </View>
                 </View>
-            </Modal>
-        </View>
+            </Modal >
+        </View >
     );
 }
 
@@ -574,6 +727,7 @@ const styles = StyleSheet.create({
         gap: 14,
         paddingBottom: 32,
     },
+
 
     // ── Balance Card ──────────────────────────────────────────────────────────
     balanceCard: {
@@ -674,6 +828,74 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
         color: Colors.primary,
+    },
+
+    // ── FlatList wrappers ─────────────────────────────────────────────────────
+    // ── Transaction History card ──────────────────────────────────────────────
+    txCard: {
+        backgroundColor: Colors.white,
+        borderRadius: 18,
+        overflow: "hidden",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.07,
+        shadowRadius: 10,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    txCardHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+    },
+    txCardTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    txCardIconWrap: {
+        width: 32,
+        height: 32,
+        borderRadius: 9,
+        backgroundColor: Colors.primaryLight ?? Colors.primary + "18",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    txCardDivider: {
+        height: 1,
+        backgroundColor: Colors.border,
+        marginHorizontal: 0,
+    },
+    txInnerScroll: {
+        maxHeight: 420,          // show ~5 transactions, scroll for more
+        paddingHorizontal: 16,
+    },
+
+    // ── Load more ─────────────────────────────────────────────────────────────
+    loadMoreBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingVertical: 14,
+        marginTop: 4,
+    },
+    loadMoreText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.sm,
+        color: Colors.primary,
+    },
+
+    // ── Misc (kept for compat) ─────────────────────────────────────────────────
+    headerSection: {
+        padding: 16,
+        gap: 14,
+    },
+    footerSpinner: {
+        marginVertical: 20,
     },
 
     // ── Stat Cards ────────────────────────────────────────────────────────────

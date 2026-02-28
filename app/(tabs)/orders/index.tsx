@@ -97,7 +97,7 @@ export default function OrderHistoryScreen() {
                             />
                         </View>
                         <View>
-                            <Text style={uiStyles.resName}>{item.restaurant.name}</Text>
+                            <Text style={uiStyles.resName}>{item.restaurant.name.slice(0, 25)}</Text>
                             <Text style={uiStyles.orderDate}>{date}</Text>
                         </View>
                     </View>

@@ -9,31 +9,15 @@ import {
     View,
 } from "react-native";
 
-interface Cuisine {
-    id: string;
-    label: string;
-    emoji: string;
-}
-
-const CUISINES: Cuisine[] = [
-    { id: "all", label: "All", emoji: "🍽️" },
-    { id: "north-indian", label: "North Indian", emoji: "🍛" },
-    { id: "pizza", label: "Pizza", emoji: "🍕" },
-    { id: "biryani", label: "Biryani", emoji: "🥘" },
-    { id: "burger", label: "Burger", emoji: "🍔" },
-    { id: "chinese", label: "Chinese", emoji: "🥡" },
-    { id: "desserts", label: "Desserts", emoji: "🍰" },
-    { id: "south-indian", label: "South Indian", emoji: "🥞" },
-    { id: "rolls", label: "Rolls", emoji: "🌯" },
-    { id: "pasta", label: "Pasta", emoji: "🍝" },
-];
+const CUISINE_ICON = "🍽️";
 
 interface CuisineFilterProps {
+    cuisines: string[];
     selected: string;
     onSelect: (id: string) => void;
 }
 
-export default function CuisineFilter({ selected, onSelect }: CuisineFilterProps) {
+export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineFilterProps) {
     return (
         <View style={styles.container}>
             <ScrollView
@@ -41,18 +25,18 @@ export default function CuisineFilter({ selected, onSelect }: CuisineFilterProps
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-                {CUISINES.map((item) => {
-                    const isActive = selected === item.id;
+                {cuisines.map((item) => {
+                    const isActive = selected === item;
                     return (
                         <TouchableOpacity
-                            key={item.id}
+                            key={item}
                             style={[styles.chip, isActive && styles.chipActive]}
-                            onPress={() => onSelect(item.id)}
+                            onPress={() => onSelect(item)}
                             activeOpacity={0.75}
                         >
-                            <Text style={styles.emoji}>{item.emoji}</Text>
+                            <Text style={styles.emoji}>{CUISINE_ICON}</Text>
                             <Text style={[styles.label, isActive && styles.labelActive]}>
-                                {item.label}
+                                {item}
                             </Text>
                             {isActive && <View style={styles.underline} />}
                         </TouchableOpacity>

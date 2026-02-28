@@ -78,6 +78,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.07,
         shadowRadius: 6,
         elevation: 3,
+        margin:5
     },
     imageWrapper: {
         height: 160,

@@ -42,8 +42,8 @@ export default function HeaderBar({
             <TouchableOpacity style={styles.addressSection} onPress={onAddressPress} activeOpacity={0.7}>
                 <View style={styles.addressRow}>
                     <Ionicons name="location-sharp" size={16} color={Colors.primary} />
-                    <Text style={styles.addressName} numberOfLines={1}>{displayAddress}</Text>
-                    <MaterialIcons name="keyboard-arrow-down" size={20} color={Colors.text} />
+                    <Text style={styles.addressName} numberOfLines={1}>{displayAddress.slice(0, 25) + '...'}</Text>
+                    <MaterialIcons name="keyboard-arrow-down" size={20} color={Colors.white} />
                 </View>
                 <Text style={styles.subAddress} numberOfLines={1}>{subAddress}</Text>
             </TouchableOpacity>
@@ -85,12 +85,12 @@ const styles = StyleSheet.create({
     addressName: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.text,
+        color: Colors.white,
     },
     subAddress: {
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
-        color: Colors.muted,
+        color: Colors.white,
         marginTop: 2,
         marginLeft: 20,
     },
@@ -114,6 +114,8 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
         alignItems: "center",
         justifyContent: "center",
+        borderWidth:1,
+        borderColor: Colors.white,
     },
     avatarText: {
         fontFamily: Fonts.brandBold,

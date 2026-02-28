@@ -1,14 +1,14 @@
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  FlatList,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 // ── Home components ───────────────────────────────────────────────────────────
@@ -18,18 +18,36 @@ import HeroBanner from "@/components/home/HeroBanner";
 import RestaurantCard from "@/components/home/RestaurantCard";
 import SearchBar from "@/components/home/SearchBar";
 import { router } from "expo-router";
-import { useRestaurants } from "@/hooks/useRestaurants";
+import { useRestaurants, useRestaurantsBySearch } from "@/hooks/useRestaurants";
 import { useAddresses } from "@/hooks/useAddresses";
 import AddressModal from "@/components/home/AddressModal";
 import { UserAddress } from "@/types/user";
-
-
+import { Restaurant } from "@/types/restaurants";
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function Index() {
   const { data: session } = authClient.useSession();
-  const { data: restaurants, isLoading, error, refetch: refetchRestaurants } = useRestaurants();
-  const { data: addresses, isLoading: addressesLoading, error: addressesError, refetch: refetchAddresses } = useAddresses();
+
+  // ── Infinite-scroll restaurants ──────────────────────────────────────────
+  const {
+    data: pagedData,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch: refetchRestaurants,
+  } = useRestaurants();
+
+  // Flatten pages → single array for FlatList
+  const restaurants: Restaurant[] = useMemo(
+    () => pagedData?.pages.flatMap((p) => p.data) ?? [],
+    [pagedData]
+  );
+
+  const totalCount = pagedData?.pages[0]?.meta.total ?? 0;
+
+  // ── Addresses ────────────────────────────────────────────────────────────
+  const { data: addresses, refetch: refetchAddresses } = useAddresses();
 
   const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
@@ -38,49 +56,126 @@ export default function Index() {
   const [vegMode, setVegMode] = useState(false);
   const [selectedCuisine, setSelectedCuisine] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
-  // 2. USE REFETCH IN THE HANDLER
+
+  // Derive unique cuisine types from all fetched restaurants, always with "all" first
+  const cuisines = useMemo(() => {
+    const set = new Set<string>();
+    restaurants.forEach((r) => r.cuisineTypes.forEach((c) => set.add(c)));
+    return ["all", ...Array.from(set)];
+  }, [restaurants]);
+
+  // ── Veg search (only when toggle is ON) ──────────────────────────────────
+  const {
+    data: vegPagedData,
+    isLoading: vegLoading,
+    hasNextPage: vegHasNextPage,
+    isFetchingNextPage: vegIsFetchingNextPage,
+    fetchNextPage: vegFetchNextPage,
+    refetch: refetchVeg,
+  } = useRestaurantsBySearch({
+    type: vegMode ? "VEG" : undefined,
+  });
+
+  // Flatten veg pages → array
+  const vegRestaurants: Restaurant[] = useMemo(
+    () => vegPagedData?.pages.flatMap((p) => p.data) ?? [],
+    [vegPagedData]
+  );
+  const vegTotalCount = vegPagedData?.pages[0]?.meta.total ?? 0;
+
+  // What we actually render (before cuisine filter)
+  const displayedRestaurants: Restaurant[] = vegMode ? vegRestaurants : restaurants;
+  const listLoading = vegMode ? vegLoading : isLoading;
+
+  // Client-side cuisine filter — "all" means no filter
+  const filteredRestaurants = useMemo(() => {
+    if (selectedCuisine === "all") return displayedRestaurants;
+    return displayedRestaurants.filter((r) =>
+      r.cuisineTypes.some(
+        (c) => c.toLowerCase() === selectedCuisine.toLowerCase()
+      )
+    );
+  }, [displayedRestaurants, selectedCuisine]);
+
+  // ── Auto-select default address ───────────────────────────────────────────
+  React.useEffect(() => {
+    if (addresses && addresses.length > 0 && !selectedAddress) {
+      setSelectedAddress(addresses.find((a) => a.isDefault) ?? addresses[0]);
+    }
+  }, [addresses]);
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([
         refetchRestaurants(),
-        refetchAddresses()
+        refetchAddresses(),
+        vegMode ? refetchVeg() : Promise.resolve(),
       ]);
-    } catch (error) {
-      console.error("Failed to refresh:", error);
+    } catch (e) {
+      console.error("Refresh failed:", e);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchRestaurants, refetchAddresses]);
-  // Update selected address once data is loaded
-  React.useEffect(() => {
-    if (addresses && addresses.length > 0 && !selectedAddress) {
-      const defaultAddr = addresses.find(a => a.isDefault) || addresses[0];
-      setSelectedAddress(defaultAddr);
-    }
-  }, [addresses]);
+  }, [refetchRestaurants, refetchAddresses, refetchVeg, vegMode]);
 
-  if (isLoading) {
+  // ── Load next page (works in both normal and veg mode) ───────────────────
+  const handleEndReached = useCallback(() => {
+    if (vegMode) {
+      if (vegHasNextPage && !vegIsFetchingNextPage) vegFetchNextPage();
+    } else {
+      if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+    }
+  }, [vegMode, vegHasNextPage, vegIsFetchingNextPage, vegFetchNextPage, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const userInitial = session?.user?.name?.[0]?.toUpperCase() ?? "U";
+
+  // ── Full-page initial loader ──────────────────────────────────────────────
+  if (listLoading && displayedRestaurants.length === 0) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>Loading...</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
-  // Derive user initials from session name
-  const userInitial = session?.user?.name?.[0]?.toUpperCase() ?? "U";
+  // ── Header (rendered inside FlatList as ListHeaderComponent) ─────────────
+  const ListHeader = (
+    <>
+      <HeroBanner />
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeading}>
+          {vegMode ? vegTotalCount : totalCount}+ Restaurants Delivering to You
+        </Text>
+        <Text style={styles.featuredLabel}>
+          {vegMode ? "Veg Only" : "Featured"}
+        </Text>
+      </View>
+    </>
+  );
+
+  // ── Footer spinner (both normal and veg modes) ───────────────────────────
+  const isLoadingMore = vegMode ? vegIsFetchingNextPage : isFetchingNextPage;
+  const ListFooter = isLoadingMore ? (
+    <ActivityIndicator
+      size="small"
+      color={Colors.primary}
+      style={styles.footerSpinner}
+    />
+  ) : null;
 
   return (
     <View style={styles.root}>
+      {/* Sticky top bar: HeaderBar + SearchBar + CuisineFilter */}
       <View style={styles.stickyTop}>
         <HeaderBar
           address={selectedAddress ? [selectedAddress] : addresses}
           subAddress="Tap to change delivery address"
           userInitial={userInitial}
           onAddressPress={() => setIsAddressModalVisible(true)}
-          onWalletPress={() => { router.push("/wallet") }}
-          onProfilePress={() => { router.push("/profile") }}
+          onWalletPress={() => router.push("/wallet")}
+          onProfilePress={() => router.push("/profile")}
         />
         <SearchBar
           value={search}
@@ -88,15 +183,32 @@ export default function Index() {
           vegMode={vegMode}
           onVegToggle={setVegMode}
           placeholder="Search restaurants or dishes..."
-          onSearchPress={() => { router.push("/search") }}
+          onSearchPress={() => router.push("/search")}
         />
+        <CuisineFilter cuisines={cuisines} selected={selectedCuisine} onSelect={setSelectedCuisine} />
       </View>
 
-      {/* Scrollable body */}
-      <ScrollView
-        style={styles.scroll}
+      {/* Infinite-scroll restaurant list */}
+      <FlatList<Restaurant>
+        data={filteredRestaurants}
+        keyExtractor={(r) => r.id}
+        renderItem={({ item }) => (
+          <RestaurantCard
+            restaurant={item}
+            onPress={() =>
+              router.push({
+                pathname: "/restaurants/[id]",
+                params: { id: item.id },
+              })
+            }
+          />
+        )}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -105,28 +217,7 @@ export default function Index() {
             tintColor={Colors.primary}
           />
         }
-        stickyHeaderIndices={[1]} // cuisine filter sticks (index 1, comments don't count)
-      >
-        {/* 0 – Hero Banner */}
-        <HeroBanner />
-
-
-        {/* 1 – Cuisine filter (sticky) */}
-        <CuisineFilter selected={selectedCuisine} onSelect={setSelectedCuisine} />
-
-        {/* 5 – Featured / All restaurants */}
-        <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionHeading}>
-              {restaurants?.length}+ Restaurants Delivering to You
-            </Text>
-          </View>
-          <Text style={styles.featuredLabel}>Featured</Text>
-          {restaurants?.map((r) => (
-            <RestaurantCard key={r.id} onPress={() => router.push({ pathname: "/restaurants/[id]", params: { id: r.id } })} restaurant={r} />
-          ))}
-        </View>
-      </ScrollView>
+      />
 
       <AddressModal
         visible={isAddressModalVisible}
@@ -134,7 +225,6 @@ export default function Index() {
         addresses={addresses || []}
         selectedAddressId={selectedAddress?.id}
         onSelectAddress={(addr) => setSelectedAddress(addr)}
-
       />
     </View>
   );
@@ -146,10 +236,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.background,
+  },
 
   // Sticky top header + search
   stickyTop: {
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.primary,
+    color: Colors.white,
     borderTopWidth: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -159,31 +256,21 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 
-  // Main scroll
-  scroll: {
-    flex: 1,
-  },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 28,
   },
 
-  // Section wrapper
-  section: {
+  // Section header inside FlatList
+  sectionHeader: {
     paddingHorizontal: 16,
     paddingTop: 20,
     backgroundColor: Colors.background,
-  },
-  sectionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
   },
   sectionHeading: {
     fontFamily: Fonts.brandBold,
     fontSize: FontSize.lg,
     color: Colors.text,
-    marginBottom: 14,
+    marginBottom: 4,
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
@@ -192,25 +279,9 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.muted,
     marginBottom: 12,
-    marginTop: -8,
   },
-  checkoutButton: {
-    marginHorizontal: 16,
-    marginVertical: 12,
-    padding: 16,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 4,
-  },
-  checkoutButtonText: {
-    color: Colors.white,
-    fontSize: FontSize.md,
-    fontFamily: Fonts.brandBold,
+
+  footerSpinner: {
+    marginVertical: 20,
   },
 });

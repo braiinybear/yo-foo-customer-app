@@ -1,13 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../lib/axios";
 import {
     CreatePaymentOrderResponse,
+    PaginatedTransactionsResponse,
     VerifyPaymentPayload,
     WalletBalanceResponse,
     WalletTopUpPayload,
     WalletTopUpResponse,
     VerifyWalletTopUpRequest,
-    WalletTransaction,
 } from "@/types/razorpay";
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
@@ -45,15 +45,22 @@ export const useWalletBalance = () => {
     });
 };
 
-/** Fetch wallet transaction history */
-export const useWalletTransactions = () => {
-    return useQuery({
-        queryKey: ["wallet", "transactions"],
-        queryFn: async (): Promise<WalletTransaction[]> => {
-            const { data } = await apiClient.get("/api/wallets/transactions");
-            console.log("Wallet Transactions", data);
+const TX_PAGE_LIMIT = 5;
 
-            return data as WalletTransaction[];
+/** Fetch wallet transaction history with infinite scroll */
+export const useWalletTransactions = () => {
+    return useInfiniteQuery<PaginatedTransactionsResponse>({
+        queryKey: ["wallet", "transactions"],
+        queryFn: async ({ pageParam }) => {
+            const { data } = await apiClient.get("/api/wallets/transactions", {
+                params: { page: pageParam, limit: TX_PAGE_LIMIT },
+            });
+            return data as PaginatedTransactionsResponse;
+        },
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => {
+            const { page, totalPages } = lastPage.meta;
+            return page < totalPages ? page + 1 : undefined;
         },
     });
 };
