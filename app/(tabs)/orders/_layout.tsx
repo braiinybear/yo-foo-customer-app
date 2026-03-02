@@ -12,7 +12,7 @@ export default function OrderLayout() {
             <Stack.Screen name="index" options={{ title: "My Orders"}} />
             <Stack.Screen
                 name="[id]"
-                options={{ title: "Order Details", headerBackTitle: "Orders" }}
+                options={{ title: "Order Details", headerBackTitle: "Orders",headerTintColor: '#fff', }}
             />
         </Stack>
     );

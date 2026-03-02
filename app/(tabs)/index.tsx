@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
 
   // Sticky top header + search
   stickyTop: {
-    backgroundColor: Colors.primary,
+    backgroundColor:"#004D4D",
     color: Colors.white,
     borderTopWidth: 3,
     shadowColor: "#000",

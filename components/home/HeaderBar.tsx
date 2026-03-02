@@ -41,7 +41,7 @@ export default function HeaderBar({
             {/* Address */}
             <TouchableOpacity style={styles.addressSection} onPress={onAddressPress} activeOpacity={0.7}>
                 <View style={styles.addressRow}>
-                    <Ionicons name="location-sharp" size={16} color={Colors.primary} />
+                    <Ionicons name="location-sharp" size={16} color="red" />
                     <Text style={styles.addressName} numberOfLines={1}>{displayAddress.slice(0, 25) + '...'}</Text>
                     <MaterialIcons name="keyboard-arrow-down" size={20} color={Colors.white} />
                 </View>

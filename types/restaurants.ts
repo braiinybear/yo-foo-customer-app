@@ -4,6 +4,8 @@ export interface Restaurant {
   cuisineTypes: string[];
   costForTwo: number;
   image: string | null;
+  type?: "VEG" | "NON_VEG" | "VEGAN" | null;
+  menuCategories?: MenuCategory[];
 }
 
 export interface PaginationMeta {

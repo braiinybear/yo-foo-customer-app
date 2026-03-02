@@ -101,6 +101,14 @@ export default function RootLayout() {
               options={{
                 headerShown: true,
                 headerTitle: "Profile",
+                headerTintColor: '#fff',
+                headerStyle: {
+                  backgroundColor: Colors.primary,
+                },
+                headerTitleAlign: "center",
+                headerTitleStyle: {
+                  color: '#fff',
+                },
               }}
 
             />
@@ -109,6 +117,14 @@ export default function RootLayout() {
               options={{
                 headerShown: true,
                 headerTitle: "Wallet",
+                headerTintColor: '#fff',
+                headerStyle: {
+                  backgroundColor: Colors.primary,
+                },
+                headerTitleAlign: "center",
+                headerTitleStyle: {
+                  color: '#fff',
+                },
               }}
 
             />
