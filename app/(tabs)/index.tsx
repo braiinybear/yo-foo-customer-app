@@ -24,6 +24,8 @@ import AddressModal from "@/components/home/AddressModal";
 import { UserAddress } from "@/types/user";
 import { Restaurant } from "@/types/restaurants";
 
+
+// The root page of the app
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function Index() {
   const { data: session } = authClient.useSession();

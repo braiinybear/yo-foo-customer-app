@@ -1,5 +1,7 @@
 import SplashScreenView from "@/components/SplashScreenView";
 import { Colors } from "@/constants/colors";
+
+// this is the better-auth authentication.
 import { authClient } from "@/lib/auth-client";
 import {
   Nunito_400Regular,
@@ -10,10 +12,13 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+
+// this is the expo splash screen.
 import * as ExpoSplashScreen from "expo-splash-screen";
+import * as NavigationBar from "expo-navigation-bar";
+
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 
 // Keep the native splash visible while we load
 ExpoSplashScreen.preventAutoHideAsync();
@@ -22,7 +27,8 @@ export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
   const [appReady, setAppReady] = useState<boolean>(false);
   const [splashDone, setSplashDone] = useState<boolean>(false);
-
+  
+  // this is the expo font loader.
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
@@ -36,6 +42,13 @@ export default function RootLayout() {
       ExpoSplashScreen.hideAsync().then(() => setAppReady(true));
     }
   }, [fontsLoaded]);
+
+  // Make Android nav bar buttons dark so they're visible on light backgrounds
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      NavigationBar.setButtonStyleAsync("dark");
+    }
+  }, []);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded) {
@@ -86,8 +99,6 @@ export default function RootLayout() {
           </Stack.Protected>
 
           {/* Only accessible when logged in */}
-
-
           <Stack.Protected guard={isLoggedIn}>
             <Stack.Screen
               name="(tabs)"

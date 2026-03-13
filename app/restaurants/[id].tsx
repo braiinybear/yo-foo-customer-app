@@ -6,6 +6,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
     ActivityIndicator,
     Image,
@@ -15,11 +16,11 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Platform,
 } from "react-native";
 
 export default function RestaurantDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
+    const insets = useSafeAreaInsets();
     const { data: restaurant, isPending, error, refetch } = useRestaurantDetail(id);
     const { addItem, items, updateQuantity, totalAmount } = useCartStore();
 
@@ -33,6 +34,7 @@ export default function RestaurantDetailScreen() {
 
     const cartCount = items.length;
     const cartTotal = totalAmount;
+    const cartBannerBottom = Math.max(insets.bottom + 8, 24);
 
     if (isPending) {
         return (
@@ -165,7 +167,7 @@ export default function RestaurantDetailScreen() {
             </ScrollView>
 
             {cartCount > 0 && (
-                <View style={styles.cartBannerWrapper}>
+                <View style={[styles.cartBannerWrapper, { bottom: cartBannerBottom }]}>
                     <TouchableOpacity
                         style={styles.cartBanner}
                         activeOpacity={0.9}
@@ -418,7 +420,6 @@ const styles = StyleSheet.create({
     },
     cartBannerWrapper: {
         position: "absolute",
-        bottom: Platform.OS === 'ios' ? 30 : 20,
         left: 16,
         right: 16,
     },

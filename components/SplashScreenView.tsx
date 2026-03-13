@@ -67,14 +67,6 @@ export default function SplashScreenView({
                     resizeMode="contain"
                 />
             </Animated.View>
-
-            <Animated.Text style={[styles.appName, { opacity: textOpacity }]}>
-                BraiinyFood
-            </Animated.Text>
-
-            <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
-                Delicious food, delivered fast 🍔
-            </Animated.Text>
         </Animated.View>
     );
 }

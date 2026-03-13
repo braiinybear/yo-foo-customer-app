@@ -1,25 +1,33 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useCartStore } from "@/store/useCartStore";
+import { Colors } from "@/constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
     const cartCount = useCartStore((state) =>
         state.items.reduce((total, item) => total + item.quantity, 0)
     );
+    const insets = useSafeAreaInsets();
+    const bottomPadding = Math.max(insets.bottom, 10);
 
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: "#FF6B35",
-                tabBarInactiveTintColor: "#9CA3AF",
+                tabBarActiveTintColor: Colors.white,
+                tabBarInactiveTintColor: "rgba(255,255,255,0.55)",
                 tabBarStyle: {
-                    backgroundColor: "#FFFFFF",
-                    borderTopWidth: 1,
-                    borderTopColor: "#F3F4F6",
-                    height: 60,
-                    paddingBottom: 8,
-                    paddingTop: 4,
+                    backgroundColor: Colors.primary,
+                    borderTopWidth: 0,
+                    height: 56 + bottomPadding,
+                    paddingBottom: bottomPadding,
+                    paddingTop: 6,
+                    elevation: 8,
+                    shadowColor: "#000",
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: -2 },
                 },
             }}
         >
@@ -38,9 +46,10 @@ export default function TabsLayout() {
                     title: "Cart",
                     tabBarBadge: cartCount > 0 ? cartCount : undefined,
                     tabBarBadgeStyle: {
-                        backgroundColor: "#E23744",
-                        color: "#FFFFFF",
+                        backgroundColor: Colors.secondary,
+                        color: Colors.white,
                         fontSize: 10,
+                        top: -2,
                     },
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="cart-outline" color={color} size={size} />
