@@ -136,7 +136,15 @@ export default function Index() {
         </View>
       ) : (
         <Text style={styles.sectionHeading}>
-          {`${totalCount} Restaurants`}
+          {`${filteredRestaurants.length} ${
+            selectedVegType === "veg"
+              ? "Vegetarian"
+              : selectedVegType === "non-veg"
+                ? "Non-Vegetarian"
+                : selectedVegType === "vegan"
+                  ? "Vegan"
+                  : ""
+          } Restaurants`}
         </Text>
       )}
     </View>

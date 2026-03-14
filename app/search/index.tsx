@@ -324,7 +324,15 @@ export default function SearchPage() {
             <>
               <View style={styles.resultsHeader}>
                 <Text style={styles.resultsCount}>
-                  {restaurantResults.length} restaurants
+                  {restaurantResults.length}{" "}
+                  {selectedVegType === "VEG"
+                    ? "Vegetarian"
+                    : selectedVegType === "NON_VEG"
+                      ? "Non-Vegetarian"
+                      : selectedVegType === "VEGAN"
+                        ? "Vegan"
+                        : ""}{" "}
+                  restaurants
                 </Text>
                 {(selectedVegType ||
                   minRating ||
