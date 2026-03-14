@@ -79,7 +79,7 @@ export default function HeroBanner() {
                 bounciness: 4,
             }).start();
         });
-    }, [activeIndex]);
+    }, [activeIndex, dotAnims]);
 
     const goToSlide = (index: number) => {
         scrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });

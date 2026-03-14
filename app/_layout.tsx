@@ -27,7 +27,7 @@ export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
   const [appReady, setAppReady] = useState<boolean>(false);
   const [splashDone, setSplashDone] = useState<boolean>(false);
-  
+
   // this is the expo font loader.
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -94,8 +94,14 @@ export default function RootLayout() {
         <Stack>
           {/* Only accessible when not logged in */}
           <Stack.Protected guard={isLoggedOut}>
-            <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="(auth)/login"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="(auth)/register"
+              options={{ headerShown: false }}
+            />
           </Stack.Protected>
 
           {/* Only accessible when logged in */}
@@ -105,39 +111,36 @@ export default function RootLayout() {
               options={{
                 headerShown: false,
               }}
-
             />
             <Stack.Screen
               name="profile"
               options={{
                 headerShown: true,
                 headerTitle: "Profile",
-                headerTintColor: '#fff',
+                headerTintColor: "#fff",
                 headerStyle: {
                   backgroundColor: Colors.primary,
                 },
                 headerTitleAlign: "center",
                 headerTitleStyle: {
-                  color: '#fff',
+                  color: "#fff",
                 },
               }}
-
             />
             <Stack.Screen
               name="wallet"
               options={{
                 headerShown: true,
                 headerTitle: "Wallet",
-                headerTintColor: '#fff',
+                headerTintColor: "#fff",
                 headerStyle: {
                   backgroundColor: Colors.primary,
                 },
                 headerTitleAlign: "center",
                 headerTitleStyle: {
-                  color: '#fff',
+                  color: "#fff",
                 },
               }}
-
             />
             <Stack.Screen
               name="search"
@@ -145,7 +148,6 @@ export default function RootLayout() {
                 headerShown: false,
                 headerTitle: "Search",
               }}
-
             />
             <Stack.Screen
               name="restaurants"
@@ -153,15 +155,19 @@ export default function RootLayout() {
                 headerShown: false,
                 headerTitle: "Restaurants",
               }}
-
             />
             <Stack.Screen
               name="checkout"
               options={{
                 headerShown: true,
-                headerTitle: "Checkout",
+                headerTintColor: "#fff",
+                headerStyle: {
+                  backgroundColor: Colors.primary,
+                },
+                headerTitleStyle: {
+                  color: "#fff",
+                },
               }}
-
             />
           </Stack.Protected>
         </Stack>
