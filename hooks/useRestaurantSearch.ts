@@ -12,9 +12,7 @@ export const searchRestaurants = async (
   const { data } = await apiClient.get<SearchRestaurantsResponse>(
     "/api/restaurants/search",
     { params },
-  );
-  console.table(data);
-  
+  );  
   return data;
 };
 

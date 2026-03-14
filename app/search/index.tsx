@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
+import { getPlaceholderImage } from "@/constants/images";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
@@ -16,7 +17,6 @@ import {
 } from "react-native";
 import { useSearchRestaurants } from "@/hooks/useRestaurantSearch";
 import { router } from "expo-router";
-import { FoodType, RestaurantResult } from "@/types/search";
 const VEG_TYPE_OPTIONS = [
   { id: "VEG", label: "Vegetarian", emoji: "🥦", color: "#10B981" },
   { id: "NON_VEG", label: "Non-Vegetarian", emoji: "🍗", color: "#EF4444" },
@@ -29,6 +29,7 @@ export default function SearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedVegType, setSelectedVegType] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<number | null>(null);
+  const [selectedDishId, setSelectedDishId] = useState<string | null>(null);
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [prepTimeRange, setPrepTimeRange] = useState<[number, number] | null>(
     null,
@@ -68,74 +69,94 @@ export default function SearchPage() {
       limit: 5,
     });
 
-  // Flatten results from paginated response
-  const allResults = useMemo(() => {
-    let results = data?.pages.flatMap((page) => page.results) ?? [];
+  // Get all unique dishes (for horizontal scroll)
+  const allDishes = useMemo(() => {
+    let dishes = data?.pages.flatMap((page) => page.results) ?? [];
 
-    // Apply filters
-    results = results.filter((dish) => {
-      // Filter by availability
+    // Apply filters to dishes
+    dishes = dishes.filter((dish) => {
       if (showAvailableOnly && !dish.dishDetails.isAvailable) {
         return false;
       }
-
-      // Filter by bestseller
-      if (showBestsellersOnly) {
-        const hasBestseller = dish.restaurants.some((r) => r.isBestseller);
-        if (!hasBestseller) return false;
-      }
-
-      // Filter by price range
       if (priceRange) {
         const price = dish.dishDetails.avgPrice;
         if (price < priceRange[0] || price > priceRange[1]) {
           return false;
         }
       }
-
-      // Filter by prep time range
       if (prepTimeRange) {
         const prepTime = dish.dishDetails.prepTime || 0;
         if (prepTime < prepTimeRange[0] || prepTime > prepTimeRange[1]) {
           return false;
         }
       }
+      return true;
+    });
 
+    return dishes;
+  }, [data, showAvailableOnly, priceRange, prepTimeRange]);
+
+  // Get restaurants for selected dish
+  const restaurantResults = useMemo(() => {
+    if (!selectedDishId) return [];
+
+    const selectedDish = allDishes.find((d) => d.dishId === selectedDishId);
+    if (!selectedDish) return [];
+
+    let restaurants = selectedDish.restaurants.map((r) => ({
+      ...r,
+      dishDetails: selectedDish.dishDetails,
+      dishName: selectedDish.dishName,
+      dishId: selectedDish.dishId,
+      categoryName: selectedDish.categoryName,
+    }));
+
+    // Apply restaurant filters
+    restaurants = restaurants.filter((r) => {
+      if (showBestsellersOnly && !r.isBestseller) {
+        return false;
+      }
+      if (minRating && r.rating < minRating) {
+        return false;
+      }
       return true;
     });
 
     // Apply sorting
     if (sortBy) {
-      results.sort((a, b) => {
+      restaurants.sort((a, b) => {
         let aValue: number = 0;
         let bValue: number = 0;
 
         if (sortBy === "price") {
-          aValue = a.dishDetails.avgPrice;
-          bValue = b.dishDetails.avgPrice;
+          aValue = a.price;
+          bValue = b.price;
         } else if (sortBy === "prepTime") {
           aValue = a.dishDetails.prepTime || 0;
           bValue = b.dishDetails.prepTime || 0;
         } else if (sortBy === "rating") {
-          // Get highest rating restaurant for each dish
-          aValue = Math.max(...a.restaurants.map((r) => r.rating || 0), 0);
-          bValue = Math.max(...b.restaurants.map((r) => r.rating || 0), 0);
+          aValue = a.rating || 0;
+          bValue = b.rating || 0;
         }
 
         return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
       });
     }
 
-    return results;
-  }, [
-    data,
-    showAvailableOnly,
-    showBestsellersOnly,
-    sortBy,
-    sortOrder,
-    priceRange,
-    prepTimeRange,
-  ]);
+    return restaurants;
+  }, [selectedDishId, allDishes, showBestsellersOnly, minRating, sortBy, sortOrder]);
+
+  // Reset selected dish when search query changes
+  useEffect(() => {
+    setSelectedDishId(null);
+  }, [debouncedSearchQuery]);
+
+  // Auto-select first dish when dishes load
+  useEffect(() => {
+    if (allDishes.length > 0) {
+      setSelectedDishId(allDishes[0].dishId);
+    }
+  }, [allDishes]);
 
   const totalUniqueDishes = data?.pages[0]?.totalUniqueDishes ?? 0;
 
@@ -143,121 +164,86 @@ export default function SearchPage() {
     setSearchQuery(text);
   };
 
-  const renderRestaurantItem = (restaurant: any) => (
+  const renderDishItem = (dish: any) => (
     <TouchableOpacity
-      key={restaurant.restaurantId}
-      style={styles.restaurantCard}
-      onPress={() =>
-        router.push({
-          pathname: "/restaurants/[id]",
-          params: { id: restaurant.restaurantId },
-        })
-      }
+      key={dish.dishId}
+      style={[
+        styles.dishItem,
+        selectedDishId === dish.dishId && styles.dishItemSelected,
+      ]}
+      onPress={() => setSelectedDishId(dish.dishId)}
     >
-      {restaurant.logo && (
-        <Image
-          source={{ uri: restaurant.logo }}
-          style={styles.restaurantLogo}
-        />
-      )}
-      <View style={styles.restaurantInfo}>
-        <Text style={styles.restaurantName} numberOfLines={1}>
-          {restaurant.name}
-        </Text>
-        <View style={styles.ratingRow}>
-          <Ionicons name="star" size={14} color={Colors.primary} />
-          <Text style={styles.rating}>{restaurant.rating}</Text>
-          <Text style={styles.ratingCount}>({restaurant.ratingCount})</Text>
-        </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.price}>₹{restaurant.price}</Text>
-          {restaurant.isBestseller && (
-            <View style={styles.bestsellerBadge}>
-              <Text style={styles.bestsellerText}>Bestseller</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.delivery}>{restaurant.estimatedDelivery}</Text>
-      </View>
+      <Image
+        source={{
+          uri: dish.dishDetails.image || getPlaceholderImage(dish.dishId),
+        }}
+        style={[
+          styles.dishItemImage,
+          selectedDishId === dish.dishId && {
+            borderColor: Colors.primary,
+            borderWidth: 4,
+          },
+        ]}
+      />
+      <Text style={styles.dishItemName} numberOfLines={2}>
+        {dish.dishName}
+      </Text>
     </TouchableOpacity>
   );
 
-  const renderDishCard = ({ item }: { item: any }) => {
-    const { dishName, categoryName, dishDetails, restaurants } = item;
-
+  const renderRestaurantCard = ({ item }: { item: any }) => {
     return (
-      <View style={styles.dishCardContainer}>
-        <View style={styles.dishHeader}>
-          {dishDetails.image && (
-            <Image
-              source={{ uri: dishDetails.image }}
-              style={styles.dishImage}
-            />
-          )}
-          <View style={styles.dishInfo}>
-            <Text style={styles.dishName} numberOfLines={2}>
-              {dishName}
+      <TouchableOpacity
+        style={styles.restaurantCardItem}
+        onPress={() =>
+          router.push({
+            pathname: "/restaurants/[id]",
+            params: { id: item.restaurantId },
+          })
+        }
+      >
+        {/* Dish and Restaurant Header */}
+        <View style={styles.cardHeaderSection}>
+          <Image
+            source={{
+              uri: item.dishDetails.image || getPlaceholderImage(item.dishId),
+            }}
+            style={styles.dishImageCard}
+          />
+          <View style={styles.dishCardInfo}>
+            <Text style={styles.cardDishName} numberOfLines={2}>
+              {item.dishName}
             </Text>
-            <Text style={styles.categoryName}>{categoryName}</Text>
-            <View style={styles.dishMeta}>
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>₹{dishDetails.avgPrice}</Text>
+            <Text style={styles.cardCategory}>{item.categoryName}</Text>
+            <View style={styles.cardTags}>
+              <View style={styles.priceTag}>
+                <Text style={styles.priceTagText}>₹{item.price}</Text>
               </View>
-              {dishDetails.type && (
-                <View
-                  style={[
-                    styles.metaItem,
-                    {
-                      backgroundColor:
-                        dishDetails.type === "VEG" ? "#10B98120" : "#EF444420",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.typeLabel,
-                      {
-                        color:
-                          dishDetails.type === "VEG" ? "#10B981" : "#EF4444",
-                      },
-                    ]}
-                  >
-                    {dishDetails.type === "VEG" ? "🥦" : "🍗"}{" "}
-                    {dishDetails.type}
-                  </Text>
-                </View>
-              )}
-              {dishDetails.popularChoice && (
-                <View
-                  style={[styles.metaItem, { backgroundColor: "#FCD34D20" }]}
-                >
-                  <Text style={styles.popularText}>⭐ Popular</Text>
+              {item.isBestseller && (
+                <View style={styles.bestsellerTag}>
+                  <Text style={styles.bestsellerTagText}>⭐ Bestseller</Text>
                 </View>
               )}
             </View>
-            {dishDetails.description && (
-              <Text style={styles.dishDescription} numberOfLines={1}>
-                {dishDetails.description}
-              </Text>
-            )}
           </View>
         </View>
 
-        {/* Horizontal scrollable restaurants */}
-        <View style={styles.restaurantsContainer}>
-          <Text style={styles.restaurantsTitle}>Available at</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.restaurantsList}
-            contentContainerStyle={styles.restaurantsContent}
-          >
-            {restaurants.map((restaurant: RestaurantResult) =>
-              renderRestaurantItem(restaurant),
-            )}
-          </ScrollView>
+        {/* Restaurant Info Section */}
+        <View style={styles.restaurantSection}>
+          <View style={styles.restaurantNameRow}>
+            <Text style={styles.restName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={12} color={Colors.white} />
+              <Text style={styles.ratingBadgeText}>{item.rating}</Text>
+            </View>
+          </View>
+          <Text style={styles.restAddress} numberOfLines={2}>
+            📍 {item.costForTwo ? `₹${item.costForTwo} for two` : "Address"} • {item.estimatedDelivery}
+          </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -304,12 +290,12 @@ export default function SearchPage() {
             Find your favorite food from nearby restaurants
           </Text>
         </View>
-      ) : isLoading && allResults.length === 0 ? (
+      ) : isLoading && allDishes.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Searching...</Text>
         </View>
-      ) : allResults.length === 0 ? (
+      ) : allDishes.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No results found</Text>
           <Text style={styles.emptySubtitle}>
@@ -318,49 +304,68 @@ export default function SearchPage() {
         </View>
       ) : (
         <>
-          <View style={styles.resultsHeader}>
-            <Text style={styles.resultsCount}>{allResults.length} dishes</Text>
-            {(selectedVegType ||
-              minRating ||
-              sortBy ||
-              showBestsellersOnly ||
-              !showAvailableOnly ||
-              priceRange ||
-              prepTimeRange) && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedVegType(null);
-                  setMinRating(null);
-                  setSortBy(null);
-                  setShowBestsellersOnly(false);
-                  setShowAvailableOnly(true);
-                  setPriceRange(null);
-                  setPrepTimeRange(null);
-                }}
-              >
-                <Text style={styles.clearFilters}>Clear all</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Horizontal Scrollable Dishes */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dishesScrollContainer}
+            contentContainerStyle={styles.dishesContent}
+          >
+            {allDishes.map((dish) => renderDishItem(dish))}
+          </ScrollView>
 
-          <FlatList
-            data={allResults}
-            keyExtractor={(item) => item.dishId}
-            renderItem={renderDishCard}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.3}
-            ListFooterComponent={
-              isFetchingNextPage ? (
-                <ActivityIndicator
-                  size="small"
-                  color={Colors.primary}
-                  style={styles.footerLoader}
-                />
-              ) : null
-            }
-            contentContainerStyle={styles.listContent}
-            scrollEventThrottle={16}
-          />
+          {/* Restaurant Cards or Select Dish Prompt */}
+          {!selectedDishId ? (
+            <View style={styles.selectDishPrompt}>
+              <Ionicons name="chevron-forward" size={48} color={Colors.muted} />
+              <Text style={styles.selectDishText}>Select a dish to see restaurants</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.resultsHeader}>
+                <Text style={styles.resultsCount}>
+                  {restaurantResults.length} restaurants
+                </Text>
+                {(selectedVegType ||
+                  minRating ||
+                  sortBy ||
+                  showBestsellersOnly ||
+                  !showAvailableOnly ||
+                  priceRange ||
+                  prepTimeRange) && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedVegType(null);
+                      setMinRating(null);
+                      setSortBy(null);
+                      setShowBestsellersOnly(false);
+                      setShowAvailableOnly(true);
+                      setPriceRange(null);
+                      setPrepTimeRange(null);
+                    }}
+                  >
+                    <Text style={styles.clearFilters}>Clear all</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <FlatList
+                data={restaurantResults}
+                keyExtractor={(item) => item.menuItemId}
+                renderItem={renderRestaurantCard}
+                contentContainerStyle={styles.listContent}
+                scrollEventThrottle={16}
+                ListEmptyComponent={
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyTitle}>No restaurants found</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Try adjusting your filters
+                    </Text>
+                  </View>
+                }
+              />
+            </>
+          )}
         </>
       )}
 
@@ -1086,5 +1091,177 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.brandMedium,
     fontSize: FontSize.sm,
     color: Colors.text,
+  },
+
+  // Horizontal Dishes Scroll
+  dishesScrollContainer: {
+    flexGrow: 0,
+    backgroundColor: Colors.background,
+  },
+
+  dishesContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+
+  dishItem: {
+    width: 90,
+    alignItems: "center",
+    gap: 6,
+  },
+
+  dishItemSelected: {
+    opacity: 1,
+  },
+
+  dishItemImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: Colors.border,
+  },
+
+  dishItemName: {
+    fontFamily: Fonts.brandBold,
+    fontSize: FontSize.sm,
+    color: Colors.text,
+    textAlign: "center",
+    paddingHorizontal: 4,
+    width: 90,
+  },
+
+  // Select Dish Prompt
+  selectDishPrompt: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  selectDishText: {
+    fontFamily: Fonts.brandBold,
+    fontSize: FontSize.md,
+    color: Colors.muted,
+    textAlign: "center",
+  },
+
+  // Restaurant Card in List
+  restaurantCardItem: {
+    backgroundColor: Colors.surface,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+
+  cardHeaderSection: {
+    flexDirection: "column",
+    backgroundColor: Colors.background,
+  },
+
+  dishImageCard: {
+    width: "100%",
+    height: 180,
+    borderRadius: 0,
+    backgroundColor: Colors.background,
+  },
+
+  dishCardInfo: {
+    flex: 1,
+    justifyContent: "space-between",
+    padding: 12,
+  },
+
+  cardDishName: {
+    fontFamily: Fonts.brandBold,
+    fontSize: FontSize.md,
+    color: Colors.text,
+    marginBottom: 2,
+  },
+
+  cardCategory: {
+    fontFamily: Fonts.brand,
+    fontSize: FontSize.sm,
+    color: Colors.muted,
+    marginBottom: 6,
+  },
+
+  cardTags: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  priceTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: Colors.primary,
+  },
+
+  priceTagText: {
+    fontFamily: Fonts.brandBold,
+    fontSize: 11,
+    color: Colors.white,
+  },
+
+  bestsellerTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "#FCD34D20",
+  },
+
+  bestsellerTagText: {
+    fontFamily: Fonts.brandBold,
+    fontSize: 10,
+    color: "#92400e",
+  },
+
+  restaurantSection: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: 10,
+  },
+
+  restaurantNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+
+  restName: {
+    fontFamily: Fonts.brandBold,
+    fontSize: FontSize.md,
+    color: Colors.text,
+    flex: 1,
+  },
+
+  ratingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: Colors.primary,
+    gap: 4,
+  },
+
+  ratingBadgeText: {
+    fontFamily: Fonts.brandBold,
+    fontSize: 10,
+    color: Colors.white,
+  },
+
+  restAddress: {
+    fontFamily: Fonts.brand,
+    fontSize: FontSize.sm,
+    color: Colors.muted,
   },
 });
