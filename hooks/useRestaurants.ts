@@ -15,7 +15,7 @@ const fetchRestaurantsPaged = async (
   const { data } = await apiClient.get("/api/restaurants", {
     params: { page, limit: PAGE_LIMIT },
   });
-  console.log("hii",data);
+
   
   return data as PaginatedRestaurantsResponse;
 };
