@@ -40,7 +40,7 @@ export default function SearchPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [showBestsellersOnly, setShowBestsellersOnly] = useState(false);
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounce search query - only update after user stops typing
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function SearchPage() {
     useSearchRestaurants({
       query: debouncedSearchQuery,
       type: selectedVegType as any,
-      minRating,
+      minRating: minRating ?? undefined,
       page: 1,
       limit: 5,
     });
