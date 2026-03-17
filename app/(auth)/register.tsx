@@ -5,12 +5,12 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import {
-    ActivityIndicator,
-    Alert,
+    ActivityIndicator, // IGNORE: This is a standard React Native component for showing a loading spinner
+    Alert, // IGNORE: This is a standard React Native API for showing alert dialogs
     Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
+    KeyboardAvoidingView, // IGNORE: This is a standard React Native component that adjusts its behavior when the keyboard is open
+    Platform, // IGNORE: This is a standard React Native API for detecting the platform (iOS, Android, etc.)
+    ScrollView, // IGNORE: This is a standard React Native component for scrollable content
     StyleSheet,
     Text,
     TextInput,
@@ -19,8 +19,9 @@ import {
 } from "react-native";
 
 export default function Register() {
-    const [isLoading, setIsLoading] = useState(false);
-    const [name, setName] = useState("");
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    
+const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [haveReferralCode, setHaveReferralCode] = useState<boolean>(false);
@@ -31,7 +32,6 @@ export default function Register() {
             Alert.alert("Error", "Please fill in all fields");
             return;
         }
-
         setIsLoading(true);
 
         await authClient.signUp.email(

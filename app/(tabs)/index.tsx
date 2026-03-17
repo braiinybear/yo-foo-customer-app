@@ -1,7 +1,7 @@
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -37,6 +37,7 @@ export default function Index() {
     hasNextPage,
     fetchNextPage,
     refetch: refetchRestaurants,
+    isError: isRestaurantsError,
   } = useRestaurants();
 
   // Flatten pages → single array for FlatList
@@ -48,7 +49,11 @@ export default function Index() {
   const totalCount = pagedData?.pages[0]?.meta.total ?? 0;
 
   // ── Addresses ────────────────────────────────────────────────────────────
-  const { data: addresses, refetch: refetchAddresses } = useAddresses();
+  const { 
+    data: addresses, 
+    refetch: refetchAddresses,
+    isError: isAddressesError,
+  } = useAddresses();
 
   const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
@@ -96,7 +101,7 @@ export default function Index() {
   }, [restaurants, search, selectedCuisine, selectedVegType]);
 
   // ── Auto-select default address ───────────────────────────────────────────
-  React.useEffect(() => {
+  useEffect(() => {
     if (addresses && addresses.length > 0 && !selectedAddress) {
       setSelectedAddress(addresses.find((a) => a.isDefault) ?? addresses[0]);
     }
@@ -112,6 +117,7 @@ export default function Index() {
       ]);
     } catch (e) {
       console.error("Refresh failed:", e);
+      // Error states will be updated by the hooks
     } finally {
       setRefreshing(false);
     }
@@ -129,12 +135,25 @@ export default function Index() {
   // ── Header (rendered inside FlatList as ListHeaderComponent) ─────────────
   const ListHeader = (
     <View style={styles.sectionHeader}>
-      {isLoading ? (
+      {isRestaurantsError && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Failed to load restaurants. Please try again.
+          </Text>
+          <Text 
+            onPress={() => refetchRestaurants()}
+            style={styles.retryLink}
+          >
+            Retry
+          </Text>
+        </View>
+      )}
+      {isLoading && !isRestaurantsError ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Loading Restaurants</Text>
         </View>
-      ) : (
+      ) : !isRestaurantsError ? (
         <Text style={styles.sectionHeading}>
           {`${filteredRestaurants.length} ${
             selectedVegType === "veg"
@@ -146,7 +165,7 @@ export default function Index() {
                   : ""
           } Restaurants`}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 
@@ -173,6 +192,21 @@ export default function Index() {
           onProfilePress={() => router.push("/profile")}
         />
       </View>
+
+      {/* Error banner for addresses */}
+      {isAddressesError && (
+        <View style={styles.addressErrorBanner}>
+          <Text style={styles.addressErrorText}>
+            ⚠ Could not load delivery addresses
+          </Text>
+          <Text 
+            onPress={() => refetchAddresses()}
+            style={styles.retryLinkBanner}
+          >
+            Retry
+          </Text>
+        </View>
+      )}
 
       {/* Sticky header: SearchBar, CuisineFilter */}
       <View style={styles.stickyHeader}>
@@ -298,5 +332,61 @@ const styles = StyleSheet.create({
 
   footerSpinner: {
     marginVertical: 20,
+  },
+
+  // Error styles
+  errorContainer: {
+    backgroundColor: "#FEE8E8",
+    borderLeftWidth: 4,
+    borderLeftColor: "#DC2626",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    borderRadius: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  errorText: {
+    fontFamily: Fonts.brandMedium,
+    fontSize: FontSize.sm,
+    color: "#91271F",
+    flex: 1,
+    marginRight: 12,
+  },
+
+  retryLink: {
+    fontFamily: Fonts.brandBold,
+    fontSize: FontSize.sm,
+    color: "#DC2626",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+
+  addressErrorBanner: {
+    backgroundColor: "#FECACA",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EF4444",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    zIndex: 8,
+  },
+
+  addressErrorText: {
+    fontFamily: Fonts.brandMedium,
+    fontSize: FontSize.sm,
+    color: "#7F1D1D",
+    flex: 1,
+  },
+
+  retryLinkBanner: {
+    fontFamily: Fonts.brandBold,
+    fontSize: FontSize.sm,
+    color: "#DC2626",
+    paddingHorizontal: 8,
   },
 });

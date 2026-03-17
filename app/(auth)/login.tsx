@@ -321,7 +321,7 @@ export default function Login() {
                             style={styles.toggleRow}
                             onPress={() => settoggleEmailPhoneLogin(false)}
                         >
-                            <Text style={styles.toggleText}>← Back to phone login</Text>
+                            <Text style={styles.toggleText}>Back to phone login</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         padding: 24,
         paddingBottom: 40,
-        justifyContent: "center",
+        justifyContent:"center",
         backgroundColor: Colors.background,
     },
     logo: {
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.brandBold,
     },
     secondaryButton: {
-        backgroundColor: Colors.text,
+        backgroundColor: Colors.primary,
         padding: 16,
         borderRadius: 12,
         flexDirection: "row",
