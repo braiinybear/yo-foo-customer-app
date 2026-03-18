@@ -10,8 +10,7 @@ import {
     View,
 } from "react-native";
 
-import { useCartStore } from "@/store/useCartStore";
-import { router } from "expo-router";
+
 
 interface HeaderBarProps {
     address?: UserAddress[];
