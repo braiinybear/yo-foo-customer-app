@@ -19,6 +19,17 @@ import * as NavigationBar from "expo-navigation-bar";
 
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import { NotificationProvider } from "@/context/NotificationContext";
+import * as Notifications from "expo-notifications";
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldShowAlert: true,
+  }),
+});
 
 // Keep the native splash visible while we load
 ExpoSplashScreen.preventAutoHideAsync();
@@ -77,102 +88,117 @@ export default function RootLayout() {
   });
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        {/* Animated in-app splash on first load */}
-        {!splashDone && (
-          <SplashScreenView onFinish={() => setSplashDone(true)} />
-        )}
+    <NotificationProvider>
+      <QueryClientProvider client={queryClient}>
+        <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+          {/* Animated in-app splash on first load */}
+          {!splashDone && (
+            <SplashScreenView onFinish={() => setSplashDone(true)} />
+          )}
 
-        {/* Instant solid overlay during auth state transitions — no fade-in so no black flash */}
-        {splashDone && isPending && (
-          <View style={transitionStyles.overlay}>
-            <ActivityIndicator size="small" color={Colors.primary} />
-          </View>
-        )}
+          {/* Instant solid overlay during auth state transitions — no fade-in so no black flash */}
+          {splashDone && isPending && (
+            <View style={transitionStyles.overlay}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          )}
 
-        <Stack>
-          {/* Only accessible when not logged in */}
-          <Stack.Protected guard={isLoggedOut}>
-            <Stack.Screen
-              name="(auth)/login"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="(auth)/register"
-              options={{ headerShown: false }}
-            />
-          </Stack.Protected>
+          <Stack>
+            {/* Only accessible when not logged in */}
+            <Stack.Protected guard={isLoggedOut}>
+              <Stack.Screen
+                name="(auth)/login"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="(auth)/register"
+                options={{ headerShown: false }}
+              />
+            </Stack.Protected>
 
-          {/* Only accessible when logged in */}
-          <Stack.Protected guard={isLoggedIn}>
-            <Stack.Screen
-              name="(tabs)"
-              options={{
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="profile"
-              options={{
-                headerShown: true,
-                headerTitle: "Profile",
-                headerTintColor: "#fff",
-                headerStyle: {
-                  backgroundColor: Colors.primary,
-                },
-                headerTitleAlign: "center",
-                headerTitleStyle: {
-                  color: "#fff",
-                },
-              }}
-            />
-            <Stack.Screen
-              name="wallet"
-              options={{
-                headerShown: true,
-                headerTitle: "Wallet",
-                headerTintColor: "#fff",
-                headerStyle: {
-                  backgroundColor: Colors.primary,
-                },
-                headerTitleAlign: "center",
-                headerTitleStyle: {
-                  color: "#fff",
-                },
-              }}
-            />
-            <Stack.Screen
-              name="search"
-              options={{
-                headerShown: false,
-                headerTitle: "Search",
-              }}
-            />
-            <Stack.Screen
-              name="restaurants"
-              options={{
-                headerShown: false,
-                headerTitle: "Restaurants",
-              }}
-            />
-            <Stack.Screen
-              name="checkout"
-              options={{
-                headerShown: true,
-                headerTintColor: "#fff",
-                headerStyle: {
-                  backgroundColor: Colors.primary,
-                },
-                headerTitleStyle: {
-                  color: "#fff",
-                },
-              }}
-            />
-          </Stack.Protected>
-        </Stack>
-      </View>
-    </QueryClientProvider>
+            {/* Only accessible when logged in */}
+            <Stack.Protected guard={isLoggedIn}>
+              <Stack.Screen
+                name="(tabs)"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="profile"
+                options={{
+                  headerShown: true,
+                  headerTitle: "Profile",
+                  headerTintColor: "#fff",
+                  headerStyle: {
+                    backgroundColor: Colors.primary,
+                  },
+                  headerTitleAlign: "center",
+                  headerTitleStyle: {
+                    color: "#fff",
+                  },
+                }}
+              />
+              <Stack.Screen
+                name="wallet"
+                options={{
+                  headerShown: true,
+                  headerTitle: "Wallet",
+                  headerTintColor: "#fff",
+                  headerStyle: {
+                    backgroundColor: Colors.primary,
+                  },
+                  headerTitleAlign: "center",
+                  headerTitleStyle: {
+                    color: "#fff",
+                  },
+                }}
+              />
+              <Stack.Screen
+                name="search"
+                options={{
+                  headerShown: false,
+                  headerTitle: "Search",
+                }}
+              />
+              <Stack.Screen
+                name="restaurants"
+                options={{
+                  headerShown: false,
+                  headerTitle: "Restaurants",
+                }}
+              />
+              <Stack.Screen
+                name="checkout"
+                options={{
+                  headerShown: true,
+                  headerTintColor: "#fff",
+                  headerStyle: {
+                    backgroundColor: Colors.primary,
+                  },
+                  headerTitleStyle: {
+                    color: "#fff",
+                  },
+                }}
+              />
+              <Stack.Screen
+                name="animation"
+                options={{
+                  headerShown: false,
+                  headerTintColor: "#fff",
+                  headerStyle: {
+                    backgroundColor: Colors.primary,
+                  },
+                  headerTitleStyle: {
+                    color: "#fff",
+                  },
+                }}
+              />
+            </Stack.Protected>
+          </Stack>
+        </View>
+      </QueryClientProvider>
+    </NotificationProvider>
   );
 }
 const transitionStyles = StyleSheet.create({

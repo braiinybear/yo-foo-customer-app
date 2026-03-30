@@ -144,7 +144,14 @@ export default function SearchPage() {
     }
 
     return restaurants;
-  }, [selectedDishId, allDishes, showBestsellersOnly, minRating, sortBy, sortOrder]);
+  }, [
+    selectedDishId,
+    allDishes,
+    showBestsellersOnly,
+    minRating,
+    sortBy,
+    sortOrder,
+  ]);
 
   // Reset selected dish when search query changes
   useEffect(() => {
@@ -198,7 +205,11 @@ export default function SearchPage() {
         onPress={() =>
           router.push({
             pathname: "/restaurants/[id]",
-            params: { id: item.restaurantId },
+            params: {
+              id: item.restaurantId,
+              dishName: item.dishName,
+              dishId: item.dishId,
+            },
           })
         }
       >
@@ -240,7 +251,8 @@ export default function SearchPage() {
             </View>
           </View>
           <Text style={styles.restAddress} numberOfLines={2}>
-            📍 {item.costForTwo ? `₹${item.costForTwo} for two` : "Address"} • {item.estimatedDelivery}
+            📍 {item.costForTwo ? `₹${item.costForTwo} for two` : "Address"} •{" "}
+            {item.estimatedDelivery}
           </Text>
         </View>
       </TouchableOpacity>
@@ -318,7 +330,9 @@ export default function SearchPage() {
           {!selectedDishId ? (
             <View style={styles.selectDishPrompt}>
               <Ionicons name="chevron-forward" size={48} color={Colors.muted} />
-              <Text style={styles.selectDishText}>Select a dish to see restaurants</Text>
+              <Text style={styles.selectDishText}>
+                Select a dish to see restaurants
+              </Text>
             </View>
           ) : (
             <>

@@ -16,13 +16,13 @@ import CuisineFilter from "@/components/home/CuisineFilter";
 import HeaderBar from "@/components/home/HeaderBar";
 import RestaurantCard from "@/components/home/RestaurantCard";
 import SearchBar from "@/components/home/SearchBar";
-import { router } from "expo-router";
-import { useRestaurants} from "@/hooks/useRestaurants";
+import { Link, router } from "expo-router";
+import { useRestaurants } from "@/hooks/useRestaurants";
 import { useAddresses } from "@/hooks/useAddresses";
 import AddressModal from "@/components/home/AddressModal";
 import { UserAddress } from "@/types/user";
 import { Restaurant } from "@/types/restaurants";
-
+import RestaurantCardSkeleton from "@/components/loadingSkelton/RestaurantCardSkeleton";
 
 // The root page of the app
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -43,25 +43,29 @@ export default function Index() {
   // Flatten pages → single array for FlatList
   const restaurants: Restaurant[] = useMemo(
     () => pagedData?.pages.flatMap((p) => p.data) ?? [],
-    [pagedData]
+    [pagedData],
   );
 
   const totalCount = pagedData?.pages[0]?.meta.total ?? 0;
 
   // ── Addresses ────────────────────────────────────────────────────────────
-  const { 
-    data: addresses, 
+  const {
+    data: addresses,
     refetch: refetchAddresses,
     isError: isAddressesError,
   } = useAddresses();
 
   const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(
+    null,
+  );
 
   const [search, setSearch] = useState("");
   const [selectedCuisine, setSelectedCuisine] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedVegType, setSelectedVegType] = useState<"veg" | "non-veg" | "vegan" | null>(null);
+  const [selectedVegType, setSelectedVegType] = useState<
+    "veg" | "non-veg" | "vegan" | null
+  >(null);
 
   // Derive unique cuisine types from all fetched restaurants, always with "all" first
   const cuisines = useMemo(() => {
@@ -77,7 +81,7 @@ export default function Index() {
         !search ||
         restaurant.name.toLowerCase().includes(search.toLowerCase()) ||
         restaurant.cuisineTypes?.some((c) =>
-          c.toLowerCase().includes(search.toLowerCase())
+          c.toLowerCase().includes(search.toLowerCase()),
         );
 
       const matchesCuisine =
@@ -111,10 +115,7 @@ export default function Index() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetchRestaurants(),
-        refetchAddresses(),
-      ]);
+      await Promise.all([refetchRestaurants(), refetchAddresses()]);
     } catch (e) {
       console.error("Refresh failed:", e);
       // Error states will be updated by the hooks
@@ -140,18 +141,16 @@ export default function Index() {
           <Text style={styles.errorText}>
             Failed to load restaurants. Please try again.
           </Text>
-          <Text 
-            onPress={() => refetchRestaurants()}
-            style={styles.retryLink}
-          >
+          <Text onPress={() => refetchRestaurants()} style={styles.retryLink}>
             Retry
           </Text>
         </View>
       )}
       {isLoading && !isRestaurantsError ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading Restaurants</Text>
+        <View>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <RestaurantCardSkeleton key={i} />
+          ))}
         </View>
       ) : !isRestaurantsError ? (
         <Text style={styles.sectionHeading}>
@@ -199,7 +198,7 @@ export default function Index() {
           <Text style={styles.addressErrorText}>
             ⚠ Could not load delivery addresses
           </Text>
-          <Text 
+          <Text
             onPress={() => refetchAddresses()}
             style={styles.retryLinkBanner}
           >
@@ -263,6 +262,21 @@ export default function Index() {
         selectedAddressId={selectedAddress?.id}
         onSelectAddress={(addr) => setSelectedAddress(addr)}
       />
+      <Link
+        href="/animation"
+        style={{
+          position: "absolute",
+          bottom: 20,
+          right: 20,
+          backgroundColor: Colors.primary,
+          padding: 12,
+          borderRadius: 6,
+        }}
+      >
+        <Text style={{ color: "#fff", fontFamily: Fonts.brandMedium }}>
+          Go to Animation
+        </Text>
+      </Link>
     </View>
   );
 }
@@ -276,7 +290,7 @@ const styles = StyleSheet.create({
 
   // Sticky top header
   stickyTop: {
-    backgroundColor:"#004D4D",
+    backgroundColor: "#004D4D",
     color: Colors.white,
     borderTopWidth: 3,
     shadowColor: "#000",
@@ -289,7 +303,7 @@ const styles = StyleSheet.create({
 
   stickyHeader: {
     backgroundColor: Colors.background,
-    gap:0,
+    gap: 0,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,

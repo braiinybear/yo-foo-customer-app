@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     Alert,
     ScrollView,
+    Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import { useWalletBalance } from '@/hooks/usePayments';
 import { useAddresses } from '@/hooks/useAddresses';
 import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
+import { getPlaceholderImage } from '@/constants/images';
 import { PaymentMode } from '@/types/orders';
 import { UserAddress } from '@/types/user';
 import AddressModal from '@/components/home/AddressModal';
@@ -35,7 +37,7 @@ type PaymentOption = {
 const PAYMENT_OPTIONS: PaymentOption[] = [
     {
         mode: 'WALLET',
-        label: 'Yo Wallet',
+        label: 'Wallet',
         subtitle: 'Pay instantly from your wallet balance',
         icon: 'wallet-outline',
         color: Colors.success,         // #2ECC71 green
@@ -66,6 +68,7 @@ export default function CartScreen() {
     const createOrderMutation = useCreateOrder();
 
     const [selectedMode, setSelectedMode] = useState<PaymentMode>('WALLET');
+    const [paymentDropdownOpen, setPaymentDropdownOpen] = useState(false);
     const [addressModalVisible, setAddressModalVisible] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
 
@@ -80,7 +83,7 @@ export default function CartScreen() {
             const defaultAddr = addresses.find((a) => a.isDefault) ?? addresses[0];
             setSelectedAddress(defaultAddr);
         }
-    }, [addresses]);
+    }, [addresses, selectedAddress]);
 
     // ── Checkout ──────────────────────────────────────────────────────────────
     const handleCheckout = () => {
@@ -171,7 +174,10 @@ export default function CartScreen() {
                                 index < items.length - 1 && styles.itemRowBorder,
                             ]}
                         >
-                            <View style={styles.itemDot} />
+                            <Image
+                                source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
+                                style={styles.cartItemImage}
+                            />
                             <View style={styles.itemInfo}>
                                 <Text style={styles.itemName} numberOfLines={1}>
                                     {item.name}
@@ -209,101 +215,86 @@ export default function CartScreen() {
 
                 {/* ── Payment Method ──────────────────────────────────── */}
                 <Text style={styles.sectionTitle}>Payment Method</Text>
-                <View style={styles.paymentList}>
-                    {PAYMENT_OPTIONS.map((option) => {
-                        const isActive = selectedMode === option.mode;
+                <TouchableOpacity
+                    style={styles.paymentDropdownBtn}
+                    onPress={() => setPaymentDropdownOpen(!paymentDropdownOpen)}
+                    activeOpacity={0.75}
+                >
+                    {(() => {
+                        const selected = PAYMENT_OPTIONS.find(o => o.mode === selectedMode);
                         return (
+                            <>
+                                <View style={styles.paymentDropdownContent}>
+                                    <Text style={styles.paymentDropdownLabel}>{selected?.label}</Text>
+                                    <Text style={styles.paymentDropdownSub}>{selected?.subtitle}</Text>
+                                </View>
+                                <Ionicons
+                                    name={paymentDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                                    size={18}
+                                    color={Colors.muted}
+                                />
+                            </>
+                        );
+                    })()}
+                </TouchableOpacity>
+
+                {/* Payment dropdown menu */}
+                {paymentDropdownOpen && (
+                    <ScrollView
+                        style={styles.paymentDropdownMenu}
+                        scrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                        nestedScrollEnabled={true}
+                    >
+                        {PAYMENT_OPTIONS.map((option) => (
                             <TouchableOpacity
                                 key={option.mode}
-                                style={[
-                                    styles.paymentRow,
-                                    isActive && {
-                                        borderColor: option.color,
-                                        backgroundColor: option.colorLight,
-                                    },
-                                ]}
-                                onPress={() => setSelectedMode(option.mode)}
-                                activeOpacity={0.75}
+                                style={[styles.paymentDropdownItem, selectedMode === option.mode && styles.paymentDropdownItemActive]}
+                                onPress={() => {
+                                    setSelectedMode(option.mode);
+                                    setPaymentDropdownOpen(false);
+                                }}
+                                activeOpacity={0.7}
                             >
-                                {/* Left: icon */}
-                                <View
-                                    style={[
-                                        styles.paymentIconWrap,
-                                        { backgroundColor: isActive ? option.color + '25' : Colors.surface },
-                                    ]}
-                                >
-                                    <Ionicons
-                                        name={option.icon}
-                                        size={20}
-                                        color={isActive ? option.color : Colors.muted}
-                                    />
+                                <Ionicons
+                                    name={option.icon}
+                                    size={20}
+                                    color={option.color}
+                                    style={styles.paymentDropdownIcon}
+                                />
+                                <View style={styles.paymentDropdownContent}>
+                                    <Text style={styles.paymentDropdownLabel}>{option.label}</Text>
+                                    <Text style={styles.paymentDropdownSub}>{option.subtitle}</Text>
                                 </View>
-
-                                {/* Center: text */}
-                                <View style={styles.paymentTextBlock}>
-                                    <Text style={styles.paymentLabel}>
-                                        {option.label}
-                                    </Text>
-                                    <Text style={styles.paymentSubtitle}>{option.subtitle}</Text>
-                                </View>
-
-                                {/* Right: radio */}
-                                <View
-                                    style={[
-                                        styles.radio,
-                                        isActive && { borderColor: option.color },
-                                    ]}
-                                >
-                                    {isActive && (
-                                        <View
-                                            style={[
-                                                styles.radioDot,
-                                                { backgroundColor: option.color },
-                                            ]}
-                                        />
-                                    )}
-                                </View>
+                                {selectedMode === option.mode && (
+                                    <View style={styles.checkmarkBadge}>
+                                        <Ionicons name="checkmark" size={16} color={Colors.white} />
+                                    </View>
+                                )}
                             </TouchableOpacity>
-                        );
-                    })}
-                </View>
+                        ))}
+                    </ScrollView>
+                )}
 
-                {/* ── Wallet Balance Banner ───────────────────────────── */}
+                {/* ── Wallet Balance Indicator ───────────────────────── */}
                 {selectedMode === 'WALLET' && (
-                    <View
-                        style={[
-                            styles.walletBanner,
-                            isWalletInsufficient && styles.walletBannerDanger,
-                        ]}
-                    >
-                        <Ionicons
-                            name="wallet"
-                            size={18}
-                            color={isWalletInsufficient ? Colors.danger : Colors.success}
-                        />
+                    <View style={styles.walletIndicator}>
                         {walletLoading ? (
-                            <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 8 }} />
+                            <ActivityIndicator size="small" color={Colors.success} />
                         ) : (
-                            <View style={styles.walletBannerContent}>
-                                <Text style={styles.walletBannerLabel}>Wallet Balance</Text>
-                                <Text
-                                    style={[
-                                        styles.walletBannerAmount,
-                                        isWalletInsufficient && { color: Colors.danger },
-                                    ]}
-                                >
-                                    ₹{walletBalance.toFixed(2)}
+                            <>
+                                <Text style={[styles.walletIndicatorText, isWalletInsufficient && { color: Colors.danger }]}>
+                                    Balance: ₹{walletBalance.toFixed(2)}
                                 </Text>
-                            </View>
-                        )}
-                        {isWalletInsufficient && (
-                            <TouchableOpacity
-                                style={styles.addMoneyBtn}
-                                onPress={() => router.push('/wallet')}
-                            >
-                                <Ionicons name="add-circle-outline" size={14} color={Colors.white} />
-                                <Text style={styles.addMoneyBtnText}>Add Money</Text>
-                            </TouchableOpacity>
+                                {isWalletInsufficient && (
+                                    <TouchableOpacity
+                                        style={styles.addMoneyBtnSmall}
+                                        onPress={() => router.push('/wallet')}
+                                    >
+                                        <Text style={styles.addMoneyBtnSmallText}>Add Money</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </>
                         )}
                     </View>
                 )}
@@ -332,7 +323,7 @@ export default function CartScreen() {
                     >
                         <View style={styles.selectAddrLeft}>
                             <View style={styles.selectAddrIconWrap}>
-                                <Ionicons name="location" size={18} color={Colors.primary} />
+                                <Ionicons name="location" size={18} color={Colors.text} />
                             </View>
                             <View>
                                 <Text style={styles.selectAddrTitle}>Select Delivery Address</Text>
@@ -340,7 +331,7 @@ export default function CartScreen() {
                             </View>
                         </View>
                         <View style={styles.selectAddrChevron}>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+                            <Ionicons name="chevron-forward" size={18} color={Colors.text} />
                         </View>
                     </TouchableOpacity>
                 ) : (
@@ -352,30 +343,20 @@ export default function CartScreen() {
                             onPress={() => setAddressModalVisible(true)}
                             activeOpacity={0.8}
                         >
-                            <View style={styles.confirmedAddrIconWrap}>
-                                <Ionicons
-                                    name={
-                                        selectedAddress.type === 'HOME'
-                                            ? 'home'
-                                            : selectedAddress.type === 'WORK'
-                                                ? 'briefcase'
-                                                : 'location'
-                                    }
-                                    size={16}
-                                    color={Colors.primary}
-                                />
-                            </View>
-                            <View style={styles.confirmedAddrText}>
+                            <View style={styles.addressContent}>
                                 <Text style={styles.confirmedAddrType}>
-                                    Delivering to {selectedAddress.type}
+                                    {selectedAddress.type === 'HOME' ? '🏠 Home' : selectedAddress.type === 'WORK' ? '💼 Work' : '📍 Other'}
                                 </Text>
-                                <Text style={styles.confirmedAddressText} numberOfLines={1}>
+                                <Text style={styles.confirmedAddressText} numberOfLines={2}>
                                     {selectedAddress.addressLine}
                                 </Text>
                             </View>
-                            <View style={styles.changeBtn}>
+                            <TouchableOpacity
+                                style={styles.changeBtn}
+                                onPress={() => setAddressModalVisible(true)}
+                            >
                                 <Text style={styles.changeAddressText}>Change</Text>
-                            </View>
+                            </TouchableOpacity>
                         </TouchableOpacity>
 
                         {/* Pay button */}
@@ -383,12 +364,8 @@ export default function CartScreen() {
                             style={[
                                 styles.checkoutBtn,
                                 {
-                                    backgroundColor:
-                                        PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.color ??
-                                        Colors.primary,
-                                    shadowColor:
-                                        PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.color ??
-                                        Colors.primary,
+                                    backgroundColor: Colors.primary,
+                                    shadowColor: Colors.primary,
                                 },
                                 (createOrderMutation.isPending || isWalletInsufficient) &&
                                 styles.checkoutBtnDisabled,
@@ -400,21 +377,9 @@ export default function CartScreen() {
                             {createOrderMutation.isPending ? (
                                 <ActivityIndicator color={Colors.white} />
                             ) : (
-                                <>
-                                    {/* Left: payment icon in frosted circle */}
-                                    <View style={styles.payBtnIcon}>
-                                        <Ionicons
-                                            name={
-                                                PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.icon ??
-                                                'card-outline'
-                                            }
-                                            size={20}
-                                            color={Colors.white}
-                                        />
-                                    </View>
-
-                                    {/* Center: amount + method */}
-                                    <View style={styles.payBtnCenter}>
+                                <View style={styles.payBtnContent}>
+                                    <Ionicons name="cash-outline" size={18} color={Colors.white} style={styles.payBtnIcon} />
+                                    <View>
                                         <Text style={styles.checkoutBtnText}>
                                             Pay ₹{totalAmount}
                                         </Text>
@@ -422,12 +387,7 @@ export default function CartScreen() {
                                             via {PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.label}
                                         </Text>
                                     </View>
-
-                                    {/* Right: lock badge */}
-                                    <View style={styles.payBtnLock}>
-                                        <Ionicons name="lock-closed" size={13} color={Colors.white} />
-                                    </View>
-                                </>
+                                </View>
                             )}
                         </TouchableOpacity>
                     </>
@@ -485,6 +445,12 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         backgroundColor: Colors.primary,
     },
+    cartItemImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 8,
+        resizeMode: 'cover',
+    },
     itemInfo: {
         flex: 1,
     },
@@ -508,7 +474,7 @@ const styles = StyleSheet.create({
         width: 30,
         height: 30,
         borderRadius: 8,
-        backgroundColor: Colors.primaryLight,
+        backgroundColor: Colors.text + '10',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -539,11 +505,8 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
 
-    // ── Payment list ──────────────────────────────────────────────────────────
-    paymentList: {
-        gap: 10,
-    },
-    paymentRow: {
+    // ── Payment dropdown ──────────────────────────────────────────────────────────
+    paymentDropdownBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Colors.white,
@@ -552,6 +515,57 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Colors.border,
         gap: 12,
+        justifyContent: 'space-between',
+    },
+    paymentDropdownMenu: {
+        backgroundColor: Colors.white,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: Colors.border,
+        overflow: 'hidden',
+        marginTop: -6,
+        marginHorizontal: 0,
+        maxHeight: 280,
+    },
+    paymentDropdownItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 14,
+        gap: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    paymentDropdownItemActive: {
+        backgroundColor: Colors.surface,
+        borderBottomColor: Colors.surface,
+    },
+    paymentDropdownIcon: {
+        marginRight: 4,
+    },
+    checkmarkBadge: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    paymentDropdownContent: {
+        flex: 1,
+        gap: 3,
+    },
+    paymentDropdownLabel: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.sm,
+        color: Colors.text,
+        letterSpacing: 0.3,
+    },
+    paymentDropdownSub: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.muted,
+        lineHeight: 14,
     },
     paymentIconWrap: {
         width: 44,
@@ -560,79 +574,30 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    paymentTextBlock: {
-        flex: 1,
-        gap: 2,
-    },
-    paymentLabel: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.sm,
-        color: Colors.text,
-    },
-    paymentSubtitle: {
-        fontFamily: Fonts.brand,
-        fontSize: FontSize.xs,
-        color: Colors.muted,
-        lineHeight: 16,
-    },
-    radio: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        borderWidth: 2,
-        borderColor: Colors.border,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    radioDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: Colors.primary,
-    },
 
-    // ── Wallet balance banner ─────────────────────────────────────────────────
-    walletBanner: {
+    // ── Wallet balance indicator (small text) ──────────────────────────────
+    walletIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        backgroundColor: Colors.success + '15',
-        borderRadius: 12,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: Colors.success + '40',
-        marginTop: 4,
+        gap: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 0,
+        marginTop: 2,
     },
-    walletBannerDanger: {
-        backgroundColor: Colors.danger + '10',
-        borderColor: Colors.danger + '40',
-    },
-    walletBannerContent: {
-        flex: 1,
-    },
-    walletBannerLabel: {
+    walletIndicatorText: {
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
-        color: Colors.muted,
-    },
-    walletBannerAmount: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.md,
         color: Colors.success,
     },
-    addMoneyBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        backgroundColor: Colors.danger,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
+    addMoneyBtnSmall: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
     },
-    addMoneyBtnText: {
+    addMoneyBtnSmallText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.xs,
-        color: Colors.white,
+        color: Colors.danger,
+        textDecorationLine: 'underline',
     },
 
     // ── Footer: select address button ─────────────────────────────────────
@@ -640,10 +605,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Colors.white,
-        borderWidth: 2,
-        borderColor: Colors.primary + '40',
-        borderStyle: 'dashed',
+        backgroundColor: Colors.text + '06',
+        borderWidth: 1,
+        borderColor: Colors.text + '12',
         paddingVertical: 14,
         paddingHorizontal: 14,
         borderRadius: 14,
@@ -659,7 +623,7 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 11,
-        backgroundColor: Colors.primaryLight,
+        backgroundColor: Colors.text + '08',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -678,7 +642,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 8,
-        backgroundColor: Colors.primaryLight,
+        backgroundColor: Colors.text + '08',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -687,45 +651,34 @@ const styles = StyleSheet.create({
     confirmedAddressChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        backgroundColor: Colors.primaryLight,
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: Colors.primary + '25',
-    },
-    confirmedAddrIconWrap: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        gap: 12,
         backgroundColor: Colors.white,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 12,
+        borderWidth: 1.5,
+        borderColor: Colors.text + '15',
     },
-    confirmedAddrText: {
+    addressContent: {
         flex: 1,
-        gap: 2,
+        gap: 4,
     },
     confirmedAddrType: {
-        fontFamily: Fonts.brand,
-        fontSize: 10,
-        color: Colors.primary,
-        textTransform: 'uppercase',
-        letterSpacing: 0.6,
-    },
-    confirmedAddressText: {
-        fontFamily: Fonts.brandMedium,
+        fontFamily: Fonts.brandBold,
         fontSize: FontSize.xs,
         color: Colors.text,
     },
+    confirmedAddressText: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.muted,
+        lineHeight: 16,
+    },
     changeBtn: {
-        backgroundColor: Colors.primary + '18',
-        borderRadius: 8,
         paddingHorizontal: 10,
-        paddingVertical: 5,
+        paddingVertical: 6,
+        borderRadius: 8,
     },
     changeAddressText: {
         fontFamily: Fonts.brandBold,
@@ -745,54 +698,38 @@ const styles = StyleSheet.create({
     // ── Pay button ─────────────────────────────────────────────────────────────
     checkoutBtn: {
         flexDirection: 'row',
-
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 0,
-        paddingVertical: 15,
+        paddingVertical: 11,
         paddingHorizontal: 16,
-        borderRadius: 16,
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
-        elevation: 7,
+        borderRadius: 12,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+        elevation: 3,
     },
     checkoutBtnDisabled: {
-        opacity: 0.5,
+        opacity: 0.6,
+    },
+    payBtnContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
     },
     payBtnIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: 11,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    payBtnCenter: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    payBtnLock: {
-        width: 30,
-        height: 30,
-        borderRadius: 8,
-        backgroundColor: 'rgba(255,255,255,0.18)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginLeft: 10,
+        marginRight: 4,
     },
     checkoutBtnText: {
         fontFamily: Fonts.brandBlack,
         fontSize: FontSize.lg,
         color: Colors.white,
-        letterSpacing: 0.2,
+        letterSpacing: 0.3,
     },
     checkoutBtnSub: {
         fontFamily: Fonts.brandMedium,
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.75)',
-        marginTop: 1,
+        fontSize: FontSize.xs,
+        color: Colors.white + '85',
+        marginTop: 2,
     },
 
     // ── Empty state ───────────────────────────────────────────────────────────

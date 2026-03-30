@@ -51,6 +51,8 @@ export interface RestaurantDetail {
   managerId: string;
   name: string;
   description: string | null;
+  logo:string,
+  banner:string,
   image: string | null;
   costForTwo: number;
   cuisineTypes: string[];

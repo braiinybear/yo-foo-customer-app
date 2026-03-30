@@ -25,11 +25,13 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-
+google-services.json
+/ios
+/android
 # macOS
 .DS_Store
 *.pem
-
+food-delivery-customer-de54a-firebase-adminsdk-fbsvc-ed20b9ebd8.json
 # local env files
 .env*.local
 

@@ -28,10 +28,6 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
             <View style={[styles.imageWrapper, { backgroundColor: bgColor }]}>
                 <Image source={{ uri: imageUri }} style={styles.image} />
 
-                {/* Offer badge */}
-                <View style={styles.offerBadge}>
-                    <Text style={styles.offerText}>FREE DELIVERY</Text>
-                </View>
 
                 {/* Bookmark */}
                 <TouchableOpacity style={styles.bookmark} activeOpacity={0.7}>
