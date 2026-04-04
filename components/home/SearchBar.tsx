@@ -12,14 +12,13 @@ import {
     Animated,
     Dimensions
 } from "react-native";
+import { useVegTypeStore } from "@/store/useVegTypeStore";
 
 interface SearchBarProps {
     value: string;
     onChangeText: (text: string) => void;
     placeholder?: string;
     onSearchPress?: () => void;
-    onFilterSelect?: (type: "veg" | "non-veg" | "vegan") => void;
-    selectedVegType?: "veg" | "non-veg" | "vegan" | null;
 }
 
 interface VegTypeOption {
@@ -41,10 +40,8 @@ export default function SearchBar({
     onChangeText,
     placeholder = 'Search restaurants or dishes...',
     onSearchPress,
-    onFilterSelect,
-    selectedVegType
 }: SearchBarProps) {
-
+    const { selectedVegType, setSelectedVegType } = useVegTypeStore();
     const [showFilter, setShowFilter] = useState(false);
     const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -56,8 +53,8 @@ export default function SearchBar({
         }).start();
     }, [showFilter, scaleAnim]);
 
-    const handleSelect = (type: "veg" | "non-veg" | "vegan") => {
-        onFilterSelect?.(type);
+    const handleSelect = (type: "veg" | "non-veg" | "vegan" | null) => {
+        setSelectedVegType(type as any);
         setShowFilter(false);
     };
 
@@ -77,9 +74,9 @@ export default function SearchBar({
                     placeholderTextColor={Colors.muted}
                     onPress={onSearchPress}
                 />
-                <TouchableOpacity style={styles.micButton} activeOpacity={0.7}>
+                {/* <TouchableOpacity style={styles.micButton} activeOpacity={0.7}>
                     <Ionicons name="mic" size={18} color={Colors.primary} />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
             </View>
 
             {/* Veg Type Filter Button */}
@@ -171,7 +168,7 @@ export default function SearchBar({
                         <TouchableOpacity
                             style={styles.clearButton}
                             onPress={() => {
-                                onFilterSelect?.(null as any);
+                                handleSelect(null);
                                 setShowFilter(false);
                             }}
                         >

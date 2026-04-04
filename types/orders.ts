@@ -41,6 +41,66 @@ export interface UserOrder {
     };
     items: OrderItem[];
 }
+
+export interface CurrentOrder {
+    id: string;
+    customerId: string;
+    restaurantId: string;
+    driverId: string | null;
+    status: OrderStatus;
+    otp: string | null;
+    cancellationReason: string | null;
+    itemTotal: number;
+    tax: number;
+    deliveryCharge: number;
+    platformFee: number;
+    driverTip: number;
+    discount: number;
+    promoCode: string | null;
+    commission: number;
+    totalAmount: number;
+    paymentMode: PaymentMode;
+    isPaid: boolean;
+    placedAt: string;
+    acceptedAt: string | null;
+    pickedUpAt: string | null;
+    deliveredAt: string | null;
+    restaurant: {
+        name: string;
+        image: string | null;
+        id: string;
+        address: string;
+        lat: number;
+        lng: number;
+    };
+    driver: {
+        id: string;
+        name: string;
+        phone: string;
+    } | null;
+    items: {
+        id: string;
+        orderId: string;
+        menuItemId: string;
+        quantity: number;
+        price: number;
+        menuItem: {
+            id: string;
+            categoryId: string;
+            name: string;
+            description: string | null;
+            price: number;
+            image: string | null;
+            type: "VEG" | "NON_VEG" | "EGG";
+            isAvailable: boolean;
+            isBestseller: boolean;
+            spiceLevel: string | null;
+            prepTime: number;
+            createdAt: string;
+            updatedAt: string;
+        };
+    }[];
+}
 // Must match the backend Prisma enum: UPI | CARD | NETBANKING | WALLET | COD | RAZORPAY
 export type PaymentMode = "COD" | "UPI" | "CARD" | "NETBANKING" | "WALLET" | "RAZORPAY";
 

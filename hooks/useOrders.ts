@@ -1,13 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "../lib/axios";
-import { UserOrder, CreateOrderPayload, OrderDetails } from "@/types/orders";
+import { UserOrder, CreateOrderPayload, OrderDetails, CurrentOrder } from "@/types/orders";
 
-export const useOrders = () => {
+export const useCurrentOrder = () => {
     return useQuery({
-        queryKey: ["orders", "history"],
+        queryKey: ["orders", "current"],
         queryFn: async () => {
-            const { data } = await apiClient.get("/api/orders/my-history")
-            return data as UserOrder[];
+            const { data } = await apiClient.get("/api/orders/current");
+            return data as CurrentOrder;
+        },
+        retry: 1,
+    });
+};
+
+export const useOrders = (page: number = 1, limit: number = 5) => {
+    return useQuery({
+        queryKey: ["orders", "history", page, limit],
+        queryFn: async () => {
+            const { data } = await apiClient.get("/api/orders/my-history", {
+                params: { page, limit },
+            });
+            return data;
         },
     });
 };
@@ -28,8 +41,6 @@ export const useCreateOrder = () => {
 
     return useMutation({
         mutationFn: async (payload: CreateOrderPayload) => {
-            console.log(payload);
-
             const { data } = await apiClient.post("/api/orders", payload);
             return data as UserOrder;
         },
@@ -39,4 +50,4 @@ export const useCreateOrder = () => {
             queryClient.invalidateQueries({ queryKey: ["wallet"] });
         },
     });
-};
+}; 

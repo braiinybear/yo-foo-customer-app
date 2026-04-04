@@ -23,6 +23,7 @@ import AddressModal from "@/components/home/AddressModal";
 import { UserAddress } from "@/types/user";
 import { Restaurant } from "@/types/restaurants";
 import RestaurantCardSkeleton from "@/components/loadingSkelton/RestaurantCardSkeleton";
+import { useVegTypeStore } from "@/store/useVegTypeStore";
 
 // The root page of the app
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -63,9 +64,7 @@ export default function Index() {
   const [search, setSearch] = useState("");
   const [selectedCuisine, setSelectedCuisine] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedVegType, setSelectedVegType] = useState<
-    "veg" | "non-veg" | "vegan" | null
-  >(null);
+  const { selectedVegType, setSelectedVegType } = useVegTypeStore();
 
   // Derive unique cuisine types from all fetched restaurants, always with "all" first
   const cuisines = useMemo(() => {
@@ -214,8 +213,6 @@ export default function Index() {
           onChangeText={setSearch}
           placeholder="Search restaurants or dishes..."
           onSearchPress={() => router.push("/search")}
-          selectedVegType={selectedVegType}
-          onFilterSelect={setSelectedVegType}
         />
         <CuisineFilter
           cuisines={cuisines}
@@ -262,21 +259,6 @@ export default function Index() {
         selectedAddressId={selectedAddress?.id}
         onSelectAddress={(addr) => setSelectedAddress(addr)}
       />
-      <Link
-        href="/animation"
-        style={{
-          position: "absolute",
-          bottom: 20,
-          right: 20,
-          backgroundColor: Colors.primary,
-          padding: 12,
-          borderRadius: 6,
-        }}
-      >
-        <Text style={{ color: "#fff", fontFamily: Fonts.brandMedium }}>
-          Go to Animation
-        </Text>
-      </Link>
     </View>
   );
 }

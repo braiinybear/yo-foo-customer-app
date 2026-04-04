@@ -9,6 +9,7 @@ import {
     Alert,
     ScrollView,
     Image,
+    Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +38,7 @@ type PaymentOption = {
 const PAYMENT_OPTIONS: PaymentOption[] = [
     {
         mode: 'WALLET',
-        label: 'Wallet',
+        label: 'wallet',
         subtitle: 'Pay instantly from your wallet balance',
         icon: 'wallet-outline',
         color: Colors.success,         // #2ECC71 green
@@ -45,7 +46,7 @@ const PAYMENT_OPTIONS: PaymentOption[] = [
     },
     {
         mode: 'COD',
-        label: 'Cash on Delivery',
+        label: 'cash on delivery',
         subtitle: 'Pay with cash when your order arrives',
         icon: 'cash-outline',
         color: Colors.secondary,       // #FFB800 amber
@@ -53,7 +54,7 @@ const PAYMENT_OPTIONS: PaymentOption[] = [
     },
     {
         mode: 'RAZORPAY',
-        label: 'Razorpay',
+        label: 'razorpay',
         subtitle: 'UPI, Cards, Net Banking & more',
         icon: 'card-outline',
         color: Colors.primary,         // #E23744 red
@@ -68,7 +69,7 @@ export default function CartScreen() {
     const createOrderMutation = useCreateOrder();
 
     const [selectedMode, setSelectedMode] = useState<PaymentMode>('WALLET');
-    const [paymentDropdownOpen, setPaymentDropdownOpen] = useState(false);
+    const [paymentModalVisible, setPaymentModalVisible] = useState(false);
     const [addressModalVisible, setAddressModalVisible] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
 
@@ -217,7 +218,7 @@ export default function CartScreen() {
                 <Text style={styles.sectionTitle}>Payment Method</Text>
                 <TouchableOpacity
                     style={styles.paymentDropdownBtn}
-                    onPress={() => setPaymentDropdownOpen(!paymentDropdownOpen)}
+                    onPress={() => setPaymentModalVisible(true)}
                     activeOpacity={0.75}
                 >
                     {(() => {
@@ -229,7 +230,7 @@ export default function CartScreen() {
                                     <Text style={styles.paymentDropdownSub}>{selected?.subtitle}</Text>
                                 </View>
                                 <Ionicons
-                                    name={paymentDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                                    name="chevron-forward"
                                     size={18}
                                     color={Colors.muted}
                                 />
@@ -238,43 +239,69 @@ export default function CartScreen() {
                     })()}
                 </TouchableOpacity>
 
-                {/* Payment dropdown menu */}
-                {paymentDropdownOpen && (
-                    <ScrollView
-                        style={styles.paymentDropdownMenu}
-                        scrollEnabled={true}
-                        showsVerticalScrollIndicator={true}
-                        nestedScrollEnabled={true}
-                    >
-                        {PAYMENT_OPTIONS.map((option) => (
-                            <TouchableOpacity
-                                key={option.mode}
-                                style={[styles.paymentDropdownItem, selectedMode === option.mode && styles.paymentDropdownItemActive]}
-                                onPress={() => {
-                                    setSelectedMode(option.mode);
-                                    setPaymentDropdownOpen(false);
-                                }}
-                                activeOpacity={0.7}
+                {/* Payment Method Modal */}
+                <Modal
+                    visible={paymentModalVisible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setPaymentModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            {/* Modal Header */}
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Select Payment Method</Text>
+                                <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
+                                    <Ionicons name="close" size={28} color={Colors.text} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Payment Options */}
+                            <ScrollView
+                                style={styles.modalBody}
+                                scrollEnabled={true}
+                                showsVerticalScrollIndicator={true}
                             >
-                                <Ionicons
-                                    name={option.icon}
-                                    size={20}
-                                    color={option.color}
-                                    style={styles.paymentDropdownIcon}
-                                />
-                                <View style={styles.paymentDropdownContent}>
-                                    <Text style={styles.paymentDropdownLabel}>{option.label}</Text>
-                                    <Text style={styles.paymentDropdownSub}>{option.subtitle}</Text>
-                                </View>
-                                {selectedMode === option.mode && (
-                                    <View style={styles.checkmarkBadge}>
-                                        <Ionicons name="checkmark" size={16} color={Colors.white} />
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                )}
+                                {PAYMENT_OPTIONS.map((option) => (
+                                    <TouchableOpacity
+                                        key={option.mode}
+                                        style={[
+                                            styles.paymentModalOption,
+                                            selectedMode === option.mode && styles.paymentModalOptionSelected
+                                        ]}
+                                        onPress={() => {
+                                            setSelectedMode(option.mode);
+                                            setPaymentModalVisible(false);
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.paymentIconWrap,
+                                                { backgroundColor: option.colorLight }
+                                            ]}
+                                        >
+                                            <Ionicons
+                                                name={option.icon}
+                                                size={24}
+                                                color={option.color}
+                                            />
+                                        </View>
+                                        <View style={styles.paymentModalContent}>
+                                            <Text style={styles.paymentIconLabel}>{option.label}</Text>
+                                            <Text style={styles.paymentIconSub}>{option.subtitle}</Text>
+                                        </View>
+                                        {selectedMode === option.mode && (
+                                            <View style={styles.checkmarkBadge}>
+                                                <Ionicons name="checkmark" size={18} color={Colors.white} />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
 
                 {/* ── Wallet Balance Indicator ───────────────────────── */}
                 {selectedMode === 'WALLET' && (
@@ -378,15 +405,10 @@ export default function CartScreen() {
                                 <ActivityIndicator color={Colors.white} />
                             ) : (
                                 <View style={styles.payBtnContent}>
-                                    <Ionicons name="cash-outline" size={18} color={Colors.white} style={styles.payBtnIcon} />
-                                    <View>
-                                        <Text style={styles.checkoutBtnText}>
-                                            Pay ₹{totalAmount}
-                                        </Text>
-                                        <Text style={styles.checkoutBtnSub}>
-                                            via {PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.label}
-                                        </Text>
-                                    </View>
+                                    <Ionicons name="cash-outline" size={17} color={Colors.white} style={styles.payBtnIcon} />
+                                    <Text style={styles.checkoutBtnText}>
+                                        Pay ₹{totalAmount} (via {PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.label})
+                                    </Text>
                                 </View>
                             )}
                         </TouchableOpacity>
@@ -517,36 +539,10 @@ const styles = StyleSheet.create({
         gap: 12,
         justifyContent: 'space-between',
     },
-    paymentDropdownMenu: {
-        backgroundColor: Colors.white,
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        overflow: 'hidden',
-        marginTop: -6,
-        marginHorizontal: 0,
-        maxHeight: 280,
-    },
-    paymentDropdownItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 14,
-        gap: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
-    },
-    paymentDropdownItemActive: {
-        backgroundColor: Colors.surface,
-        borderBottomColor: Colors.surface,
-    },
-    paymentDropdownIcon: {
-        marginRight: 4,
-    },
     checkmarkBadge: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
         backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
@@ -568,11 +564,75 @@ const styles = StyleSheet.create({
         lineHeight: 14,
     },
     paymentIconWrap: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
+        width: 52,
+        height: 52,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    paymentIconLabel: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
+        color: Colors.text,
+        letterSpacing: 0.3,
+    },
+    paymentIconSub: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.muted,
+        lineHeight: 14,
+    },
+    /* Modal Styles */
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: Colors.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '85%',
+        overflow: 'hidden',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    modalTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.lg,
+        color: Colors.text,
+    },
+    modalBody: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    paymentModalOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 14,
+        marginVertical: 8,
+        backgroundColor: Colors.white,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: Colors.border,
+        gap: 14,
+    },
+    paymentModalOptionSelected: {
+        borderColor: Colors.primary,
+        borderWidth: 2,
+        backgroundColor: Colors.primary + '10',
+    },
+    paymentModalContent: {
+        flex: 1,
+        gap: 3,
     },
 
     // ── Wallet balance indicator (small text) ──────────────────────────────
@@ -720,8 +780,8 @@ const styles = StyleSheet.create({
         marginRight: 4,
     },
     checkoutBtnText: {
-        fontFamily: Fonts.brandBlack,
-        fontSize: FontSize.lg,
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
         color: Colors.white,
         letterSpacing: 0.3,
     },

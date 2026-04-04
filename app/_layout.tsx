@@ -1,7 +1,7 @@
 import SplashScreenView from "@/components/SplashScreenView";
 import { Colors } from "@/constants/colors";
 
-// this is the better-auth authentication.
+// Better-auth authentication.
 import { authClient } from "@/lib/auth-client";
 import {
   Nunito_400Regular,
@@ -13,14 +13,20 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 
-// this is the expo splash screen.
+// This is the expo splash screen.
 import * as ExpoSplashScreen from "expo-splash-screen";
+
+// This is for setting the Android navigation bar button colors.
 import * as NavigationBar from "expo-navigation-bar";
 
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { NotificationProvider } from "@/context/NotificationContext";
 import * as Notifications from "expo-notifications";
+import { initSocket } from "@/lib/socket-client";
+import { useSocketStore } from "@/store/useSocketStore";
+import { useSocketOrders } from "@/hooks/useSocketOrders";
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
@@ -34,10 +40,26 @@ Notifications.setNotificationHandler({
 // Keep the native splash visible while we load
 ExpoSplashScreen.preventAutoHideAsync();
 
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // Data stays fresh for 5 minutes
+      gcTime: 1000 * 60 * 15, // Unused data is garbage collected after 15 minutes
+      retry: 2, // Retry failed requests twice before throwing an error
+      refetchOnWindowFocus: false, // Turn off for less aggressive fetching
+    },
+  },
+});
+
 export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
   const [appReady, setAppReady] = useState<boolean>(false);
   const [splashDone, setSplashDone] = useState<boolean>(false);
+  const { setConnected, setConnectionError } = useSocketStore();
+
+  // Start listening to socket events
+  useSocketOrders();
 
   // this is the expo font loader.
   const [fontsLoaded] = useFonts({
@@ -53,6 +75,27 @@ export default function RootLayout() {
       ExpoSplashScreen.hideAsync().then(() => setAppReady(true));
     }
   }, [fontsLoaded]);
+
+  // Initialize socket connection
+  useEffect(() => {
+    if (useSocketStore.getState().isConnected) return;
+    const connectSocket = async () => {
+      try {
+        const socket = await initSocket();
+        console.log(socket.id);
+        setConnected(true);
+        setConnectionError(null);
+      } catch (error) {
+        setConnectionError(
+          error instanceof Error ? error.message : "Connection failed",
+        );
+      }
+    };
+
+    if (session?.user) {
+      connectSocket();
+    }
+  }, [session?.user, setConnected, setConnectionError]);
 
   // Make Android nav bar buttons dark so they're visible on light backgrounds
   useEffect(() => {
@@ -75,21 +118,9 @@ export default function RootLayout() {
   // Show nothing until fonts are ready
   if (!appReady) return null;
 
-  // Create a client
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 1000 * 60 * 5, // Data stays fresh for 5 minutes
-        gcTime: 1000 * 60 * 15, // Unused data is garbage collected after 15 minutes
-        retry: 2, // Retry failed requests twice before throwing an error
-        refetchOnWindowFocus: false, // Turn off for less aggressive fetching
-      },
-    },
-  });
-
   return (
-    <NotificationProvider>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <NotificationProvider>
         <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
           {/* Animated in-app splash on first load */}
           {!splashDone && (
@@ -197,8 +228,8 @@ export default function RootLayout() {
             </Stack.Protected>
           </Stack>
         </View>
-      </QueryClientProvider>
-    </NotificationProvider>
+      </NotificationProvider>
+    </QueryClientProvider>
   );
 }
 const transitionStyles = StyleSheet.create({

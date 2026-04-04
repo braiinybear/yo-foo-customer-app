@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useSearchRestaurants } from "@/hooks/useRestaurantSearch";
 import { router } from "expo-router";
+import { useVegTypeStore } from "@/store/useVegTypeStore";
 const VEG_TYPE_OPTIONS = [
   { id: "VEG", label: "Vegetarian", emoji: "🥦", color: "#10B981" },
   { id: "NON_VEG", label: "Non-Vegetarian", emoji: "🍗", color: "#EF4444" },
@@ -27,7 +28,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedVegType, setSelectedVegType] = useState<string | null>(null);
+  const {selectedVegType, setSelectedVegType: storeSetSelectedVegType} = useVegTypeStore();
   const [minRating, setMinRating] = useState<number | null>(null);
   const [selectedDishId, setSelectedDishId] = useState<string | null>(null);
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
@@ -41,6 +42,23 @@ export default function SearchPage() {
   const [showBestsellersOnly, setShowBestsellersOnly] = useState(false);
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper function to convert API format to store format
+  const apiTypeToStoreType = (apiType: string): "veg" | "non-veg" | "vegan" | null => {
+    if (apiType === "VEG") return "veg";
+    if (apiType === "NON_VEG") return "non-veg";
+    if (apiType === "VEGAN") return "vegan";
+    return null;
+  };
+
+  // Map store vegType ("veg" | "non-veg" | "vegan") to API type ("VEG" | "NON_VEG" | "VEGAN")
+  const vegTypeForAPI = useMemo(() => {
+    if (!selectedVegType) return null;
+    if (selectedVegType === "veg") return "VEG";
+    if (selectedVegType === "non-veg") return "NON_VEG";
+    if (selectedVegType === "vegan") return "VEGAN";
+    return null;
+  }, [selectedVegType]);
 
   // Debounce search query - only update after user stops typing
   useEffect(() => {
@@ -63,7 +81,7 @@ export default function SearchPage() {
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
     useSearchRestaurants({
       query: debouncedSearchQuery,
-      type: selectedVegType as any,
+      type: vegTypeForAPI as any,
       minRating: minRating ?? undefined,
       page: 1,
       limit: 5,
@@ -339,11 +357,11 @@ export default function SearchPage() {
               <View style={styles.resultsHeader}>
                 <Text style={styles.resultsCount}>
                   {restaurantResults.length}{" "}
-                  {selectedVegType === "VEG"
+                  {selectedVegType === "veg"
                     ? "Vegetarian"
-                    : selectedVegType === "NON_VEG"
+                    : selectedVegType === "non-veg"
                       ? "Non-Vegetarian"
-                      : selectedVegType === "VEGAN"
+                      : selectedVegType === "vegan"
                         ? "Vegan"
                         : ""}{" "}
                   restaurants
@@ -357,7 +375,7 @@ export default function SearchPage() {
                   prepTimeRange) && (
                   <TouchableOpacity
                     onPress={() => {
-                      setSelectedVegType(null);
+                      storeSetSelectedVegType(null);
                       setMinRating(null);
                       setSortBy(null);
                       setShowBestsellersOnly(false);
@@ -417,25 +435,25 @@ export default function SearchPage() {
                       key={option.id}
                       style={[
                         styles.filterOption,
-                        selectedVegType === option.id && {
+                        selectedVegType === apiTypeToStoreType(option.id) && {
                           backgroundColor: option.color,
                           borderColor: option.color,
                         },
                       ]}
-                      onPress={() => setSelectedVegType(option.id)}
+                      onPress={() => storeSetSelectedVegType(apiTypeToStoreType(option.id) as any)}
                     >
                       <Text style={styles.optionEmoji}>{option.emoji}</Text>
                       <Text
                         style={[
                           styles.optionLabel,
-                          selectedVegType === option.id && {
+                          selectedVegType === apiTypeToStoreType(option.id) && {
                             color: Colors.white,
                           },
                         ]}
                       >
                         {option.label}
                       </Text>
-                      {selectedVegType === option.id && (
+                      {selectedVegType === apiTypeToStoreType(option.id) && (
                         <Ionicons
                           name="checkmark-circle"
                           size={20}
@@ -643,7 +661,7 @@ export default function SearchPage() {
               <TouchableOpacity
                 style={styles.resetButton}
                 onPress={() => {
-                  setSelectedVegType(null);
+                  storeSetSelectedVegType(null);
                   setMinRating(null);
                   setSortBy(null);
                   setSortOrder("asc");

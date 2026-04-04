@@ -3,6 +3,7 @@ import { Fonts, FontSize } from "@/constants/typography";
 import { getPlaceholderImage } from "@/constants/images";
 import { useRestaurantDetail } from "@/hooks/useRestaurants";
 import { useCartStore } from "@/store/useCartStore";
+import { useVegTypeStore } from "@/store/useVegTypeStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -24,6 +25,7 @@ export default function RestaurantDetailScreen() {
     const insets = useSafeAreaInsets();
     const { data: restaurant, isPending, error, refetch } = useRestaurantDetail(id);
     const { addItem, items, updateQuantity, totalAmount } = useCartStore();
+    const { selectedVegType } = useVegTypeStore();
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -32,6 +34,28 @@ export default function RestaurantDetailScreen() {
         await refetch();
         setRefreshing(false);
     }, [refetch]);
+
+    // Helper function to convert store format to API format
+    const storeTypeToAPIType = (storeType: string | null): string | null => {
+        if (storeType === "veg") return "VEG";
+        if (storeType === "non-veg") return "NON_VEG";
+        if (storeType === "vegan") return "VEGAN";
+        return null;
+    };
+
+    // Helper function to check if an item matches the selected veg type
+    const matchesVegType = (itemType: string | null): boolean => {
+        if (!selectedVegType) return true;
+        if (!itemType) return false;
+        
+        // For non-veg, show both non-veg and vegetarian items
+        if (selectedVegType === "non-veg") {
+            return itemType === "NON_VEG" || itemType === "VEG";
+        }
+        
+        // For veg and vegan, show only vegetarian items
+        return itemType === "VEG";
+    };
 
     const cartCount = items.length;
     const cartTotal = totalAmount;
@@ -239,13 +263,31 @@ export default function RestaurantDetailScreen() {
                 })()}
 
                 <View style={styles.menuContainer}>
-                    {reorderedCategories.map((category) => (
+                    {reorderedCategories.map((category) => {
+                        // Filter items by veg type
+                        const filteredItems = category.items.filter((item: MenuItem) => matchesVegType(item.type));
+                        
+                        // Sort items: when non-veg is selected, show non-veg first, then veg
+                        const sortedItems = filteredItems.sort((a: MenuItem, b: MenuItem) => {
+                            if (selectedVegType === "non-veg") {
+                                // Non-veg first, then veg
+                                if (a.type === "NON_VEG" && b.type === "VEG") return -1;
+                                if (a.type === "VEG" && b.type === "NON_VEG") return 1;
+                            }
+                            // For vegan/veg, no special sorting needed as they're all VEG
+                            return 0;
+                        });
+                        
+                        // Don't show category if no items match the filter
+                        if (sortedItems.length === 0) return null;
+
+                        return (
                         <View key={category.id} style={styles.categorySection}>
                             <Text style={styles.categoryTitle}>
-                                {category.name} ({category.items.length})
+                                {category.name} ({sortedItems.length})
                             </Text>
 
-                            {category.items.map((item: MenuItem) => {
+                            {sortedItems.map((item: MenuItem) => {
                                 const cartItem = items.find((i) => i.id === item.id);
                                 return (
                                     <View key={item.id} style={styles.menuItem}>
@@ -313,7 +355,8 @@ export default function RestaurantDetailScreen() {
                                 );
                             })}
                         </View>
-                    ))}
+                        );
+                    })}
                 </View>
                 <View style={{ height: 120 }} />
             </ScrollView>
