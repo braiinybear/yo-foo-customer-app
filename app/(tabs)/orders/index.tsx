@@ -234,7 +234,7 @@ export default function OrderHistoryScreen() {
                             const isActive = pageNum === page;
                             return (
                                 <TouchableOpacity
-                                    key={pageNum}
+                                    key={`pagination-bubble-${pageNum}`}
                                     onPress={() => {
                                         setPage(pageNum);
                                         setAllOrders([]); // Reset orders when changing page
@@ -303,7 +303,7 @@ export default function OrderHistoryScreen() {
                     </>
                 }
                 data={allOrders}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => `${item.id}-${item.placedAt}-${index}`}
                 renderItem={({ item }) => <PastOrderItem item={item} />}
                 contentContainerStyle={uiStyles.listContent}
                 refreshControl={
@@ -339,13 +339,7 @@ export default function OrderHistoryScreen() {
                                 const isActive = pageNum === page;
                                 return (
                                     <TouchableOpacity
-                                        key={pageNum}
-                                        onPress={() => {
-                                            setPage(pageNum);
-                                            setAllOrders([]); // Reset orders when changing page
-                                        }}
-                                        disabled={historyLoading}
-                                        style={[
+                                    key={`pagination-bubble-empty-${pageNum}`}
                                             uiStyles.bubbleButton,
                                             {
                                                 backgroundColor: isActive ? Colors.primary : Colors.surface,

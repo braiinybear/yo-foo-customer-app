@@ -89,7 +89,12 @@ export const useCartStore = create<CartState>()(
                 });
             },
 
-            clearCart: () => set({ items: [], restaurantId: null, totalAmount: 0 }),
+            clearCart: () => {
+                // Clear state
+                set({ items: [], restaurantId: null, totalAmount: 0 });
+                // Explicitly remove from SecureStore to ensure complete cleanup
+                secureStorage.removeItem('food-cart-storage').catch(console.error);
+            },
         }),
         {
             name: 'food-cart-storage',

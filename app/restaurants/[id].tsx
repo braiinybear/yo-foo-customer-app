@@ -17,6 +17,7 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Alert,
 } from "react-native";
 import { MenuCategory, MenuItem } from "@/types/restaurants";
 
@@ -34,6 +35,28 @@ export default function RestaurantDetailScreen() {
         await refetch();
         setRefreshing(false);
     }, [refetch]);
+
+    const handleClearCart = useCallback(() => {
+        Alert.alert(
+            'Clear Cart',
+            'Are you sure you want to remove all items from your cart?',
+            [
+                {
+                    text: 'Cancel',
+                    onPress: () => {},
+                    style: 'cancel',
+                },
+                {
+                    text: 'Clear',
+                    onPress: () => {
+                        useCartStore.setState({ items: [] });
+                    },
+                    style: 'destructive',
+                },
+            ],
+            { cancelable: false }
+        );
+    }, []);
 
     // Helper function to convert store format to API format
     const storeTypeToAPIType = (storeType: string | null): string | null => {
@@ -374,23 +397,26 @@ export default function RestaurantDetailScreen() {
                                     <Image
                                         key={item.id}
                                         source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
-                                        style={[styles.cartItemImage, { marginLeft: index * -12 }]}
+                                        style={[styles.cartItemImage, { marginLeft: index * -10 }]}
                                     />
                                 ))}
-                                {cartCount > 3 && (
-                                    <View style={[styles.cartItemImageMore, { marginLeft: -12 }]}>
-                                        <Text style={styles.cartMoreText}>+{cartCount - 3}</Text>
-                                    </View>
-                                )}
                             </View>
                             <View style={styles.cartTextSection}>
-                                <Text style={styles.cartCountText}>{cartCount} {cartCount === 1 ? 'ITEM' : 'ITEMS'}</Text>
+                                <Text style={styles.cartCountText}>{cartCount} ITEMS</Text>
                                 <Text style={styles.cartTotalText}>₹{cartTotal}<Text style={styles.cartTaxText}> + tax</Text></Text>
                             </View>
                         </View>
-                        <View style={styles.viewCartAction}>
-                            <Text style={styles.viewCartText}>View Cart</Text>
-                            <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+                        <View style={styles.cartActions}>
+                            <TouchableOpacity 
+                                style={styles.clearCartBtn}
+                                onPress={handleClearCart}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="trash-outline" size={18} color={Colors.white} />
+                            </TouchableOpacity>
+                            <View style={styles.viewCartAction}>
+                                <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+                            </View>
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -746,8 +772,8 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
         borderRadius: 16,
         shadowColor: Colors.success,
         shadowOffset: { width: 0, height: 6 },
@@ -758,27 +784,27 @@ const styles = StyleSheet.create({
     cartContentLeft: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
+        gap: 6,
         flex: 1,
     },
     cartItemImagesContainer: {
         flexDirection: "row",
         alignItems: "center",
-        width: 90,
+        width: 95,
         height: 50,
     },
     cartItemImage: {
-        width: 45,
-        height: 45,
-        borderRadius: 22,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         borderWidth: 2,
         borderColor: Colors.white,
         resizeMode: "cover",
     },
     cartItemImageMore: {
-        width: 45,
-        height: 45,
-        borderRadius: 22,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         backgroundColor: "rgba(255, 255, 255, 0.35)",
         borderWidth: 2,
         borderColor: Colors.white,
@@ -792,32 +818,52 @@ const styles = StyleSheet.create({
     },
     cartTextSection: {
         flex: 1,
+        marginLeft: 10,
+        justifyContent: "space-between",
     },
     cartCountText: {
         fontFamily: Fonts.brandBold,
-        fontSize: 14,
-        color: Colors.white,
-        lineHeight: 18,
-    },
-    cartTotalText: {
-        fontFamily: Fonts.brandBold,
-        fontSize: 13,
+        fontSize: 12,
         color: Colors.white,
         lineHeight: 16,
+        textTransform: "uppercase",
+        letterSpacing: 0.3,
+    },
+    cartTotalText: {
+        fontFamily: Fonts.brandBlack,
+        fontSize: 15,
+        color: Colors.white,
+        lineHeight: 18,
     },
     cartTaxText: {
         fontFamily: Fonts.brand,
         fontSize: 11,
         opacity: 0.8,
     },
+    cartActions: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    clearCartBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: "rgba(255, 255, 255, 0.25)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
     viewCartAction: {
         flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
         gap: 6,
         backgroundColor: "rgba(255, 255, 255, 0.2)",
-        paddingHorizontal: 12,
+        paddingHorizontal: 10,
         paddingVertical: 8,
         borderRadius: 10,
+        width: 40,
+        height: 36,
     },
     viewCartText: {
         fontFamily: Fonts.brandBold,
