@@ -23,9 +23,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { NotificationProvider } from "@/context/NotificationContext";
 import * as Notifications from "expo-notifications";
-import { initSocket } from "@/lib/socket-client";
-import { useSocketStore } from "@/store/useSocketStore";
-import { useSocketOrders } from "@/hooks/useSocketOrders";
+import { User } from "@/types/user";
+import { SocketProvider } from "@/context/SocketContext";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -40,7 +39,7 @@ Notifications.setNotificationHandler({
 // Keep the native splash visible while we load
 ExpoSplashScreen.preventAutoHideAsync();
 
-// Create a client
+// Create a client outside the component to prevent re-instantiation
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -54,14 +53,9 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
-  const [appReady, setAppReady] = useState<boolean>(false);
   const [splashDone, setSplashDone] = useState<boolean>(false);
-  const { setConnected, setConnectionError } = useSocketStore();
 
-  // Start listening to socket events
-  useSocketOrders();
-
-  // this is the expo font loader.
+  // Font loading
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
@@ -69,33 +63,15 @@ export default function RootLayout() {
     Nunito_900Black,
   });
 
-  // Hide native splash and mark app ready once fonts are loaded
-  useEffect(() => {
-    if (fontsLoaded) {
-      ExpoSplashScreen.hideAsync().then(() => setAppReady(true));
-    }
-  }, [fontsLoaded]);
+  // Combined readiness check
+  const isAppReady = fontsLoaded;
 
-  // Initialize socket connection
-  useEffect(() => {
-    if (useSocketStore.getState().isConnected) return;
-    const connectSocket = async () => {
-      try {
-        const socket = await initSocket();
-        console.log(socket.id);
-        setConnected(true);
-        setConnectionError(null);
-      } catch (error) {
-        setConnectionError(
-          error instanceof Error ? error.message : "Connection failed",
-        );
-      }
-    };
-
-    if (session?.user) {
-      connectSocket();
+  // Hide splash screen when app is ready
+  const onLayoutRootView = useCallback(async () => {
+    if (isAppReady) {
+      await ExpoSplashScreen.hideAsync();
     }
-  }, [session?.user, setConnected, setConnectionError]);
+  }, [isAppReady]);
 
   // Make Android nav bar buttons dark so they're visible on light backgrounds
   useEffect(() => {
@@ -104,134 +80,129 @@ export default function RootLayout() {
     }
   }, []);
 
-  const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
-      await ExpoSplashScreen.hideAsync();
-      setAppReady(true);
-    }
-  }, [fontsLoaded]);
+  // Show nothing until fonts are ready
+  if (!isAppReady) return null;
 
-  // Boolean helpers — make Stack.Protected guards readable
   const isLoggedIn = !isPending && !!session;
   const isLoggedOut = !isPending && !session;
-
-  // Show nothing until fonts are ready
-  if (!appReady) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
-        <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-          {/* Animated in-app splash on first load */}
-          {!splashDone && (
-            <SplashScreenView onFinish={() => setSplashDone(true)} />
-          )}
+        <SocketProvider user={session?.user as User | undefined}>
+          <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+            {/* Animated in-app splash on first load */}
+            {!splashDone && (
+              <SplashScreenView onFinish={() => setSplashDone(true)} />
+            )}
 
-          {/* Instant solid overlay during auth state transitions — no fade-in so no black flash */}
-          {splashDone && isPending && (
-            <View style={transitionStyles.overlay}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-            </View>
-          )}
+            {/* Transition overlay during auth state transitions */}
+            {splashDone && isPending && (
+              <View style={transitionStyles.overlay}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+              </View>
+            )}
 
-          <Stack>
-            {/* Only accessible when not logged in */}
-            <Stack.Protected guard={isLoggedOut}>
-              <Stack.Screen
-                name="(auth)/login"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="(auth)/register"
-                options={{ headerShown: false }}
-              />
-            </Stack.Protected>
+            <Stack>
+              {/* Only accessible when not logged in */}
+              <Stack.Protected guard={isLoggedOut}>
+                <Stack.Screen
+                  name="(auth)/login"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="(auth)/register"
+                  options={{ headerShown: false }}
+                />
+              </Stack.Protected>
 
-            {/* Only accessible when logged in */}
-            <Stack.Protected guard={isLoggedIn}>
-              <Stack.Screen
-                name="(tabs)"
-                options={{
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="profile"
-                options={{
-                  headerShown: true,
-                  headerTitle: "Profile",
-                  headerTintColor: "#fff",
-                  headerStyle: {
-                    backgroundColor: Colors.primary,
-                  },
-                  headerTitleAlign: "center",
-                  headerTitleStyle: {
-                    color: "#fff",
-                  },
-                }}
-              />
-              <Stack.Screen
-                name="wallet"
-                options={{
-                  headerShown: true,
-                  headerTitle: "Wallet",
-                  headerTintColor: "#fff",
-                  headerStyle: {
-                    backgroundColor: Colors.primary,
-                  },
-                  headerTitleAlign: "center",
-                  headerTitleStyle: {
-                    color: "#fff",
-                  },
-                }}
-              />
-              <Stack.Screen
-                name="search"
-                options={{
-                  headerShown: false,
-                  headerTitle: "Search",
-                }}
-              />
-              <Stack.Screen
-                name="restaurants"
-                options={{
-                  headerShown: false,
-                  headerTitle: "Restaurants",
-                }}
-              />
-              <Stack.Screen
-                name="checkout"
-                options={{
-                  headerShown: true,
-                  headerTintColor: "#fff",
-                  headerStyle: {
-                    backgroundColor: Colors.primary,
-                  },
-                  headerTitleStyle: {
-                    color: "#fff",
-                  },
-                }}
-              />
-              <Stack.Screen
-                name="animation"
-                options={{
-                  headerShown: false,
-                  headerTintColor: "#fff",
-                  headerStyle: {
-                    backgroundColor: Colors.primary,
-                  },
-                  headerTitleStyle: {
-                    color: "#fff",
-                  },
-                }}
-              />
-            </Stack.Protected>
-          </Stack>
-        </View>
+              {/* Only accessible when logged in */}
+              <Stack.Protected guard={isLoggedIn}>
+                <Stack.Screen
+                  name="(tabs)"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="profile"
+                  options={{
+                    headerShown: true,
+                    headerTitle: "Profile",
+                    headerTintColor: "#fff",
+                    headerStyle: {
+                      backgroundColor: Colors.primary,
+                    },
+                    headerTitleAlign: "center",
+                    headerTitleStyle: {
+                      color: "#fff",
+                    },
+                  }}
+                />
+                <Stack.Screen
+                  name="wallet"
+                  options={{
+                    headerShown: true,
+                    headerTitle: "Wallet",
+                    headerTintColor: "#fff",
+                    headerStyle: {
+                      backgroundColor: Colors.primary,
+                    },
+                    headerTitleAlign: "center",
+                    headerTitleStyle: {
+                      color: "#fff",
+                    },
+                  }}
+                />
+                <Stack.Screen
+                  name="search"
+                  options={{
+                    headerShown: false,
+                    headerTitle: "Search",
+                  }}
+                />
+                <Stack.Screen
+                  name="restaurants"
+                  options={{
+                    headerShown: false,
+                    headerTitle: "Restaurants",
+                  }}
+                />
+                <Stack.Screen
+                  name="checkout"
+                  options={{
+                    headerShown: true,
+                    headerTintColor: "#fff",
+                    headerStyle: {
+                      backgroundColor: Colors.primary,
+                    },
+                    headerTitleStyle: {
+                      color: "#fff",
+                    },
+                  }}
+                />
+                <Stack.Screen
+                  name="animation"
+                  options={{
+                    headerShown: false,
+                    headerTintColor: "#fff",
+                    headerStyle: {
+                      backgroundColor: Colors.primary,
+                    },
+                    headerTitleStyle: {
+                      color: "#fff",
+                    },
+                  }}
+                />
+              </Stack.Protected>
+            </Stack>
+          </View>
+        </SocketProvider>
       </NotificationProvider>
     </QueryClientProvider>
   );
 }
+
 const transitionStyles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,

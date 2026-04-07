@@ -1,10 +1,15 @@
 export type OrderStatus =
+    "ACCEPTED"
     | "PLACED"
     | "CONFIRMED"
     | "PREPARING"
-    | "OUT_FOR_DELIVERY"
+    | "ON_THE_WAY"
     | "DELIVERED"
-    | "CANCELLED";
+    | "CANCELLED"
+    | "REFUSED"
+    |   "READY"
+   | "PICKED_UP"
+
 
 export interface OrderItem {
     id: string;

@@ -5,7 +5,7 @@ import {
   UpdatePushTokenRequest,
   UpdatePushTokenResponse,
 } from "@/types/notifications";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 export const registerPushToken = async (
   body: RegisterPushTokenRequest,
@@ -52,5 +52,19 @@ export const useUpdatePushToken = () => {
     onError: () => {
       console.log("❌ Failed to update push token");
     },
+  });
+};
+
+export const getPushToken = async (): Promise<{ pushToken: string } | null> => {
+  const { data } = await apiClient.get("/api/notifications/push-token");
+  return data;
+};
+
+export const useGetPushToken = () => {
+  return useQuery({
+    queryKey: ["pushToken"],
+    queryFn: getPushToken,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30,    // 30 minutes
   });
 };

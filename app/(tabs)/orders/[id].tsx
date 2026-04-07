@@ -5,12 +5,15 @@ import {
     StyleSheet,
     ScrollView,
     ActivityIndicator,
-    TouchableOpacity,
+    TouchableOpacity
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useOrderDetail } from '@/hooks/useOrders';
+import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
+import { useOrderTracking, useSocketOrders } from '@/hooks/useSocketOrders';
+import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { OrderStatus } from '@/types/orders';
@@ -24,8 +27,8 @@ function statusConfig(status: OrderStatus) {
             return { color: '#6A1B9A', bg: '#F3E5F5', icon: 'checkmark-done-outline' as const, label: 'Confirmed' };
         case 'PREPARING':
             return { color: '#E65100', bg: '#FFF3E0', icon: 'restaurant-outline' as const, label: 'Preparing' };
-        case 'OUT_FOR_DELIVERY':
-            return { color: '#00838F', bg: '#E0F7FA', icon: 'bicycle-outline' as const, label: 'Out for Delivery' };
+        case 'ON_THE_WAY':
+            return { color: '#00838F', bg: '#E0F7FA', icon: 'bicycle-outline' as const, label: 'On the Way' };
         case 'DELIVERED':
             return { color: '#2E7D32', bg: '#E8F5E9', icon: 'checkmark-circle-outline' as const, label: 'Delivered' };
         case 'CANCELLED':
@@ -87,6 +90,15 @@ export default function OrderDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const { data: order, isLoading, isError, refetch } = useOrderDetail(id ?? '');
+    
+    // ✅ Register socket event listeners (new_order, order_status_update, driver_assigned)
+    useSocketOrders();
+    
+    // ✅ Join/leave socket room for this specific order
+    useOrderTracking(id ?? null);
+    
+    // ✅ Subscribe to real-time status updates with fallback polling
+    const { realTimeStatus, isUpdating, isFallbackPolling, connectionStatus } = useOrderRealTimeUpdate(id);
 
     // ── Loading ───────────────────────────────────────────────────────────────
     if (isLoading) {
@@ -111,7 +123,11 @@ export default function OrderDetailScreen() {
         );
     }
 
-    const sc = statusConfig(order.status);
+    // Use real-time status if available, otherwise use order data
+    const displayStatus: OrderStatus = (realTimeStatus as OrderStatus) || order.status;
+    const showDeliveryOtp =
+        !!order.otp && ['PICKED_UP', 'ON_THE_WAY'].includes(displayStatus);
+    const sc = statusConfig(displayStatus);
     const placedDate = new Date(order.placedAt).toLocaleString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true,
@@ -129,13 +145,44 @@ export default function OrderDetailScreen() {
                         <Ionicons name={sc.icon} size={28} color={sc.color} />
                     </View>
                     <View style={styles.statusTextBlock}>
-                        <Text style={[styles.statusLabel, { color: sc.color }]}>{sc.label}</Text>
+                        <View style={styles.statusLabelRow}>
+                            <Text style={[styles.statusLabel, { color: sc.color }]}>{sc.label}</Text>
+                            {isUpdating && (
+                                <View style={styles.updateBadge}>
+                                    <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+                                    <Text style={styles.updateBadgeText}>Updated</Text>
+                                </View>
+                            )}
+                            {isFallbackPolling && connectionStatus === 'polling' && (
+                                <View style={styles.pollingBadge}>
+                                    <Ionicons name="reload-circle" size={16} color={Colors.warning} />
+                                    <Text style={styles.pollingBadgeText}>Polling</Text>
+                                </View>
+                            )}
+                        </View>
                         <Text style={styles.statusOrderId} numberOfLines={1}>
                             #{order.id.slice(-10).toUpperCase()}
                         </Text>
                         <Text style={styles.statusDate}>{placedDate}</Text>
                     </View>
                 </View>
+
+                {/* ── ORDER PROGRESS BAR ──────────────────────────────── */}
+                <View style={{ paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16 }}>
+                  <CustomerOrderProgressBar
+                    status={displayStatus}
+                    size="large"
+                  />
+                </View>
+
+                {showDeliveryOtp && (
+                    <SectionCard title="Delivery OTP" icon="key-outline">
+                        <Text style={styles.otpValue}>{order.otp}</Text>
+                        <Text style={styles.otpHint}>
+                            Share this OTP with your rider only after the order reaches you.
+                        </Text>
+                    </SectionCard>
+                )}
 
                 {/* ── Restaurant ───────────────────────────────────────── */}
                 <SectionCard title="Restaurant" icon="restaurant-outline">
@@ -335,9 +382,16 @@ const styles = StyleSheet.create({
         flex: 1,
         gap: 3,
     },
+    statusLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+    },
     statusLabel: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
+        flex: 1,
     },
     statusOrderId: {
         fontFamily: Fonts.brandMedium,
@@ -349,6 +403,46 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
         color: Colors.muted,
+    },
+    updateBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: Colors.success + '15',
+        borderRadius: 6,
+    },
+    updateBadgeText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.xs,
+        color: Colors.success,
+    },
+    pollingBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: Colors.warning + '18',
+        borderRadius: 6,
+    },
+    pollingBadgeText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.xs,
+        color: Colors.warning,
+    },
+    otpValue: {
+        fontFamily: Fonts.brandBlack,
+        fontSize: 32,
+        color: Colors.primary,
+        letterSpacing: 8,
+    },
+    otpHint: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.sm,
+        color: Colors.textSecondary,
+        lineHeight: 20,
     },
 
     // ── Section Card ───────────────────────────────────────────────────────

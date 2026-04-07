@@ -8,33 +8,50 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     RefreshControl,
-    SectionList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCurrentOrder, useOrders } from '@/hooks/useOrders';
+import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
+import { useSocketStore } from '@/store/useSocketStore';
 import { Colors } from '@/constants/colors';
-import { Fonts, FontSize } from '@/constants/typography';
+import { Fonts, FontSize } from '@/constants/typography';   
 import { Ionicons } from '@expo/vector-icons';
 import { getPlaceholderImage } from '@/constants/images';
+import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { UserOrder, OrderStatus, CurrentOrder } from '@/types/orders';
 
 const StatusBadge = ({ status }: { status: OrderStatus }) => {
     const getStatusStyles = () => {
         switch (status) {
-            case 'DELIVERED':
-                return { bg: '#E8F5E9', text: '#2E7D32', icon: 'checkmark-circle' as const };
-            case 'CANCELLED':
-                return { bg: '#FFEBEE', text: '#C62828', icon: 'close-circle' as const };
             case 'PLACED':
-                return { bg: '#E3F2FD', text: '#1565C0', icon: 'time' as const };
-            case 'CONFIRMED':
-                return { bg: '#FCE4EC', text: '#C2185B', icon: 'checkmark' as const };
+                return { bg: '#E3F2FD', text: '#1565C0', icon: 'time-outline' as const };
+
+            case 'ACCEPTED':
+                return { bg: '#E8F5E9', text: '#2E7D32', icon: 'checkmark-done-outline' as const };
+
             case 'PREPARING':
-                return { bg: '#FFF3E0', text: '#EF6C00', icon: 'restaurant' as const };
-            case 'OUT_FOR_DELIVERY':
-                return { bg: '#E0F2F1', text: '#00796B', icon: 'bicycle' as const };
+                return { bg: '#FFF3E0', text: '#EF6C00', icon: 'restaurant-outline' as const };
+
+            case 'READY':
+                return { bg: '#E0F7FA', text: '#00838F', icon: 'cube-outline' as const };
+
+            case 'PICKED_UP':
+                return { bg: '#F3E5F5', text: '#6A1B9A', icon: 'bag-handle-outline' as const };
+
+            case 'ON_THE_WAY':
+                return { bg: '#E0F2F1', text: '#00796B', icon: 'bicycle-outline' as const };
+
+            case 'DELIVERED':
+                return { bg: '#E8F5E9', text: '#1B5E20', icon: 'checkmark-circle-outline' as const };
+
+            case 'CANCELLED':
+                return { bg: '#FFEBEE', text: '#C62828', icon: 'close-circle-outline' as const };
+
+            case 'REFUSED':
+                return { bg: '#FBE9E7', text: '#D84315', icon: 'alert-circle-outline' as const };
+
             default:
-                return { bg: '#FFF3E0', text: '#EF6C00', icon: 'restaurant' as const };
+                return { bg: '#ECEFF1', text: '#37474F', icon: 'help-circle-outline' as const };
         }
     };
 
@@ -43,13 +60,19 @@ const StatusBadge = ({ status }: { status: OrderStatus }) => {
     return (
         <View style={[uiStyles.badgeContainer, { backgroundColor: styles.bg }]}>
             <Ionicons name={styles.icon} size={14} color={styles.text} />
-            <Text style={[uiStyles.badgeText, { color: styles.text }]}>{status}</Text>
+            <Text style={[uiStyles.badgeText, { color: styles.text }]}>
+                {status.replace(/_/g, ' ')}
+            </Text>
         </View>
     );
 };
 
-const CurrentOrderCard = ({ order, onPress }: { order: CurrentOrder | undefined; onPress: () => void }) => {
+const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallbackPolling, connectionStatus }: { order: CurrentOrder | undefined; onPress: () => void; realtimeStatus?: string | null; isUpdating?: boolean; isFallbackPolling?: boolean; connectionStatus?: string }) => {
     if (!order) return null;
+
+    const displayStatus: OrderStatus = (realtimeStatus as OrderStatus) || order.status;
+    const showDeliveryOtp =
+        !!order.otp && ['PICKED_UP', 'ON_THE_WAY'].includes(displayStatus);
 
     const date = new Date(order.placedAt).toLocaleDateString('en-IN', {
         day: 'numeric',
@@ -64,7 +87,21 @@ const CurrentOrderCard = ({ order, onPress }: { order: CurrentOrder | undefined;
                     <Ionicons name="flash" size={16} color={Colors.white} />
                     <Text style={uiStyles.currentOrderBadgeText}>Active Order</Text>
                 </View>
-                <StatusBadge status={order.status} />
+                <View style={uiStyles.statusRow}>
+                    <StatusBadge status={displayStatus} />
+                    {isUpdating && connectionStatus === 'connected' && (
+                        <View style={uiStyles.liveIndicator}>
+                            <Ionicons name="radio-button-on" size={10} color={Colors.success} />
+                            <Text style={uiStyles.liveText}>Live</Text>
+                        </View>
+                    )}
+                    {isFallbackPolling && connectionStatus === 'polling' && (
+                        <View style={uiStyles.pollingIndicator}>
+                            <Ionicons name="reload-circle" size={10} color={Colors.warning} />
+                            <Text style={uiStyles.pollingText}>Polling</Text>
+                        </View>
+                    )}
+                </View>
             </View>
 
             <View style={uiStyles.currentOrderContent}>
@@ -112,6 +149,19 @@ const CurrentOrderCard = ({ order, onPress }: { order: CurrentOrder | undefined;
                         <TouchableOpacity style={uiStyles.callBtn}>
                             <Ionicons name="call" size={18} color={Colors.white} />
                         </TouchableOpacity>
+                    </View>
+                )}
+
+                {showDeliveryOtp && (
+                    <View style={uiStyles.otpCard}>
+                        <View style={uiStyles.otpHeader}>
+                            <Ionicons name="key-outline" size={18} color={Colors.primary} />
+                            <Text style={uiStyles.otpTitle}>Delivery OTP</Text>
+                        </View>
+                        <Text style={uiStyles.otpValue}>{order.otp}</Text>
+                        <Text style={uiStyles.otpHint}>
+                            Share this OTP with your rider only when the order reaches you.
+                        </Text>
                     </View>
                 )}
 
@@ -181,6 +231,15 @@ export default function OrderHistoryScreen() {
 
     const { data: currentOrder, isLoading: currentLoading } = useCurrentOrder();
     const { data: ordersData, isLoading: historyLoading, refetch } = useOrders(page, limit);
+    
+    // Get real-time status from socket store AND fallback polling support
+    const socketStore = useSocketStore();
+    const realtimeStatus = currentOrder ? socketStore.orderUpdates[currentOrder.id]?.status : null;
+    const isUpdating = !!realtimeStatus && realtimeStatus !== currentOrder?.status;
+    
+    // Get fallback polling and connection status
+    // Note: For orders list, we indicate if CURRENT order is being polled
+    const { isFallbackPolling, connectionStatus } = useOrderRealTimeUpdate(currentOrder?.id ?? null);
 
     const meta = ordersData?.meta;
 
@@ -193,7 +252,7 @@ export default function OrderHistoryScreen() {
                 setAllOrders(prev => [...prev, ...ordersData.data]);
             }
         }
-    }, [ordersData]);
+    }, [ordersData, page]);
 
     const isLoading = currentLoading || (historyLoading && page === 1);
 
@@ -291,6 +350,10 @@ export default function OrderHistoryScreen() {
                                 <CurrentOrderCard
                                     order={currentOrder}
                                     onPress={() => router.push(`/(tabs)/orders/${currentOrder.id}`)}
+                                    realtimeStatus={realtimeStatus}
+                                    isUpdating={isUpdating}
+                                    isFallbackPolling={isFallbackPolling}
+                                    connectionStatus={connectionStatus}
                                 />
                             </>
                         )}
@@ -339,7 +402,8 @@ export default function OrderHistoryScreen() {
                                 const isActive = pageNum === page;
                                 return (
                                     <TouchableOpacity
-                                    key={`pagination-bubble-empty-${pageNum}`}
+                                        key={`pagination-bubble-empty-${pageNum}`}
+                                        style={[
                                             uiStyles.bubbleButton,
                                             {
                                                 backgroundColor: isActive ? Colors.primary : Colors.surface,
@@ -444,6 +508,43 @@ const uiStyles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
+    statusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    liveIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: Colors.success + '15',
+        borderRadius: 6,
+    },
+    liveText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 10,
+        color: Colors.success,
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+    },
+    pollingIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: Colors.warning + '18',
+        borderRadius: 6,
+    },
+    pollingText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 10,
+        color: Colors.warning,
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+    },
     currentOrderContent: {
         padding: 16,
         gap: 14,
@@ -541,6 +642,36 @@ const uiStyles = StyleSheet.create({
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
         color: Colors.muted,
+    },
+    otpCard: {
+        backgroundColor: '#FFF8E8',
+        borderWidth: 1,
+        borderColor: Colors.secondary + '55',
+        borderRadius: 12,
+        padding: 12,
+        gap: 6,
+    },
+    otpHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    otpTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.sm,
+        color: Colors.text,
+    },
+    otpValue: {
+        fontFamily: Fonts.brandBlack,
+        fontSize: 28,
+        color: Colors.primary,
+        letterSpacing: 6,
+    },
+    otpHint: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.textSecondary,
+        lineHeight: 18,
     },
     callBtn: {
         backgroundColor: Colors.primary,
