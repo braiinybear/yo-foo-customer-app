@@ -174,7 +174,7 @@ const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallba
     );
 };
 
-const PastOrderItem = ({ item }: { item: UserOrder }) => {
+const PastOrderItem = ({ item, onPress }: { item: UserOrder; onPress: () => void }) => {
     const date = new Date(item.placedAt).toLocaleDateString('en-IN', {
         day: 'numeric',
         month: 'short',
@@ -185,6 +185,7 @@ const PastOrderItem = ({ item }: { item: UserOrder }) => {
         <TouchableOpacity
             style={uiStyles.card}
             activeOpacity={0.7}
+            onPress={onPress}
         >
             <View style={uiStyles.cardHeader}>
                 <View style={uiStyles.restaurantInfo}>
@@ -367,7 +368,7 @@ export default function OrderHistoryScreen() {
                 }
                 data={allOrders}
                 keyExtractor={(item, index) => `${item.id}-${item.placedAt}-${index}`}
-                renderItem={({ item }) => <PastOrderItem item={item} />}
+                renderItem={({ item }) => <PastOrderItem item={item} onPress={() => router.push(`/(tabs)/orders/${item.id}`)} />}
                 contentContainerStyle={uiStyles.listContent}
                 refreshControl={
                     <RefreshControl 

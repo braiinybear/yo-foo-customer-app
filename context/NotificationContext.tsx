@@ -14,6 +14,7 @@ import {
   useRegisterPushToken,
   useUpdatePushToken,
 } from "@/hooks/useExpoPushNotication";
+import { router } from "expo-router";
 
 interface NotificationContextType {
   pushToken: string | null;
@@ -106,16 +107,25 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         console.log("Notification received app is running:", notification);
         setNotification(notification);
       });
+
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log(
-          JSON.stringify(response.notification.request.content.data, null, 2),
-        );
-        console.log(
-          "Notification response received user interacts with notifications:",
-          JSON.stringify(response, null, 2),
-          response,
-        );
+        const data = response.notification.request.content.data;
+        const orderId = data?.orderId as string | undefined;
+
+        console.log("📲 User tapped notification, orderId:", orderId);
+
+        if (orderId) {
+          // Navigate to orders tab first, then push order detail
+          // This ensures the back stack is: Home → Orders List → Order Detail
+          setTimeout(() => {
+            router.navigate("/(tabs)/orders");
+            // Small extra delay so the orders tab mounts before we push the detail
+            setTimeout(() => {
+              router.push(`/(tabs)/orders/${orderId}`);
+            }, 100);
+          }, 300);
+        }
       });
 
     return () => {

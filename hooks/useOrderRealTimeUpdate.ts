@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useSocketStore } from '@/store/useSocketStore';
+import { useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
 import { OrderDetails } from '@/types/orders';
 import { getSocket, reconnectSocketIfNeeded } from '@/lib/socket-client';
@@ -24,6 +25,12 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
   const [pollError, setPollError] = useState<string | null>(null);
   const [wasBackgrounded, setWasBackgrounded] = useState(false);
 
+  // ✅ Use a ref to avoid stale closure in fetchOrderStatusFromAPI
+  const realTimeStatusRef = useRef<string | null>(null);
+  realTimeStatusRef.current = realTimeStatus;
+
+  const queryClient = useQueryClient();
+
   // Subscribe to socket store
   const socketStore = useSocketStore();
   const isSocketConnected = socketStore.isConnected;
@@ -39,7 +46,11 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
   // 🔔 LOG EVERY realTimeStatus CHANGE
   useEffect(() => {
     console.log(`[RealTimeUpdate] 🔔 realTimeStatus STATE CHANGED: ${realTimeStatus}`);
-  }, [realTimeStatus]);
+    // ✅ Invalidate order detail query so driver info + all data refreshes
+    if (realTimeStatus && orderId) {
+      queryClient.invalidateQueries({ queryKey: ['orders', orderId] });
+    }
+  }, [realTimeStatus, orderId, queryClient]);
 
   // ── Fetch order status from API (fallback) ──
   const fetchOrderStatusFromAPI = useCallback(
@@ -49,10 +60,12 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
         console.log(`[RealTimeUpdate] 📡 Fetching status for ${id}... (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
         const { data } = await apiClient.get<OrderDetails>(`/api/orders/${id}`);
 
-        console.log(`[RealTimeUpdate] 📡 API Response - Status: ${data.status}, Current Local: ${realTimeStatus}`);
+        // ✅ Use ref to get the CURRENT value, not a stale closure
+        const currentStatus = realTimeStatusRef.current;
+        console.log(`[RealTimeUpdate] 📡 API Response - Status: ${data.status}, Current Local: ${currentStatus}`);
         
-        if (data.status !== realTimeStatus) {
-          console.log(`[RealTimeUpdate] 📊 ✅ Status changed! Updating: ${realTimeStatus} → ${data.status}`);
+        if (data.status !== currentStatus) {
+          console.log(`[RealTimeUpdate] 📊 ✅ Status changed! Updating: ${currentStatus} → ${data.status}`);
           setRealTimeStatus(data.status);
           setIsUpdating(true);
 
@@ -62,8 +75,6 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
           setTimeout(() => setIsUpdating(false), 1500);
         } else {
           console.log(`[RealTimeUpdate] 📊 ℹ️  Status unchanged: ${data.status}`);
-          console.log(`[RealTimeUpdate]    ℹ️  realTimeStatus is already set to: ${realTimeStatus}`);
-          console.log(`[RealTimeUpdate]    ℹ️  This is EXPECTED - no new update needed`);
         }
 
         setPollError(null);
@@ -83,7 +94,7 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
         setPollError(msg);
       }
     },
-    [realTimeStatus, socketStore]
+    [socketStore]
   );
 
   // ── Handle app state changes (background/foreground) ──
@@ -145,6 +156,17 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
       subscription.remove();
     };
   }, [orderId, fetchOrderStatusFromAPI, wasBackgrounded, appState, isSocketConnected]);
+
+  // ── Initial Socket Room Join ──
+  useEffect(() => {
+    if (orderId && isSocketConnected) {
+      const socket = getSocket();
+      if (socket && socket.connected) {
+        console.log(`[RealTimeUpdate] 🔌 Joining order tracking room for: ${orderId}`);
+        socket.emit('join_order_tracking', orderId);
+      }
+    }
+  }, [orderId, isSocketConnected]);
 
   // ── Real-time socket updates (priority) ──
   useEffect(() => {
@@ -208,11 +230,11 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
     // Immediate first fetch
     fetchOrderStatusFromAPI(orderId);
 
-    // Poll every 10 seconds while socket is down or app is background
+    // Poll every 30 seconds as a last-resort fallback when socket is disconnected
     const pollInterval = setInterval(() => {
       console.log(`[RealTimeUpdate] 🔄 Poll tick for ${orderId} (app=${appState}, socket=${isSocketConnected})`);
       fetchOrderStatusFromAPI(orderId);
-    }, 10000);
+    }, 30000);
 
     return () => {
       console.log(`[RealTimeUpdate] ⏹️  Clearing poll interval`);

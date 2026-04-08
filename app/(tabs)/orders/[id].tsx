@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -9,10 +9,13 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 import { useOrderDetail } from '@/hooks/useOrders';
 import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
 import { useOrderTracking, useSocketOrders } from '@/hooks/useSocketOrders';
+import { useSocketStore } from '@/store/useSocketStore';
 import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
@@ -100,6 +103,21 @@ export default function OrderDetailScreen() {
     // ✅ Subscribe to real-time status updates with fallback polling
     const { realTimeStatus, isUpdating, isFallbackPolling, connectionStatus } = useOrderRealTimeUpdate(id);
 
+    // Map & Location Tracking States
+    const driverLocation = useSocketStore((state) => state.driverLocation);
+    const mapRef = useRef<MapView>(null);
+    const [userLocLatLng, setUserLocLatLng] = useState<{lat: number, lng: number} | null>(null);
+
+    // Request GPS permission so the map represents the customer natively
+    useEffect(() => {
+        (async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') return;
+            let currentLoc = await Location.getCurrentPositionAsync({});
+            setUserLocLatLng({ lat: currentLoc.coords.latitude, lng: currentLoc.coords.longitude });
+        })();
+    }, []);
+
     // ── Loading ───────────────────────────────────────────────────────────────
     if (isLoading) {
         return (
@@ -123,19 +141,91 @@ export default function OrderDetailScreen() {
         );
     }
 
-    // Use real-time status if available, otherwise use order data
     const displayStatus: OrderStatus = (realTimeStatus as OrderStatus) || order.status;
-    const showDeliveryOtp =
-        !!order.otp && ['PICKED_UP', 'ON_THE_WAY'].includes(displayStatus);
+    const showDeliveryOtp = !!order.otp && ['PICKED_UP', 'ON_THE_WAY'].includes(displayStatus);
     const sc = statusConfig(displayStatus);
     const placedDate = new Date(order.placedAt).toLocaleString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true,
     });
 
+    const showMap = ['ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].includes(displayStatus);
+
+    // Map auto-fit coordinates logic
+    if (showMap && mapRef.current) {
+        const coords = [];
+        if (order.restaurant) coords.push({ latitude: order.restaurant.lat, longitude: order.restaurant.lng });
+        if (driverLocation) coords.push({ latitude: driverLocation.lat, longitude: driverLocation.lng });
+        if (userLocLatLng) coords.push({ latitude: userLocLatLng.lat, longitude: userLocLatLng.lng });
+
+        if (coords.length > 1) {
+            mapRef.current.fitToCoordinates(coords, {
+                edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                animated: true,
+            });
+        }
+    }
+
     return (
         <View style={styles.root}>
+            {showMap && order.restaurant && (
+                <View style={styles.mapContainer}>
+                    <MapView
+                        ref={mapRef}
+                        style={StyleSheet.absoluteFillObject}
+                        showsUserLocation={false}
+                        showsMyLocationButton={false}
+                        initialRegion={{
+                            latitude: order.restaurant.lat,
+                            longitude: order.restaurant.lng,
+                            latitudeDelta: 0.05,
+                            longitudeDelta: 0.05,
+                        }}
+                    >
+                        {/* Restaurant Marker (Dimmed if Picked Up) */}
+                        {displayStatus !== 'ON_THE_WAY' && (
+                            <Marker
+                                coordinate={{ latitude: order.restaurant.lat, longitude: order.restaurant.lng }}
+                                title={order.restaurant.name}
+                                description="Restaurant"
+                            >
+                                <View style={styles.markerCircleRest}>
+                                    <Ionicons name="restaurant" size={16} color="#FFF" />
+                                </View>
+                            </Marker>
+                        )}
+                        
+                        {/* Driver Marker (Animated live from sockets) */}
+                        {driverLocation && (
+                            <Marker
+                                coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
+                                title={order.driver?.name || "Your Driver"}
+                                description={displayStatus.replace('_', ' ')}
+                            >
+                                <View style={styles.markerCircleDriver}>
+                                    <Ionicons name="bicycle" size={18} color="#FFF" />
+                                </View>
+                            </Marker>
+                        )}
+
+                        {/* Custom User Location Marker */}
+                        {userLocLatLng && (
+                            <Marker
+                                coordinate={{ latitude: userLocLatLng.lat, longitude: userLocLatLng.lng }}
+                                title="You"
+                                anchor={{ x: 0.5, y: 0.5 }}
+                            >
+                                <View style={styles.userMarker}>
+                                    <View style={styles.userMarkerDot} />
+                                </View>
+                            </Marker>
+                        )}
+                    </MapView>
+                </View>
+            )}
+
             <ScrollView
+                style={styles.scrollViewContainer}
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
             >
@@ -181,6 +271,21 @@ export default function OrderDetailScreen() {
                         <Text style={styles.otpHint}>
                             Share this OTP with your rider only after the order reaches you.
                         </Text>
+                    </SectionCard>
+                )}
+
+                {/* ── Driver ───────────────────────────────────────────── */}
+                {order.driver && (
+                    <SectionCard title="Delivery Partner" icon="bicycle-outline">
+                        <View style={styles.driverRow}>
+                            <View style={styles.driverAvatar}>
+                                <Ionicons name="person" size={22} color={Colors.primary} />
+                            </View>
+                            <View>
+                                <Text style={styles.driverName}>{order.driver.name}</Text>
+                                <Text style={styles.driverPhone}>{order.driver.phone}</Text>
+                            </View>
+                        </View>
                     </SectionCard>
                 )}
 
@@ -293,21 +398,6 @@ export default function OrderDetailScreen() {
                     </View>
                 </SectionCard>
 
-                {/* ── Driver ───────────────────────────────────────────── */}
-                {order.driver && (
-                    <SectionCard title="Delivery Partner" icon="bicycle-outline">
-                        <View style={styles.driverRow}>
-                            <View style={styles.driverAvatar}>
-                                <Ionicons name="person" size={22} color={Colors.primary} />
-                            </View>
-                            <View>
-                                <Text style={styles.driverName}>{order.driver.name}</Text>
-                                <Text style={styles.driverPhone}>{order.driver.phone}</Text>
-                            </View>
-                        </View>
-                    </SectionCard>
-                )}
-
                 {/* ── Cancellation Reason ───────────────────────────────── */}
                 {order.cancellationReason && (
                     <SectionCard title="Cancellation Reason" icon="information-circle-outline">
@@ -324,6 +414,44 @@ const styles = StyleSheet.create({
     root: {
         flex: 1,
         backgroundColor: Colors.surface,
+    },
+    mapContainer: {
+        height: '35%',
+        width: '100%',
+        backgroundColor: '#EBEBEB',
+    },
+    scrollViewContainer: {
+        flex: 1,
+    },
+    markerCircleRest: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#E65100',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 2,
+        elevation: 4,
+    },
+    markerCircleDriver: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#00838F',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
+        shadowRadius: 2,
+        elevation: 4,
     },
     scroll: {
         padding: 16,
@@ -675,5 +803,23 @@ const styles = StyleSheet.create({
         fontSize: FontSize.sm,
         color: Colors.danger,
         lineHeight: 20,
+    },
+
+    // ── User Location Marker ──────────────────────────────────────────────
+    userMarker: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: 'rgba(66, 133, 244, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    userMarkerDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: '#4285F4',
+        borderWidth: 2,
+        borderColor: '#FFF',
     },
 });

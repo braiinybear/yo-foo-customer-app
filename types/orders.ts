@@ -185,4 +185,11 @@ export interface OrderDetails {
         createdAt: string;
         updatedAt: string;
     };
+    customerAddress: {
+        id: string;
+        addressLine: string;
+        landmark: string | null;
+        lat: number;
+        lng: number;
+    } | null;
 }
