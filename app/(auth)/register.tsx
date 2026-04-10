@@ -20,8 +20,8 @@ import {
 
 export default function Register() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    
-const [name, setName] = useState("");
+
+    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [haveReferralCode, setHaveReferralCode] = useState<boolean>(false);

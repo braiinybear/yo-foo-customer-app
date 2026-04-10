@@ -9,6 +9,9 @@ export const authClient = createAuthClient({
   baseURL: API_URL,
   user: {
     additionalFields: {
+      image: {
+        type: "string",
+      },
       referralCode: {
         type: "string",
       },

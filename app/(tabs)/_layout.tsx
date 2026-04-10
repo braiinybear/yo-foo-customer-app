@@ -62,6 +62,28 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="favorites"
+        options={{
+          title: "Favorites",
+          headerShown: true,
+          headerLeft: () => <BackButton />,
+          headerStyle: {
+            backgroundColor: Colors.primary,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors.text + '08',
+          },
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '700',
+            color: Colors.white,
+          },
+          headerTitleAlign: 'center',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="cart"
         options={{
           title: "Cart",

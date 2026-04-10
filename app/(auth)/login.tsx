@@ -21,7 +21,7 @@ import {
 type Step = "phone" | "otp";
 
 export default function Login() {
-
+    const { data: session } = authClient.useSession();
     const [toggleEmailPhoneLogin, settoggleEmailPhoneLogin] = useState<boolean>(false);
     // Phone / OTP state
     const [phone, setPhone] = useState<string>("");
@@ -158,11 +158,30 @@ export default function Login() {
                 contentContainerStyle={styles.container}
                 keyboardShouldPersistTaps="handled"
             >
-                <Image
-                    source={require("@/assets/images/app-logo.png")}
-                    style={styles.logo}
-                    resizeMode="contain"
-                />
+                {session?.user ? (
+                    <View style={styles.profileContainer}>
+                        <View style={styles.avatarWrapper}>
+                            {session.user.image ? (
+                                <Image source={{ uri: session.user.image }} style={styles.profileImage} />
+                            ) : (
+                                <View style={styles.placeholderAvatar}>
+                                    <Text style={styles.avatarInitial}>
+                                        {session.user.name?.charAt(0).toUpperCase()}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                        <Text style={styles.welcomeText}>Welcome back,</Text>
+                        <Text style={styles.profileName}>{session.user.name}</Text>
+                        <ActivityIndicator color={Colors.primary} style={{ marginTop: 10 }} />
+                    </View>
+                ) : (
+                    <Image
+                        source={require("@/assets/images/app-logo.png")}
+                        style={styles.logo}
+                        resizeMode="contain"
+                    />
+                )}
 
 
                 {/* ── PHONE OTP (default) ── */}
@@ -378,6 +397,50 @@ const styles = StyleSheet.create({
         marginBottom: 28,
         textAlign: "center",
         color: Colors.text,
+    },
+    // ── Profile Preview ──────────────────────────────────────
+    profileContainer: {
+        alignItems: "center",
+        marginBottom: 30,
+    },
+    avatarWrapper: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: Colors.surface,
+        borderWidth: 3,
+        borderColor: Colors.primary,
+        overflow: "hidden",
+        marginBottom: 16,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    profileImage: {
+        width: "100%",
+        height: "100%",
+    },
+    placeholderAvatar: {
+        width: "100%",
+        height: "100%",
+        backgroundColor: Colors.primary,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    avatarInitial: {
+        fontSize: 40,
+        fontFamily: Fonts.brandBold,
+        color: Colors.white,
+    },
+    welcomeText: {
+        fontSize: FontSize.md,
+        fontFamily: Fonts.brand,
+        color: Colors.textSecondary,
+    },
+    profileName: {
+        fontSize: FontSize.xl,
+        fontFamily: Fonts.brandBold,
+        color: Colors.text,
+        marginTop: 4,
     },
 
     // ── Section ────────────────────────────────────────────────

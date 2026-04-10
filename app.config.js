@@ -66,7 +66,8 @@ export default {
       router: {},
       eas: {
         projectId: "96b106b8-8b07-404f-b458-c7410e8640bc"
-      }
+      },
+      googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY
     }
   }
 };

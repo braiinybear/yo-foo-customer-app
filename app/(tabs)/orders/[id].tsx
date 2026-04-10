@@ -1,16 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     ActivityIndicator,
-    TouchableOpacity
+    TouchableOpacity,
+    Platform
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 
 import { useOrderDetail } from '@/hooks/useOrders';
 import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
@@ -106,7 +108,92 @@ export default function OrderDetailScreen() {
     // Map & Location Tracking States
     const driverLocation = useSocketStore((state) => state.driverLocation);
     const mapRef = useRef<MapView>(null);
+    const driverMarkerRef = useRef<any>(null);
     const [userLocLatLng, setUserLocLatLng] = useState<{lat: number, lng: number} | null>(null);
+
+    const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
+    const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+
+    const [animatedDriverLocation] = useState(() => new AnimatedRegion({
+        latitude: driverLocation?.lat || 0,
+        longitude: driverLocation?.lng || 0,
+        latitudeDelta: 0,
+        longitudeDelta: 0,
+    }));
+
+    useEffect(() => {
+        if (driverLocation) {
+            const newCoordinate = {
+                latitude: driverLocation.lat,
+                longitude: driverLocation.lng,
+            };
+            if (Platform.OS === 'android') {
+                if (driverMarkerRef.current) {
+                    driverMarkerRef.current.animateMarkerToCoordinate(newCoordinate, 2000);
+                }
+            } else {
+                animatedDriverLocation.timing({
+                    latitude: newCoordinate.latitude,
+                    longitude: newCoordinate.longitude,
+                    latitudeDelta: 0,
+                    longitudeDelta: 0,
+                    duration: 2000,
+                    useNativeDriver: false,
+                } as any).start();
+            }
+        }
+    }, [driverLocation, animatedDriverLocation]);
+
+    const destination = useMemo(() => {
+        if (order?.customerAddress) return { lat: order.customerAddress.lat, lng: order.customerAddress.lng };
+        return userLocLatLng;
+    }, [order?.customerAddress, userLocLatLng]);
+
+    const fetchRoute = useCallback(async (
+        origin: { latitude: number; longitude: number; },
+        dest: { latitude: number; longitude: number; }
+    ) => {
+        if (!GOOGLE_MAPS_APIKEY) {
+            setRouteCoords([origin, dest]);
+            return;
+        }
+        try {
+            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json.routes?.length > 0) {
+                const encoded = json.routes[0].overview_polyline.points;
+                const points: { latitude: number; longitude: number }[] = [];
+                let index = 0, lat = 0, lng = 0;
+                while (index < encoded.length) {
+                    let b, shift = 0, result = 0;
+                    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                    const dlat = result & 1 ? ~(result >> 1) : result >> 1; lat += dlat;
+                    shift = 0; result = 0;
+                    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                    const dlng = result & 1 ? ~(result >> 1) : result >> 1; lng += dlng;
+                    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+                }
+                setRouteCoords(points);
+            } else {
+                setRouteCoords([origin, dest]);
+            }
+        } catch (err) {
+            setRouteCoords([origin, dest]);
+        }
+    }, [GOOGLE_MAPS_APIKEY]);
+
+    useEffect(() => {
+        if (destination) {
+            const originObj = driverLocation
+                ? { latitude: driverLocation.lat, longitude: driverLocation.lng }
+                : (order?.restaurant ? { latitude: order.restaurant.lat, longitude: order.restaurant.lng } : null);
+
+            if (originObj) {
+                fetchRoute(originObj, { latitude: destination.lat, longitude: destination.lng });
+            }
+        }
+    }, [driverLocation?.lat, driverLocation?.lng, order?.restaurant?.lat, order?.restaurant?.lng, destination?.lat, destination?.lng, fetchRoute]);
 
     // Request GPS permission so the map represents the customer natively
     useEffect(() => {
@@ -117,6 +204,26 @@ export default function OrderDetailScreen() {
             setUserLocLatLng({ lat: currentLoc.coords.latitude, lng: currentLoc.coords.longitude });
         })();
     }, []);
+
+    const displayStatus: OrderStatus | undefined = (realTimeStatus as OrderStatus) || order?.status;
+    const showMap = displayStatus ? ['ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].includes(displayStatus) : false;
+
+    // Map auto-fit coordinates logic
+    useEffect(() => {
+        if (showMap && mapRef.current) {
+            const coords = [];
+            if (order?.restaurant) coords.push({ latitude: order.restaurant.lat, longitude: order.restaurant.lng });
+            if (driverLocation) coords.push({ latitude: driverLocation.lat, longitude: driverLocation.lng });
+            if (destination) coords.push({ latitude: destination.lat, longitude: destination.lng });
+
+            if (coords.length > 1) {
+                mapRef.current.fitToCoordinates(coords, {
+                    edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                    animated: true,
+                });
+            }
+        }
+    }, [showMap, order?.restaurant, driverLocation, destination]);
 
     // ── Loading ───────────────────────────────────────────────────────────────
     if (isLoading) {
@@ -141,30 +248,12 @@ export default function OrderDetailScreen() {
         );
     }
 
-    const displayStatus: OrderStatus = (realTimeStatus as OrderStatus) || order.status;
-    const showDeliveryOtp = !!order.otp && ['PICKED_UP', 'ON_THE_WAY'].includes(displayStatus);
-    const sc = statusConfig(displayStatus);
+    const showDeliveryOtp = !!order.otp && ['PICKED_UP', 'ON_THE_WAY'].includes(displayStatus!);
+    const sc = statusConfig(displayStatus!);
     const placedDate = new Date(order.placedAt).toLocaleString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true,
     });
-
-    const showMap = ['ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].includes(displayStatus);
-
-    // Map auto-fit coordinates logic
-    if (showMap && mapRef.current) {
-        const coords = [];
-        if (order.restaurant) coords.push({ latitude: order.restaurant.lat, longitude: order.restaurant.lng });
-        if (driverLocation) coords.push({ latitude: driverLocation.lat, longitude: driverLocation.lng });
-        if (userLocLatLng) coords.push({ latitude: userLocLatLng.lat, longitude: userLocLatLng.lng });
-
-        if (coords.length > 1) {
-            mapRef.current.fitToCoordinates(coords, {
-                edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-                animated: true,
-            });
-        }
-    }
 
     return (
         <View style={styles.root}>
@@ -172,12 +261,14 @@ export default function OrderDetailScreen() {
                 <View style={styles.mapContainer}>
                     <MapView
                         ref={mapRef}
-                        style={StyleSheet.absoluteFillObject}
+                        provider={PROVIDER_GOOGLE}
+                        style={styles.map}
                         showsUserLocation={false}
                         showsMyLocationButton={false}
-                        initialRegion={{
-                            latitude: order.restaurant.lat,
-                            longitude: order.restaurant.lng,
+                        userInterfaceStyle="light"
+                        region={{
+                            latitude: driverLocation?.lat || order.restaurant.lat || 0,
+                            longitude: driverLocation?.lng || order.restaurant.lng || 0,
                             latitudeDelta: 0.05,
                             longitudeDelta: 0.05,
                         }}
@@ -195,24 +286,36 @@ export default function OrderDetailScreen() {
                             </Marker>
                         )}
                         
+                        {/* Route Polyline */}
+                        {routeCoords.length >= 2 && (
+                            <Polyline
+                                coordinates={routeCoords}
+                                strokeWidth={5}
+                                strokeColor="#1A73E8"
+                                zIndex={10}
+                                geodesic={true}
+                            />
+                        )}
+                        
                         {/* Driver Marker (Animated live from sockets) */}
                         {driverLocation && (
-                            <Marker
-                                coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }}
+                            <Marker.Animated
+                                ref={driverMarkerRef}
+                                coordinate={animatedDriverLocation as any}
                                 title={order.driver?.name || "Your Driver"}
                                 description={displayStatus.replace('_', ' ')}
                             >
                                 <View style={styles.markerCircleDriver}>
                                     <Ionicons name="bicycle" size={18} color="#FFF" />
                                 </View>
-                            </Marker>
+                            </Marker.Animated>
                         )}
 
                         {/* Custom User Location Marker */}
-                        {userLocLatLng && (
+                        {destination && (
                             <Marker
-                                coordinate={{ latitude: userLocLatLng.lat, longitude: userLocLatLng.lng }}
-                                title="You"
+                                coordinate={{ latitude: destination.lat, longitude: destination.lng }}
+                                title="Delivery Location"
                                 anchor={{ x: 0.5, y: 0.5 }}
                             >
                                 <View style={styles.userMarker}>
@@ -418,7 +521,12 @@ const styles = StyleSheet.create({
     mapContainer: {
         height: '35%',
         width: '100%',
-        backgroundColor: '#EBEBEB',
+        overflow: 'hidden',
+    },
+    map: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
     },
     scrollViewContainer: {
         flex: 1,

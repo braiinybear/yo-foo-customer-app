@@ -185,6 +185,7 @@ export default function Index() {
           address={selectedAddress ? [selectedAddress] : addresses}
           subAddress="Tap to change delivery address"
           userInitial={userInitial}
+          userImage={session?.user?.image}
           onAddressPress={() => setIsAddressModalVisible(true)}
           onWalletPress={() => router.push("/wallet")}
           onProfilePress={() => router.push("/profile")}

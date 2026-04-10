@@ -4,18 +4,18 @@ import { UserAddress } from "@/types/user";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import React from "react";
 import {
+    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
 
-
-
 interface HeaderBarProps {
     address?: UserAddress[];
     subAddress: string;
     userInitial: string;
+    userImage?: string | null;
     onAddressPress?: () => void;
     onWalletPress?: () => void;
     onProfilePress?: () => void;
@@ -25,6 +25,7 @@ export default function HeaderBar({
     address,
     subAddress,
     userInitial,
+    userImage,
     onAddressPress,
     onWalletPress,
     onProfilePress,
@@ -56,7 +57,11 @@ export default function HeaderBar({
 
                 {/* Profile avatar */}
                 <TouchableOpacity style={styles.avatar} onPress={onProfilePress} activeOpacity={0.7}>
-                    <Text style={styles.avatarText}>{userInitial}</Text>
+                    {userImage ? (
+                        <Image source={{ uri: userImage }} style={styles.avatarImage} />
+                    ) : (
+                        <Text style={styles.avatarText}>{userInitial}</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </View>
@@ -115,6 +120,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         borderWidth:1,
         borderColor: Colors.white,
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
     },
     avatarText: {
         fontFamily: Fonts.brandBold,

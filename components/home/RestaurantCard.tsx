@@ -11,6 +11,7 @@ import {
     View,
 } from "react-native";
 import { Restaurant } from "@/types/restaurants";
+import { useFavoritesStore } from "@/store/useFavoritesStore";
 
 
 interface RestaurantCardProps {
@@ -21,6 +22,8 @@ interface RestaurantCardProps {
 export default function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
     const imageUri = restaurant.image ?? getPlaceholderImage(restaurant.id);
     const bgColor = getPlaceholderBgColor(restaurant.id);
+    const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
+    const isFavorite = useFavoritesStore((state) => state.isFavorite(restaurant.id));
 
     return (
         <TouchableOpacity style={styles.card} activeOpacity={0.88} onPress={onPress}>
@@ -30,8 +33,19 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
 
 
                 {/* Bookmark */}
-                <TouchableOpacity style={styles.bookmark} activeOpacity={0.7}>
-                    <Ionicons name="bookmark-outline" size={16} color={Colors.white} />
+                <TouchableOpacity 
+                    style={styles.bookmark} 
+                    activeOpacity={0.7}
+                    onPress={(e) => {
+                        // Prevent the click from bubble to the card
+                        toggleFavorite(restaurant);
+                    }}
+                >
+                    <Ionicons 
+                        name={isFavorite ? "bookmark" : "bookmark-outline"} 
+                        size={16} 
+                        color={isFavorite ? Colors.secondary : Colors.white} 
+                    />
                 </TouchableOpacity>
             </View>
 

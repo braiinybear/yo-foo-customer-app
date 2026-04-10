@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import Constants from 'expo-constants';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useOrderDetail } from '@/hooks/useOrders';
@@ -27,14 +28,48 @@ const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.02;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
+// ─── Decode Google's encoded polyline into lat/lng array ───
+function decodePolyline(encoded: string): { latitude: number; longitude: number }[] {
+  const points: { latitude: number; longitude: number }[] = [];
+  let index = 0, lat = 0, lng = 0;
+
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+
+    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+  }
+  return points;
+}
+
 export default function TrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const mapRef = useRef<MapView>(null);
   
+  const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
+
   const { data: order, isLoading } = useOrderDetail(id as string);
   const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [eta, setEta] = useState<string | null>(null);
   const { isConnected } = useSocketStore();
 
   const restaurantPos = useMemo(() => {
@@ -52,19 +87,78 @@ export default function TrackingScreen() {
     return null;
   }, [driverLocation]);
 
-  // Fit map to markers whenever positions change
+  // ─── Fetch directions from Google Directions API ───
+  const fetchRoute = useCallback(async (
+    origin: { latitude: number; longitude: number },
+    destination: { latitude: number; longitude: number },
+  ) => {
+    if (!GOOGLE_MAPS_APIKEY) {
+      // No API key — draw a straight dashed line as fallback
+      setRouteCoords([origin, destination]);
+      setEta(null);
+      return;
+    }
+
+    try {
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
+      const res = await fetch(url);
+      const json = await res.json();
+
+      if (json.routes?.length > 0) {
+        const route = json.routes[0];
+        const encoded = route.overview_polyline.points;
+        const decoded = decodePolyline(encoded);
+        setRouteCoords(decoded);
+
+        // Extract ETA
+        const leg = route.legs?.[0];
+        if (leg?.duration?.text) {
+          setEta(leg.duration.text);
+        }
+      } else {
+        // Directions API returned no routes — straight line fallback
+        setRouteCoords([origin, destination]);
+        setEta(null);
+      }
+    } catch (err) {
+      console.log('[Tracking] Directions fetch failed:', err);
+      setRouteCoords([origin, destination]);
+      setEta(null);
+    }
+  }, [GOOGLE_MAPS_APIKEY]);
+
+  // ─── Recompute route when driver moves or order state changes ───
   useEffect(() => {
-    if (mapRef.current && (restaurantPos || customerPos || driverPos)) {
-      const markers = [restaurantPos, customerPos, driverPos].filter(Boolean) as { latitude: number, longitude: number }[];
-      if (markers.length > 0) {
-        mapRef.current.fitToCoordinates(markers, {
-          edgePadding: { top: 100, right: 100, bottom: 300, left: 100 },
+    if (!customerPos) return;
+
+    const origin = driverPos || restaurantPos;
+    if (!origin) return;
+
+    fetchRoute(origin, customerPos);
+  }, [driverPos?.latitude, driverPos?.longitude, restaurantPos?.latitude, customerPos?.latitude, fetchRoute]);
+
+  // ─── Fit map to show all relevant markers + route ───
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    const allPoints = [
+      restaurantPos,
+      customerPos,
+      driverPos,
+      ...(routeCoords.length > 2 ? [routeCoords[Math.floor(routeCoords.length / 2)]] : []),
+    ].filter(Boolean) as { latitude: number; longitude: number }[];
+
+    if (allPoints.length > 0) {
+      setTimeout(() => {
+        mapRef.current?.fitToCoordinates(allPoints, {
+          edgePadding: { top: 120, right: 60, bottom: 320, left: 60 },
           animated: true,
         });
-      }
+      }, 500);
     }
-  }, [restaurantPos, customerPos, driverPos]);
+  }, [restaurantPos, customerPos, driverPos, routeCoords.length]);
 
+  // ─── Socket listeners ───
   useEffect(() => {
     if (!id) return;
     
@@ -166,6 +260,7 @@ export default function TrackingScreen() {
   }
 
   const currentStep = getStatusStep(order.status);
+  const isOnTheWay = order.status === 'ON_THE_WAY';
 
   return (
     <View style={styles.container}>
@@ -183,6 +278,14 @@ export default function TrackingScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ETA Pill — only shown when rider is on the way */}
+      {isOnTheWay && eta && (
+        <View style={styles.etaPill}>
+          <Ionicons name="time-outline" size={14} color="#FFF" />
+          <Text style={styles.etaText}>Arriving in {eta}</Text>
+        </View>
+      )}
+
       {/* Map View */}
       <MapView
         ref={mapRef}
@@ -193,37 +296,54 @@ export default function TrackingScreen() {
           latitudeDelta: LATITUDE_DELTA,
           longitudeDelta: LONGITUDE_DELTA,
         } : undefined}
+        showsCompass={false}
+        showsMyLocationButton={false}
+        toolbarEnabled={false}
+        mapPadding={{ top: 100, right: 0, bottom: 280, left: 0 }}
       >
+        {/* Restaurant Marker */}
         {restaurantPos && (
-          <Marker coordinate={restaurantPos} title={order.restaurant.name}>
-             <View style={styles.restaurantMarker}>
-                <Ionicons name="restaurant" size={18} color={Colors.white} />
-             </View>
+          <Marker coordinate={restaurantPos} title={order.restaurant.name} anchor={{ x: 0.5, y: 1 }}>
+            <View style={styles.markerPinContainer}>
+              <View style={styles.restaurantMarker}>
+                <Ionicons name="restaurant" size={16} color="#FFF" />
+              </View>
+              <View style={styles.markerPinTail} />
+            </View>
           </Marker>
         )}
 
+        {/* Customer / Delivery Location Marker */}
         {customerPos && (
-          <Marker coordinate={customerPos} title="Delivery Location">
-            <View style={styles.customerMarker}>
-                <Ionicons name="home" size={18} color={Colors.white} />
+          <Marker coordinate={customerPos} title="Delivery Location" anchor={{ x: 0.5, y: 1 }}>
+            <View style={styles.markerPinContainer}>
+              <View style={styles.customerMarker}>
+                <Ionicons name="home" size={16} color="#FFF" />
+              </View>
+              <View style={[styles.markerPinTail, { borderTopColor: Colors.primary }]} />
             </View>
           </Marker>
         )}
 
+        {/* Rider Marker — bike icon on the map */}
         {driverPos && (
-          <Marker coordinate={driverPos} title="Rider">
-            <View style={styles.driverMarker}>
-                <MaterialCommunityIcons name="moped" size={20} color={Colors.white} />
+          <Marker coordinate={driverPos} title="Your Rider" anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={styles.riderMarkerContainer}>
+              <View style={styles.riderMarkerPulse} />
+              <View style={styles.riderMarker}>
+                <MaterialCommunityIcons name="motorbike" size={18} color="#FFF" />
+              </View>
             </View>
           </Marker>
         )}
 
-        {restaurantPos && customerPos && (
+        {/* Route Polyline */}
+        {routeCoords.length >= 2 && (
           <Polyline
-            coordinates={[restaurantPos, customerPos]}
-            strokeWidth={3}
-            strokeColor={Colors.primary}
-            lineDashPattern={[5, 5]}
+            coordinates={routeCoords}
+            strokeWidth={routeCoords.length > 2 ? 4 : 3}
+            strokeColor={driverPos ? '#1A73E8' : Colors.primary}
+            lineDashPattern={routeCoords.length <= 2 ? [8, 6] : undefined}
           />
         )}
       </MapView>
@@ -235,7 +355,7 @@ export default function TrackingScreen() {
         <View style={styles.statusContainer}>
           <View style={styles.statusHeader}>
             <Text style={styles.statusLabel}>{getStatusLabel(order.status)}</Text>
-            {order.status === 'ON_THE_WAY' && (
+            {isOnTheWay && (
                <View style={styles.liveBadge}>
                  <View style={styles.liveDot} />
                  <Text style={styles.liveText}>LIVE</Text>
@@ -409,39 +529,113 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.muted,
   },
+
+  // ── ETA Pill ───────────────────────────────────
+  etaPill: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 128 : 108,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#1A73E8',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    zIndex: 10,
+    elevation: 6,
+    shadowColor: '#1A73E8',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+  },
+  etaText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   map: {
     flex: 1,
   },
+
+  // ── Pin-style Markers ─────────────────────────
+  markerPinContainer: {
+    alignItems: 'center',
+  },
+  markerPinTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: Colors.secondary,
+    marginTop: -1,
+  },
   restaurantMarker: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: Colors.secondary,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   customerMarker: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: Colors.primary,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  driverMarker: {
+
+  // ── Rider Marker with pulse ───────────────────
+  riderMarkerContainer: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  riderMarkerPulse: {
+    position: 'absolute',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(26, 115, 232, 0.15)',
+  },
+  riderMarker: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.black,
-    borderWidth: 2,
+    backgroundColor: '#1A73E8',
+    borderWidth: 2.5,
     borderColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
   },
+
+  // ── Bottom Card ────────────────────────────────
   cardContainer: {
     position: 'absolute',
     bottom: 0,
@@ -483,7 +677,7 @@ const styles = StyleSheet.create({
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: '#E8F5E9',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -492,13 +686,13 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#4CAF50',
     marginRight: 4,
   },
   liveText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: Colors.primary,
+    color: '#4CAF50',
   },
   timelineContainer: {
     flexDirection: 'row',
