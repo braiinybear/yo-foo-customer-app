@@ -6,12 +6,15 @@ import {
     ScrollView,
     ActivityIndicator,
     TouchableOpacity,
-    Platform
+    Platform,
+    Linking,
+    Animated,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
 
 import { useOrderDetail } from '@/hooks/useOrders';
@@ -22,6 +25,47 @@ import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar'
 import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { OrderStatus } from '@/types/orders';
+
+// ─── Premium Google Maps Style ────────────────────────────────────────────────
+const PREMIUM_MAP_STYLE = [
+    { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
+    { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#bdbdbd' }] },
+    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#eeeeee' }] },
+    { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
+    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#e5e5e5' }] },
+    { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#9e9e9e' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+    { featureType: 'road.arterial', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#dadada' }] },
+    { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+    { featureType: 'road.local', elementType: 'labels.text.fill', stylers: [{ color: '#9e9e9e' }] },
+    { featureType: 'transit.line', elementType: 'geometry', stylers: [{ color: '#e5e5e5' }] },
+    { featureType: 'transit.station', elementType: 'geometry', stylers: [{ color: '#eeeeee' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9c9c9' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#9e9e9e' }] },
+];
+
+// ─── Haversine ETA calculator (no Google billing needed) ──────────────────────
+function calculateETA(
+    driverLat: number, driverLng: number,
+    destLat: number, destLng: number,
+    avgSpeedKmh: number = 25 // average city driving speed
+): { distanceKm: number; etaMinutes: number } {
+    const R = 6371;
+    const dLat = (destLat - driverLat) * Math.PI / 180;
+    const dLon = (destLng - driverLng) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(driverLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distanceKm = R * c;
+    // Road distance is ~1.4x straight line
+    const roadDistance = distanceKm * 1.4;
+    const etaMinutes = Math.max(2, Math.round((roadDistance / avgSpeedKmh) * 60));
+    return { distanceKm: parseFloat(roadDistance.toFixed(1)), etaMinutes };
+}
 
 // ─── Status config ────────────────────────────────────────────────────────────
 function statusConfig(status: OrderStatus) {
@@ -105,6 +149,11 @@ export default function OrderDetailScreen() {
     // ✅ Subscribe to real-time status updates with fallback polling
     const { realTimeStatus, isUpdating, isFallbackPolling, connectionStatus } = useOrderRealTimeUpdate(id);
 
+    // ─── ETA state ────────────────────────────────────────────────────────────
+    const [eta, setEta] = useState<{ distanceKm: number; etaMinutes: number } | null>(null);
+    const [etaPulse] = useState(() => new Animated.Value(1));
+    const prevStatusRef = useRef<string | null>(null);
+
     // Map & Location Tracking States
     const driverLocation = useSocketStore((state) => state.driverLocation);
     const mapRef = useRef<MapView>(null);
@@ -114,18 +163,29 @@ export default function OrderDetailScreen() {
     const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
     const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
+    const displayDriverLocation = useMemo(() => {
+        if (driverLocation) return driverLocation;
+        if ((order?.driver as any)?.currentLat && (order?.driver as any)?.currentLng) {
+            return { lat: (order?.driver as any).currentLat, lng: (order?.driver as any).currentLng };
+        }
+        if (order?.restaurant) {
+            return { lat: order.restaurant.lat, lng: order.restaurant.lng };
+        }
+        return null;
+    }, [driverLocation, order?.driver, order?.restaurant]);
+
     const [animatedDriverLocation] = useState(() => new AnimatedRegion({
-        latitude: driverLocation?.lat || 0,
-        longitude: driverLocation?.lng || 0,
+        latitude: displayDriverLocation?.lat || 0,
+        longitude: displayDriverLocation?.lng || 0,
         latitudeDelta: 0,
         longitudeDelta: 0,
     }));
 
     useEffect(() => {
-        if (driverLocation) {
+        if (displayDriverLocation) {
             const newCoordinate = {
-                latitude: driverLocation.lat,
-                longitude: driverLocation.lng,
+                latitude: displayDriverLocation.lat,
+                longitude: displayDriverLocation.lng,
             };
             if (Platform.OS === 'android') {
                 if (driverMarkerRef.current) {
@@ -144,39 +204,77 @@ export default function OrderDetailScreen() {
         }
     }, [driverLocation, animatedDriverLocation]);
 
+    // ─── Haptic feedback on status change ─────────────────────────────────────
+    useEffect(() => {
+        if (realTimeStatus && prevStatusRef.current && realTimeStatus !== prevStatusRef.current) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        prevStatusRef.current = realTimeStatus;
+    }, [realTimeStatus]);
+
     const destination = useMemo(() => {
         if (order?.customerAddress) return { lat: order.customerAddress.lat, lng: order.customerAddress.lng };
         return userLocLatLng;
     }, [order?.customerAddress, userLocLatLng]);
 
+    // ─── ETA calculation (updates as driver moves) ────────────────────────────
+    useEffect(() => {
+        if (!displayDriverLocation || !destination) {
+            setEta(null);
+            return;
+        }
+        const result = calculateETA(
+            displayDriverLocation.lat, displayDriverLocation.lng,
+            destination.lat, destination.lng
+        );
+        setEta(result);
+
+        // Pulse animation on ETA update
+        Animated.sequence([
+            Animated.timing(etaPulse, { toValue: 1.05, duration: 200, useNativeDriver: true }),
+            Animated.timing(etaPulse, { toValue: 1, duration: 200, useNativeDriver: true }),
+        ]).start();
+    }, [displayDriverLocation?.lat, displayDriverLocation?.lng, destination?.lat, destination?.lng, etaPulse]);
+
     const fetchRoute = useCallback(async (
         origin: { latitude: number; longitude: number; },
         dest: { latitude: number; longitude: number; }
     ) => {
-        if (!GOOGLE_MAPS_APIKEY) {
-            setRouteCoords([origin, dest]);
-            return;
-        }
+        const decodePoly = (encoded: string) => {
+            const points: { latitude: number; longitude: number }[] = [];
+            let index = 0, lat = 0, lng = 0;
+            while (index < encoded.length) {
+                let b, shift = 0, result = 0;
+                do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                const dlat = result & 1 ? ~(result >> 1) : result >> 1; lat += dlat;
+                shift = 0; result = 0;
+                do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                const dlng = result & 1 ? ~(result >> 1) : result >> 1; lng += dlng;
+                points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+            }
+            return points;
+        };
+
         try {
-            const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
-            const res = await fetch(url);
-            const json = await res.json();
-            if (json.routes?.length > 0) {
-                const encoded = json.routes[0].overview_polyline.points;
-                const points: { latitude: number; longitude: number }[] = [];
-                let index = 0, lat = 0, lng = 0;
-                while (index < encoded.length) {
-                    let b, shift = 0, result = 0;
-                    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-                    const dlat = result & 1 ? ~(result >> 1) : result >> 1; lat += dlat;
-                    shift = 0; result = 0;
-                    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-                    const dlng = result & 1 ? ~(result >> 1) : result >> 1; lng += dlng;
-                    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+            if (GOOGLE_MAPS_APIKEY) {
+                const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                if (json.routes?.length > 0) {
+                    setRouteCoords(decodePoly(json.routes[0].overview_polyline.points));
+                    return;
                 }
-                setRouteCoords(points);
+            }
+
+            // Fallback to free OSRM routing if Google API is missing or fails
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=polyline`;
+            const osrmRes = await fetch(osrmUrl);
+            const osrmJson = await osrmRes.json();
+            
+            if (osrmJson.routes?.length > 0) {
+                setRouteCoords(decodePoly(osrmJson.routes[0].geometry));
             } else {
-                setRouteCoords([origin, dest]);
+                setRouteCoords([origin, dest]); // Ultimate fallback
             }
         } catch (err) {
             setRouteCoords([origin, dest]);
@@ -184,16 +282,11 @@ export default function OrderDetailScreen() {
     }, [GOOGLE_MAPS_APIKEY]);
 
     useEffect(() => {
-        if (destination) {
-            const originObj = driverLocation
-                ? { latitude: driverLocation.lat, longitude: driverLocation.lng }
-                : (order?.restaurant ? { latitude: order.restaurant.lat, longitude: order.restaurant.lng } : null);
-
-            if (originObj) {
-                fetchRoute(originObj, { latitude: destination.lat, longitude: destination.lng });
-            }
+        if (destination && displayDriverLocation) {
+            const originObj = { latitude: displayDriverLocation.lat, longitude: displayDriverLocation.lng };
+            fetchRoute(originObj, { latitude: destination.lat, longitude: destination.lng });
         }
-    }, [driverLocation?.lat, driverLocation?.lng, order?.restaurant?.lat, order?.restaurant?.lng, destination?.lat, destination?.lng, fetchRoute]);
+    }, [displayDriverLocation?.lat, displayDriverLocation?.lng, destination?.lat, destination?.lng, fetchRoute]);
 
     // Request GPS permission so the map represents the customer natively
     useEffect(() => {
@@ -213,17 +306,23 @@ export default function OrderDetailScreen() {
         if (showMap && mapRef.current) {
             const coords = [];
             if (order?.restaurant) coords.push({ latitude: order.restaurant.lat, longitude: order.restaurant.lng });
-            if (driverLocation) coords.push({ latitude: driverLocation.lat, longitude: driverLocation.lng });
+            if (displayDriverLocation) coords.push({ latitude: displayDriverLocation.lat, longitude: displayDriverLocation.lng });
             if (destination) coords.push({ latitude: destination.lat, longitude: destination.lng });
 
             if (coords.length > 1) {
                 mapRef.current.fitToCoordinates(coords, {
-                    edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                    // Huge bottom padding to avoid the scroll view covering the active map elements
+                    edgePadding: { top: 120, right: 60, bottom: 450, left: 60 },
                     animated: true,
                 });
+
+                // Tilt the camera into 3D isometric view shortly after bounding box completes
+                setTimeout(() => {
+                    mapRef.current?.animateCamera({ pitch: 55 });
+                }, 1500);
             }
         }
-    }, [showMap, order?.restaurant, driverLocation, destination]);
+    }, [showMap, order?.restaurant, displayDriverLocation, destination]);
 
     // ── Loading ───────────────────────────────────────────────────────────────
     if (isLoading) {
@@ -265,45 +364,47 @@ export default function OrderDetailScreen() {
                         style={styles.map}
                         showsUserLocation={false}
                         showsMyLocationButton={false}
+                        showsBuildings={true}
+                        pitchEnabled={true}
                         userInterfaceStyle="light"
+                        customMapStyle={PREMIUM_MAP_STYLE}
                         region={{
-                            latitude: driverLocation?.lat || order.restaurant.lat || 0,
-                            longitude: driverLocation?.lng || order.restaurant.lng || 0,
+                            latitude: displayDriverLocation?.lat || order.restaurant.lat || 0,
+                            longitude: displayDriverLocation?.lng || order.restaurant.lng || 0,
                             latitudeDelta: 0.05,
                             longitudeDelta: 0.05,
                         }}
                     >
-                        {/* Restaurant Marker (Dimmed if Picked Up) */}
-                        {displayStatus !== 'ON_THE_WAY' && (
-                            <Marker
-                                coordinate={{ latitude: order.restaurant.lat, longitude: order.restaurant.lng }}
-                                title={order.restaurant.name}
-                                description="Restaurant"
-                            >
-                                <View style={styles.markerCircleRest}>
-                                    <Ionicons name="restaurant" size={16} color="#FFF" />
-                                </View>
-                            </Marker>
-                        )}
+                        {/* Restaurant Marker */}
+                        <Marker
+                            coordinate={{ latitude: order.restaurant.lat, longitude: order.restaurant.lng }}
+                            title={order.restaurant.name}
+                            description="Restaurant"
+                        >
+                            <View style={styles.markerCircleRest}>
+                                <Ionicons name="restaurant" size={16} color="#FFF" />
+                            </View>
+                        </Marker>
                         
                         {/* Route Polyline */}
                         {routeCoords.length >= 2 && (
                             <Polyline
                                 coordinates={routeCoords}
                                 strokeWidth={5}
-                                strokeColor="#1A73E8"
+                                strokeColor={Colors.primary}
                                 zIndex={10}
                                 geodesic={true}
                             />
                         )}
                         
                         {/* Driver Marker (Animated live from sockets) */}
-                        {driverLocation && (
+                        {displayDriverLocation && (
                             <Marker.Animated
                                 ref={driverMarkerRef}
                                 coordinate={animatedDriverLocation as any}
                                 title={order.driver?.name || "Your Driver"}
-                                description={displayStatus.replace('_', ' ')}
+                                description={displayStatus?.replace('_', ' ')}
+                                zIndex={20}
                             >
                                 <View style={styles.markerCircleDriver}>
                                     <Ionicons name="bicycle" size={18} color="#FFF" />
@@ -311,19 +412,33 @@ export default function OrderDetailScreen() {
                             </Marker.Animated>
                         )}
 
-                        {/* Custom User Location Marker */}
+                        {/* Customer Delivery Location Marker */}
                         {destination && (
                             <Marker
                                 coordinate={{ latitude: destination.lat, longitude: destination.lng }}
                                 title="Delivery Location"
-                                anchor={{ x: 0.5, y: 0.5 }}
+                                anchor={{ x: 0.5, y: 1 }}
                             >
-                                <View style={styles.userMarker}>
-                                    <View style={styles.userMarkerDot} />
+                                <View style={styles.deliveryPinContainer}>
+                                    <View style={styles.deliveryPinHead}>
+                                        <Ionicons name="home" size={14} color="#FFF" />
+                                    </View>
+                                    <View style={styles.deliveryPinTail} />
                                 </View>
                             </Marker>
                         )}
                     </MapView>
+
+                    {/* ── ETA Overlay (Zomato/Swiggy-style) ── */}
+                    {eta && displayDriverLocation && (
+                        <Animated.View style={[styles.etaOverlay, { transform: [{ scale: etaPulse }] }]}>
+                            <View style={styles.etaOverlayTop}>
+                                <Ionicons name="time" size={18} color="#FFF" />
+                                <Text style={styles.etaTimeText}>{eta.etaMinutes} min</Text>
+                            </View>
+                            <Text style={styles.etaDistText}>{eta.distanceKm} km away</Text>
+                        </Animated.View>
+                    )}
                 </View>
             )}
 
@@ -377,17 +492,37 @@ export default function OrderDetailScreen() {
                     </SectionCard>
                 )}
 
-                {/* ── Driver ───────────────────────────────────────────── */}
+                {/* ── Driver (enhanced with call + vehicle info) ───── */}
                 {order.driver && (
                     <SectionCard title="Delivery Partner" icon="bicycle-outline">
                         <View style={styles.driverRow}>
                             <View style={styles.driverAvatar}>
                                 <Ionicons name="person" size={22} color={Colors.primary} />
                             </View>
-                            <View>
+                            <View style={{ flex: 1 }}>
                                 <Text style={styles.driverName}>{order.driver.name}</Text>
-                                <Text style={styles.driverPhone}>{order.driver.phone}</Text>
+                                {(order.driver as any).vehiclePlate && (
+                                    <View style={styles.vehicleBadge}>
+                                        <Ionicons name="car-sport-outline" size={12} color={Colors.textSecondary} />
+                                        <Text style={styles.vehiclePlateText}>{(order.driver as any).vehiclePlate}</Text>
+                                    </View>
+                                )}
                             </View>
+                            {/* Call Driver Button */}
+                            {order.driver.phone && (
+                                <TouchableOpacity
+                                    style={styles.callDriverBtn}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        if (order.driver?.phone) {
+                                            Linking.openURL(`tel:${order.driver.phone}`);
+                                        }
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <Ionicons name="call" size={18} color="#FFF" />
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </SectionCard>
                 )}
@@ -550,16 +685,16 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: '#00838F',
+        backgroundColor: Colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
         borderColor: '#FFF',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.5,
-        shadowRadius: 2,
-        elevation: 4,
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+        elevation: 5,
     },
     scroll: {
         padding: 16,
@@ -904,6 +1039,101 @@ const styles = StyleSheet.create({
         color: Colors.muted,
         marginTop: 2,
     },
+    vehicleBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 3,
+        backgroundColor: Colors.surface,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+        alignSelf: 'flex-start',
+    },
+    vehiclePlateText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 11,
+        color: Colors.textSecondary,
+        letterSpacing: 0.5,
+    },
+    callDriverBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#2ECC71',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#2ECC71',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 5,
+    },
+
+    // ── ETA Overlay ────────────────────────────────────────────────────────
+    etaOverlay: {
+        position: 'absolute',
+        top: 14,
+        alignSelf: 'center',
+        backgroundColor: Colors.primary,
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 8,
+        minWidth: 120,
+    },
+    etaOverlayTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    etaTimeText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.lg,
+        color: '#FFF',
+    },
+    etaDistText: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: 'rgba(255,255,255,0.8)',
+        marginTop: 2,
+    },
+
+    // ── Delivery Location Pin ─────────────────────────────────────────────
+    deliveryPinContainer: {
+        alignItems: 'center',
+    },
+    deliveryPinHead: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#4285F4',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2.5,
+        borderColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+        elevation: 4,
+    },
+    deliveryPinTail: {
+        width: 0,
+        height: 0,
+        borderLeftWidth: 6,
+        borderRightWidth: 6,
+        borderTopWidth: 8,
+        borderLeftColor: 'transparent',
+        borderRightColor: 'transparent',
+        borderTopColor: '#4285F4',
+        marginTop: -2,
+    },
 
     // ── Cancellation ───────────────────────────────────────────────────────
     cancelReason: {
@@ -911,23 +1141,5 @@ const styles = StyleSheet.create({
         fontSize: FontSize.sm,
         color: Colors.danger,
         lineHeight: 20,
-    },
-
-    // ── User Location Marker ──────────────────────────────────────────────
-    userMarker: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: 'rgba(66, 133, 244, 0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    userMarkerDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#4285F4',
-        borderWidth: 2,
-        borderColor: '#FFF',
     },
 });
