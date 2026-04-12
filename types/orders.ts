@@ -82,6 +82,10 @@ export interface CurrentOrder {
         id: string;
         name: string;
         phone: string;
+        vehiclePlate: string;
+        profilePic: string | null;
+        currentLat: number | null;
+        currentLng: number | null;
     } | null;
     items: {
         id: string;
@@ -142,6 +146,10 @@ export interface OrderDetails {
         id: string;
         name: string;
         phone: string;
+        vehiclePlate: string;
+        profilePic: string | null;
+        currentLat: number | null;
+        currentLng: number | null;
     } | null;
     items: {
         id: string;

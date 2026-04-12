@@ -155,7 +155,9 @@ export default function OrderDetailScreen() {
     const prevStatusRef = useRef<string | null>(null);
 
     // Map & Location Tracking States
-    const driverLocation = useSocketStore((state) => state.driverLocation);
+    const driverLocation = useSocketStore((state) =>
+        state.driverLocation?.orderId === id ? state.driverLocation : null
+    );
     const mapRef = useRef<MapView>(null);
     const driverMarkerRef = useRef<any>(null);
     const [userLocLatLng, setUserLocLatLng] = useState<{lat: number, lng: number} | null>(null);
@@ -165,8 +167,8 @@ export default function OrderDetailScreen() {
 
     const displayDriverLocation = useMemo(() => {
         if (driverLocation) return driverLocation;
-        if ((order?.driver as any)?.currentLat && (order?.driver as any)?.currentLng) {
-            return { lat: (order?.driver as any).currentLat, lng: (order?.driver as any).currentLng };
+        if (order?.driver?.currentLat != null && order?.driver?.currentLng != null) {
+            return { lat: order.driver.currentLat, lng: order.driver.currentLng };
         }
         if (order?.restaurant) {
             return { lat: order.restaurant.lat, lng: order.restaurant.lng };
@@ -202,7 +204,7 @@ export default function OrderDetailScreen() {
                 } as any).start();
             }
         }
-    }, [driverLocation, animatedDriverLocation]);
+    }, [displayDriverLocation?.lat, displayDriverLocation?.lng, animatedDriverLocation]);
 
     // ─── Haptic feedback on status change ─────────────────────────────────────
     useEffect(() => {

@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -18,9 +17,8 @@ import Constants from 'expo-constants';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useOrderDetail } from '@/hooks/useOrders';
+import { useOrderTracking } from '@/hooks/useSocketOrders';
 import { useSocketStore } from '@/store/useSocketStore';
-import { getSocket } from '@/lib/socket-client';
-import { useQueryClient } from '@tanstack/react-query';
 import { OrderStatus } from '@/types/orders';
 
 const { width, height } = Dimensions.get('window');
@@ -61,16 +59,18 @@ function decodePolyline(encoded: string): { latitude: number; longitude: number 
 export default function TrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const mapRef = useRef<MapView>(null);
   
   const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 
   const { data: order, isLoading } = useOrderDetail(id as string);
-  const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
   const [eta, setEta] = useState<string | null>(null);
-  const { isConnected } = useSocketStore();
+  const driverLocation = useSocketStore((state) =>
+    state.driverLocation?.orderId === id ? state.driverLocation : null
+  );
+
+  useOrderTracking(id ?? null);
 
   const restaurantPos = useMemo(() => {
     if (!order?.restaurant) return null;
@@ -82,10 +82,27 @@ export default function TrackingScreen() {
     return { latitude: order.customerAddress.lat, longitude: order.customerAddress.lng };
   }, [order?.customerAddress]);
 
+  const fallbackDriverPos = useMemo(() => {
+    if (
+      order?.driver?.currentLat == null ||
+      order?.driver?.currentLng == null
+    ) {
+      return null;
+    }
+
+    return {
+      latitude: order.driver.currentLat,
+      longitude: order.driver.currentLng,
+    };
+  }, [order?.driver]);
+
   const driverPos = useMemo(() => {
-    if (driverLocation) return { latitude: driverLocation.lat, longitude: driverLocation.lng };
-    return null;
-  }, [driverLocation]);
+    if (driverLocation) {
+      return { latitude: driverLocation.lat, longitude: driverLocation.lng };
+    }
+
+    return fallbackDriverPos;
+  }, [driverLocation, fallbackDriverPos]);
 
   // ─── Fetch directions from Google Directions API ───
   const fetchRoute = useCallback(async (
@@ -159,53 +176,6 @@ export default function TrackingScreen() {
   }, [restaurantPos, customerPos, driverPos, routeCoords.length]);
 
   // ─── Socket listeners ───
-  useEffect(() => {
-    if (!id) return;
-    
-    const socket = getSocket();
-    if (!socket) return;
-
-    const handleLocationUpdate = (payload: any) => {
-      if (payload.orderId === id) {
-        setDriverLocation({ lat: payload.lat, lng: payload.lng });
-      }
-    };
-
-    const handleStatusUpdate = (payload: any) => {
-      if (payload.orderId === id) {
-        queryClient.invalidateQueries({ queryKey: ['orders', id] });
-      }
-    };
-
-    const handleDriverAssigned = (payload: any) => {
-      if (payload.orderId === id) {
-        queryClient.invalidateQueries({ queryKey: ['orders', id] });
-      }
-    };
-
-    const handleOrderCancelled = (payload: any) => {
-      if (payload.orderId === id) {
-        // Force immediate refresh to trigger the cancellation overlay
-        queryClient.invalidateQueries({ queryKey: ['orders', id] });
-      }
-    };
-
-    socket.emit('join_order_tracking', id);
-    
-    socket.on('order_location_update', handleLocationUpdate);
-    socket.on('order_status_update', handleStatusUpdate);
-    socket.on('driver_assigned', handleDriverAssigned);
-    socket.on('order_cancelled', handleOrderCancelled);
-
-    return () => {
-      socket.emit('leave_order_tracking', id);
-      socket.off('order_location_update', handleLocationUpdate);
-      socket.off('order_status_update', handleStatusUpdate);
-      socket.off('driver_assigned', handleDriverAssigned);
-      socket.off('order_cancelled', handleOrderCancelled);
-    };
-  }, [id, queryClient]);
-
   const getStatusStep = (status: OrderStatus) => {
     switch (status) {
       case 'PLACED': return 1;
@@ -441,7 +411,7 @@ export default function TrackingScreen() {
               <Ionicons name="close-circle" size={64} color={Colors.danger} />
               <Text style={styles.cancelledTitle}>Order Cancelled</Text>
               <Text style={styles.cancelledSubtitle}>
-                We're sorry, but this order has been cancelled. If you have been charged, a refund will be processed automatically.
+                We&apos;re sorry, but this order has been cancelled. If you have been charged, a refund will be processed automatically.
               </Text>
               <TouchableOpacity style={styles.cancelledBackButton} onPress={() => router.back()}>
                 <Text style={styles.cancelledBackButtonText}>Go Back</Text>

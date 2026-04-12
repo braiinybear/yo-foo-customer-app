@@ -21,20 +21,25 @@ export function OrderStatusTracker({ orderId }: OrderStatusTrackerProps) {
   const { currentOrderId, orderStatus, assignedDriver, driverLocation } = useSocketStore();
   const [displayStatus, setDisplayStatus] = useState<string>('PENDING');
   const [lastUpdate, setLastUpdate] = useState<string>('');
-
-  if (currentOrderId !== orderId) {
-    return null;
-  }
+  const isCurrentOrder = currentOrderId === orderId;
 
   const status = orderStatus || 'PENDING';
   const statusDisplay = ORDER_STATUSES[status as keyof typeof ORDER_STATUSES] || status;
 
   useEffect(() => {
+    if (!isCurrentOrder) {
+      return;
+    }
+
     if (status !== displayStatus) {
       setDisplayStatus(status);
       setLastUpdate(new Date().toLocaleTimeString());
     }
-  }, [displayStatus, status]);
+  }, [displayStatus, isCurrentOrder, status]);
+
+  if (!isCurrentOrder) {
+    return null;
+  }
 
   return (
     <View style={styles.container}>

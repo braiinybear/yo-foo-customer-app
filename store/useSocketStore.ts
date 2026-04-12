@@ -8,7 +8,8 @@ export interface DriverInfo {
 }
 
 export interface DriverLocation {
-  driverProfileId: string;
+  orderId: string;
+  driverProfileId?: string;
   lat: number;
   lng: number;
 }
@@ -84,6 +85,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
   handleOrderLocationUpdate: (location) =>
     set({
+      currentOrderId: location.orderId,
       driverLocation: location,
     }),
 
