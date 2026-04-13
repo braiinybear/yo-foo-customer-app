@@ -21,6 +21,7 @@ import * as NavigationBar from "expo-navigation-bar";
 
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import GlobalCustomAlert from "@/components/GlobalCustomAlert";
 import { NotificationProvider } from "@/context/NotificationContext";
 import * as Notifications from "expo-notifications";
 import { User } from "@/types/user";
@@ -199,6 +200,7 @@ export default function RootLayout() {
           </View>
         </SocketProvider>
       </NotificationProvider>
+      <GlobalCustomAlert />
     </QueryClientProvider>
   );
 }

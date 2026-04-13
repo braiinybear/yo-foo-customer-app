@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -18,6 +17,7 @@ import { Fonts, FontSize } from "@/constants/typography";
 import { useCartStore } from "@/store/useCartStore";
 import { useCreatePaymentOrder, useVerifyPayment } from "@/hooks/usePayments";
 import { authClient } from "@/lib/auth-client";
+import { showAlert } from "@/store/useAlertStore";
 
 // ─── Razorpay test key ────────────────────────────────────────────────────────
 const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_XXXXXXXX";
@@ -50,7 +50,7 @@ export default function CheckoutScreen() {
     // ── Main payment handler ──────────────────────────────────────────────────
     const handlePayNow = async () => {
         if (!orderId) {
-            Alert.alert("Error", "No order found. Please go back to cart.");
+            showAlert("Error", "No order found. Please go back to cart.");
             return;
         }
 

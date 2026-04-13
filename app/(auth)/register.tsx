@@ -6,7 +6,6 @@ import React, { useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import {
     ActivityIndicator, // IGNORE: This is a standard React Native component for showing a loading spinner
-    Alert, // IGNORE: This is a standard React Native API for showing alert dialogs
     Image,
     KeyboardAvoidingView, // IGNORE: This is a standard React Native component that adjusts its behavior when the keyboard is open
     Platform, // IGNORE: This is a standard React Native API for detecting the platform (iOS, Android, etc.)
@@ -17,6 +16,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { showAlert } from "@/store/useAlertStore";
 
 export default function Register() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -29,7 +29,7 @@ export default function Register() {
 
     const handleRegister = async () => {
         if (!name || !email || !password) {
-            Alert.alert("Error", "Please fill in all fields");
+            showAlert("Error", "Please fill in all fields");
             return;
         }
         setIsLoading(true);
@@ -49,13 +49,13 @@ export default function Register() {
                     }
 
                     setIsLoading(false);
-                    Alert.alert("Success", "Account created successfully", [
+                    showAlert("Success", "Account created successfully", [
                         { text: "OK", onPress: () => router.replace("/") }
                     ]);
                 },
                 onError: (ctx: any) => {
                     setIsLoading(false);
-                    Alert.alert("Registration Failed", ctx.error.message);
+                    showAlert("Registration Failed", ctx.error.message);
                 },
             }
         );

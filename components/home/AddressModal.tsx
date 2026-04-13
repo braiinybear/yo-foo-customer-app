@@ -12,10 +12,10 @@ import {
     FlatList,
     Pressable,
     Dimensions,
-    Platform,
-    Alert,
     ActivityIndicator,
+    Platform,
 } from "react-native";
+import { showAlert } from "@/store/useAlertStore";
 import AddAddressScreen from "./AddAddressScreen";
 import { useDeleteAddress, useSetDefaultAddress } from "@/hooks/useAddresses";
 
@@ -40,7 +40,7 @@ export default function AddressModal({
     const setDefaultMutation = useSetDefaultAddress();
 
     const handleDelete = (id: string) => {
-        Alert.alert(
+        showAlert(
             "Delete Address",
             "Are you sure you want to delete this address?",
             [

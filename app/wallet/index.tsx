@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Modal,
     RefreshControl,
     ScrollView,
@@ -16,6 +15,7 @@ import RazorpayCheckout from "react-native-razorpay";
 
 import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
+import { showAlert } from "@/store/useAlertStore";
 import { authClient } from "@/lib/auth-client";
 import {
     useWalletBalance,
@@ -199,7 +199,7 @@ export default function WalletScreen() {
     const handleTopUp = async () => {
         const amount = resolvedAmount;
         if (!amount || amount < 1) {
-            Alert.alert("Invalid Amount", "Please select or enter a valid amount.");
+            showAlert("Invalid Amount", "Please select or enter a valid amount.");
             return;
         }
 

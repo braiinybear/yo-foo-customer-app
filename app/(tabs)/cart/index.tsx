@@ -6,7 +6,6 @@ import {
     FlatList,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
     ScrollView,
     Image,
     Modal,
@@ -24,6 +23,7 @@ import { getPlaceholderImage } from '@/constants/images';
 import { PaymentMode } from '@/types/orders';
 import { UserAddress } from '@/types/user';
 import AddressModal from '@/components/home/AddressModal';
+import { showAlert } from '@/store/useAlertStore';
 
 // ─── Payment option config ────────────────────────────────────────────────────
 type PaymentOption = {
@@ -89,22 +89,22 @@ export default function CartScreen() {
     // ── Checkout ──────────────────────────────────────────────────────────────
     const handleCheckout = () => {
         if (!restaurantId || items.length === 0) {
-            Alert.alert('Error', 'Your cart is empty');
+            showAlert('Error', 'Your cart is empty');
             return;
         }
 
         if (selectedMode === 'WALLET') {
             if (walletLoading) {
-                Alert.alert('Please wait', 'Checking your wallet balance…');
+                showAlert('Please wait', 'Checking your wallet balance…');
                 return;
             }
             if (walletBalance < totalAmount) {
-                Alert.alert(
+                showAlert(
                     'Insufficient Wallet Balance',
                     `Your wallet has ₹${walletBalance.toFixed(2)}, but the order total is ₹${totalAmount.toFixed(2)}. Please top up or choose another method.`,
                     [
-                        { text: 'Add Money', onPress: () => router.push('/wallet') },
                         { text: 'Cancel', style: 'cancel' },
+                        { text: 'Add Money', onPress: () => router.push('/wallet') },
                     ]
                 );
                 return;
@@ -133,7 +133,7 @@ export default function CartScreen() {
                 const msg =
                     err?.response?.data?.message ??
                     'Something went wrong while placing your order. Please try again.';
-                Alert.alert('Order Failed', msg);
+                showAlert('Order Failed', msg);
             },
         });
     };

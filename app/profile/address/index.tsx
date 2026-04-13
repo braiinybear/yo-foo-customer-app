@@ -7,7 +7,6 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     StyleSheet,
     Text,
@@ -16,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AddAddressScreen from "@/components/home/AddAddressScreen";
+import { showAlert } from "@/store/useAlertStore";
 
 export default function AddressesScreen() {
     const router = useRouter();
@@ -26,7 +26,7 @@ export default function AddressesScreen() {
     const [isAddMode, setIsAddMode] = useState(false);
 
     const handleDelete = (id: string) => {
-        Alert.alert(
+        showAlert(
             "Delete Address",
             "Are you sure you want to delete this address?",
             [

@@ -4,7 +4,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Dimensions,
   Image,
@@ -20,6 +19,7 @@ import { useOrderDetail } from '@/hooks/useOrders';
 import { useOrderTracking } from '@/hooks/useSocketOrders';
 import { useSocketStore } from '@/store/useSocketStore';
 import { OrderStatus } from '@/types/orders';
+import { showAlert } from '@/store/useAlertStore';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -398,7 +398,7 @@ export default function TrackingScreen() {
         )}
 
         {/* Order Items Summary */}
-        <TouchableOpacity style={styles.summaryCollapse} onPress={() => Alert.alert('Order Details', 'Items: ' + order.items.map(i => `${i.quantity}x ${i.menuItem.name}`).join(', '))}>
+        <TouchableOpacity style={styles.summaryCollapse} onPress={() => showAlert('Order Details', 'Items: ' + order.items.map(i => `${i.quantity}x ${i.menuItem.name}`).join(', '))}>
            <Text style={styles.summaryText}>View Order Details</Text>
            <Ionicons name="chevron-forward" size={16} color={Colors.muted} />
         </TouchableOpacity>

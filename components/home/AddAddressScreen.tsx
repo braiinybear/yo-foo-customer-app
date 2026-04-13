@@ -8,9 +8,9 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    ActivityIndicator,
-    Alert
+    ActivityIndicator
 } from 'react-native';
+import { showAlert } from '@/store/useAlertStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
@@ -83,11 +83,11 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
     const handleSaveAddress = (): void => {
         // Basic validation to ensure the user actually entered an address line
         if (!form.addressLine.trim()) {
-            Alert.alert("Error", "Please enter your complete address.");
+            showAlert("Error", "Please enter your complete address.");
             return;
         }
         if (!form.lat || !form.lng) {
-            Alert.alert("Notice", "Please fetch your location coordinates first.");
+            showAlert("Notice", "Please fetch your location coordinates first.");
             return;
         }
 
@@ -104,11 +104,11 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
         // Call the mutation
         addAddress(payload, {
             onSuccess: () => {
-                Alert.alert("Success", "Address added successfully!");
+                showAlert("Success", "Address added successfully!");
                 setOpenAdressAddform(false);
             },
             onError: (error) => {
-                Alert.alert("Error", "Failed to save address. Please try again.");
+                showAlert("Error", "Failed to save address. Please try again.");
                 console.error("Save Address Error:", error);
             }
         });

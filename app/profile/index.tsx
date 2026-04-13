@@ -11,7 +11,6 @@ import { useRouter } from "expo-router";
 import React, { useState, useEffect, useMemo } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -26,6 +25,7 @@ import {
     Platform,
     FlatList
 } from "react-native";
+import { showAlert } from "@/store/useAlertStore";
 
 export default function ProfileScreen() {
     const setSelectedVegType = useVegTypeStore(state => state.setSelectedVegType);
@@ -147,14 +147,14 @@ export default function ProfileScreen() {
                 },
             });
         } catch (error) {
-            Alert.alert("Error", "Failed to sign out");
+            showAlert("Error", "Failed to sign out");
         }
     };
 
     const handlePickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'We need access to your gallery to upload a profile picture.');
+            showAlert('Permission Denied', 'We need access to your gallery to upload a profile picture.');
             return;
         }
 
@@ -176,7 +176,7 @@ export default function ProfileScreen() {
             const response = await uploadImageToCloudinary(uri, "user_profiles");
             await updateUser.mutateAsync({ image: response.secure_url });
         } catch (error: any) {
-            Alert.alert("Upload Error", error.message || "Failed to upload image");
+            showAlert("Upload Error", error.message || "Failed to upload image");
         } finally {
             setIsUploading(false);
         }
@@ -195,9 +195,9 @@ export default function ProfileScreen() {
             setSelectedVegType(editForm.isVeg ? "veg" : "non-veg");
             
             setIsEditModalVisible(false);
-            Alert.alert("Success", "Profile updated successfully");
+            showAlert("Success", "Profile updated successfully");
         } catch (error: any) {
-            Alert.alert("Error", error.message || "Failed to update profile");
+            showAlert("Error", error.message || "Failed to update profile");
         }
     };
 
@@ -209,7 +209,7 @@ export default function ProfileScreen() {
             setSelectedVegType(value ? "veg" : "non-veg");
         } catch (error) {
             setEditForm(prev => ({ ...prev, isVeg: !value }));
-            Alert.alert("Error", "Failed to update preference");
+            showAlert("Error", "Failed to update preference");
         }
     };
 
@@ -229,7 +229,7 @@ export default function ProfileScreen() {
                 // dismissed
             }
         } catch (error) {
-            Alert.alert('Error', 'Could not share referral code');
+            showAlert('Error', 'Could not share referral code');
         }
     };
 

@@ -17,8 +17,8 @@ import {
     Text,
     TouchableOpacity,
     View,
-    Alert,
 } from "react-native";
+import { showAlert } from "@/store/useAlertStore";
 import { MenuCategory, MenuItem } from "@/types/restaurants";
 
 export default function RestaurantDetailScreen() {
@@ -37,7 +37,7 @@ export default function RestaurantDetailScreen() {
     }, [refetch]);
 
     const handleClearCart = useCallback(() => {
-        Alert.alert(
+        showAlert(
             'Clear Cart',
             'Are you sure you want to remove all items from your cart?',
             [
@@ -53,8 +53,7 @@ export default function RestaurantDetailScreen() {
                     },
                     style: 'destructive',
                 },
-            ],
-            { cancelable: false }
+            ]
         );
     }, []);
 
