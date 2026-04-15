@@ -139,13 +139,13 @@ export default function OrderDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const { data: order, isLoading, isError, refetch } = useOrderDetail(id ?? '');
-    
+
     // ✅ Register socket event listeners (new_order, order_status_update, driver_assigned)
     useSocketOrders();
-    
+
     // ✅ Join/leave socket room for this specific order
     useOrderTracking(id ?? null);
-    
+
     // ✅ Subscribe to real-time status updates with fallback polling
     const { realTimeStatus, isUpdating, isFallbackPolling, connectionStatus } = useOrderRealTimeUpdate(id);
 
@@ -160,9 +160,10 @@ export default function OrderDetailScreen() {
     );
     const mapRef = useRef<MapView>(null);
     const driverMarkerRef = useRef<any>(null);
-    const [userLocLatLng, setUserLocLatLng] = useState<{lat: number, lng: number} | null>(null);
+    const [userLocLatLng, setUserLocLatLng] = useState<{ lat: number, lng: number } | null>(null);
+    const [isMapReady, setIsMapReady] = useState(false);
 
-    const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
+    const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GEOCODING_API_KEY || '';
     const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
     const displayDriverLocation = useMemo(() => {
@@ -272,7 +273,7 @@ export default function OrderDetailScreen() {
             const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${dest.longitude},${dest.latitude}?overview=full&geometries=polyline`;
             const osrmRes = await fetch(osrmUrl);
             const osrmJson = await osrmRes.json();
-            
+
             if (osrmJson.routes?.length > 0) {
                 setRouteCoords(decodePoly(osrmJson.routes[0].geometry));
             } else {
@@ -306,22 +307,23 @@ export default function OrderDetailScreen() {
     // Map auto-fit coordinates logic
     useEffect(() => {
         if (showMap && mapRef.current) {
-            const coords = [];
+            const coords: { latitude: number; longitude: number }[] = [];
             if (order?.restaurant) coords.push({ latitude: order.restaurant.lat, longitude: order.restaurant.lng });
             if (displayDriverLocation) coords.push({ latitude: displayDriverLocation.lat, longitude: displayDriverLocation.lng });
             if (destination) coords.push({ latitude: destination.lat, longitude: destination.lng });
 
-            if (coords.length > 1) {
-                mapRef.current.fitToCoordinates(coords, {
-                    // Huge bottom padding to avoid the scroll view covering the active map elements
-                    edgePadding: { top: 120, right: 60, bottom: 450, left: 60 },
-                    animated: true,
-                });
-
-                // Tilt the camera into 3D isometric view shortly after bounding box completes
+            if (coords.length > 1 && isMapReady) {
+                // Short timeout to ensure Android has completed layout
                 setTimeout(() => {
-                    mapRef.current?.animateCamera({ pitch: 55 });
-                }, 1500);
+                    mapRef.current?.fitToCoordinates(coords, {
+                        edgePadding: { top: 120, right: 60, bottom: 450, left: 60 },
+                        animated: true,
+                    });
+    
+                    setTimeout(() => {
+                        mapRef.current?.animateCamera({ pitch: 55 });
+                    }, 1000);
+                }, 500);
             }
         }
     }, [showMap, order?.restaurant, displayDriverLocation, destination]);
@@ -362,8 +364,9 @@ export default function OrderDetailScreen() {
                 <View style={styles.mapContainer}>
                     <MapView
                         ref={mapRef}
-                        provider={PROVIDER_GOOGLE}
+                        provider={Platform.OS === 'android' ? undefined : PROVIDER_GOOGLE}
                         style={styles.map}
+                        onMapReady={() => setIsMapReady(true)}
                         showsUserLocation={false}
                         showsMyLocationButton={false}
                         showsBuildings={true}
@@ -387,7 +390,7 @@ export default function OrderDetailScreen() {
                                 <Ionicons name="restaurant" size={16} color="#FFF" />
                             </View>
                         </Marker>
-                        
+
                         {/* Route Polyline */}
                         {routeCoords.length >= 2 && (
                             <Polyline
@@ -398,7 +401,7 @@ export default function OrderDetailScreen() {
                                 geodesic={true}
                             />
                         )}
-                        
+
                         {/* Driver Marker (Animated live from sockets) */}
                         {displayDriverLocation && (
                             <Marker.Animated
@@ -479,10 +482,10 @@ export default function OrderDetailScreen() {
 
                 {/* ── ORDER PROGRESS BAR ──────────────────────────────── */}
                 <View style={{ paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16 }}>
-                  <CustomerOrderProgressBar
-                    status={displayStatus}
-                    size="large"
-                  />
+                    <CustomerOrderProgressBar
+                        status={displayStatus}
+                        size="large"
+                    />
                 </View>
 
                 {showDeliveryOtp && (

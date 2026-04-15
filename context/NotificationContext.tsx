@@ -15,6 +15,7 @@ import {
   useUpdatePushToken,
 } from "@/hooks/useExpoPushNotication";
 import { router } from "expo-router";
+import { authClient } from "@/lib/auth-client";
 
 interface NotificationContextType {
   pushToken: string | null;
@@ -53,10 +54,17 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
   const { mutateAsync: registerPushToken } = useRegisterPushToken();
   const { mutateAsync: updatePushToken } = useUpdatePushToken();
-  const { data: serverPushToken } = useGetPushToken();
+  
+  const { data: session } = authClient.useSession();
+  const isAuthenticated = !!session;
+  
+  const { data: serverPushToken } = useGetPushToken(isAuthenticated);
 
   useEffect(() => {
     let isMounted = true;
+    
+    // Do not request or sync push tokens if the user is not logged in!
+    if (!isAuthenticated) return;
 
     const setupNotifications = async () => {
       try {

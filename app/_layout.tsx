@@ -26,6 +26,7 @@ import { NotificationProvider } from "@/context/NotificationContext";
 import * as Notifications from "expo-notifications";
 import { User } from "@/types/user";
 import { SocketProvider } from "@/context/SocketContext";
+import LocationSetupScreen, { shouldShowLocationSetup } from "@/components/LocationSetupScreen";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -55,6 +56,7 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
   const [splashDone, setSplashDone] = useState<boolean>(false);
+  const [showLocationSetup, setShowLocationSetup] = useState<boolean>(false);
 
   // Font loading
   const [fontsLoaded] = useFonts({
@@ -80,6 +82,18 @@ export default function RootLayout() {
       NavigationBar.setButtonStyleAsync("dark");
     }
   }, []);
+
+  // Check if we need to show the location setup screen after login
+  useEffect(() => {
+    if (session && splashDone) {
+      shouldShowLocationSetup().then((needed) => {
+        if (needed) setShowLocationSetup(true);
+      });
+    } else if (!session) {
+      // Reset when user logs out so it shows again on next fresh login
+      setShowLocationSetup(false);
+    }
+  }, [session, splashDone]);
 
   // Show nothing until fonts are ready
   if (!isAppReady) return null;
@@ -198,6 +212,12 @@ export default function RootLayout() {
               </Stack.Protected>
             </Stack>
           </View>
+          {/* Location Setup — shown once after first login/register */}
+          {showLocationSetup && (
+            <View style={StyleSheet.absoluteFill}>
+              <LocationSetupScreen onDone={() => setShowLocationSetup(false)} />
+            </View>
+          )}
         </SocketProvider>
       </NotificationProvider>
       <GlobalCustomAlert />

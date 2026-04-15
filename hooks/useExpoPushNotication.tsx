@@ -60,10 +60,11 @@ export const getPushToken = async (): Promise<{ pushToken: string } | null> => {
   return data;
 };
 
-export const useGetPushToken = () => {
+export const useGetPushToken = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ["pushToken"],
     queryFn: getPushToken,
+    enabled,
     staleTime: 1000 * 60 * 10, // 10 minutes
     gcTime: 1000 * 60 * 30,    // 30 minutes
   });

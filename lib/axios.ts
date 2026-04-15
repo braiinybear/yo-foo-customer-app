@@ -56,12 +56,25 @@ apiClient.interceptors.request.use(
 );
 
 
+import { router } from "expo-router";
+import { authClient } from "./auth-client";
+
 // Response Interceptor: Handles 401 Unauthorized globally
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         if (error.response?.status === 401) {
-            console.error("Session expired or invalid.");
+            console.error("Session expired or invalid. Logging out...");
+            // Run cleanup without blocking or throwing new errors if backend is unreachable
+            authClient.signOut().catch(() => { });
+            SecureStore.deleteItemAsync(BETTER_AUTH_COOKIE_KEY).catch(() => { });
+
+            // Redirect to login
+            if (router.canGoBack() || router.canDismiss()) {
+                router.replace('/(auth)/login');
+            } else {
+                router.replace('/(auth)/login');
+            }
         }
         return Promise.reject(error);
     }
