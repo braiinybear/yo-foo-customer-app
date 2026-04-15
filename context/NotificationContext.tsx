@@ -145,7 +145,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         responseListener.current.remove();
       }
     };
-  }, [expopushToken, registerPushToken, serverPushToken?.pushToken, updatePushToken]);
+  }, [expopushToken, isAuthenticated, registerPushToken, serverPushToken?.pushToken, updatePushToken]);
 
   return (
     <NotificationContext.Provider
