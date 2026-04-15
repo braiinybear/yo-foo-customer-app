@@ -1,5 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
+import { authClient } from "./auth-client";
+import { router } from "expo-router";
 
 // Use your backend IP (avoid localhost for physical devices)
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -54,10 +56,6 @@ apiClient.interceptors.request.use(
         return Promise.reject(error);
     }
 );
-
-
-import { router } from "expo-router";
-import { authClient } from "./auth-client";
 
 // Response Interceptor: Handles 401 Unauthorized globally
 apiClient.interceptors.response.use(
