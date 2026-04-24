@@ -67,6 +67,8 @@ export interface PaginatedTransactionsResponse {
         page: number;
         limit: number;
         totalPages: number;
+        totalAdded: number;
+        totalSpent: number;
     };
 }
 

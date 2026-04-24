@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import RazorpayCheckout from "react-native-razorpay";
 
@@ -135,6 +136,8 @@ const TxRow = ({ tx }: { tx: WalletTransaction }) => {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WalletScreen() {
+    const router = useRouter();
+    const { orderId } = useLocalSearchParams<{ orderId: string }>();
     const { data: session } = authClient.useSession();
 
     const {
@@ -184,13 +187,9 @@ export default function WalletScreen() {
     }, [txHasNextPage, txFetchingMore, txFetchNextPage]);
 
     // ── Computed stats ────────────────────────────────────────────────────────
-    const totalAdded = txList
-        .filter(isCredit)
-        .reduce((s, t) => s + (Number(t.amount) || 0), 0);
-
-    const totalSpent = txList
-        .filter(isDebit)
-        .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    // Use global sums from backend meta (calculated from full transaction history)
+    const totalAdded = txPagedData?.pages[0]?.meta.totalAdded ?? 0;
+    const totalSpent = txPagedData?.pages[0]?.meta.totalSpent ?? 0;
 
     // ── Resolve top-up amount ─────────────────────────────────────────────────
     const resolvedAmount = selectedAmount ?? parseInt(customAmount || "0", 10);
@@ -262,6 +261,24 @@ export default function WalletScreen() {
     const ListHeader = (
         <View style={styles.headerSection}>
             {/* ── Balance Card ─────────────────────────────────────── */}
+            {orderId && (
+                <View style={styles.orderPlacedCard}>
+                    <View style={styles.orderPlacedIcon}>
+                        <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.orderPlacedTitle}>Order Placed Successfully!</Text>
+                        <Text style={styles.orderPlacedSub}>Payment deducted from your wallet.</Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.trackOrderBtn}
+                        onPress={() => router.replace(`/(tabs)/orders/${orderId}`)}
+                    >
+                        <Text style={styles.trackOrderText}>Track Order</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
             <View style={styles.balanceCard}>
                 <View style={styles.circle1} />
                 <View style={styles.circle2} />
@@ -412,6 +429,25 @@ export default function WalletScreen() {
                     />
                 }
             >
+                {/* ── Order Success Banner ────────────────────────────────── */}
+                {orderId && (
+                    <View style={styles.orderPlacedCard}>
+                        <View style={styles.orderPlacedIcon}>
+                            <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.orderPlacedTitle}>Order Placed Successfully!</Text>
+                            <Text style={styles.orderPlacedSub}>Payment deducted from your wallet.</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.trackOrderBtn}
+                            onPress={() => router.replace(`/(tabs)/orders/${orderId}`)}
+                        >
+                            <Text style={styles.trackOrderText}>Track Order</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
                 {/* ── Balance Card ─────────────────────────────────────── */}
                 <View style={styles.balanceCard}>
                     <View style={styles.circle1} />
@@ -718,6 +754,52 @@ export default function WalletScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+    orderPlacedCard: {
+        backgroundColor: Colors.white,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: Colors.success + "30",
+        shadowColor: Colors.success,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 4,
+    },
+    orderPlacedIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.success + "15",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 12,
+    },
+    orderPlacedTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 14,
+        color: Colors.text,
+    },
+    orderPlacedSub: {
+        fontFamily: Fonts.brand,
+        fontSize: 12,
+        color: Colors.muted,
+        marginTop: 2,
+    },
+    trackOrderBtn: {
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    trackOrderText: {
+        color: Colors.white,
+        fontFamily: Fonts.brandBold,
+        fontSize: 12,
+    },
     root: {
         flex: 1,
         backgroundColor: Colors.surface,

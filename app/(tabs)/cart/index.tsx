@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    FlatList,
     TouchableOpacity,
     ActivityIndicator,
     ScrollView,
@@ -121,7 +120,10 @@ export default function CartScreen() {
             onSuccess: (order) => {
                 if (selectedMode === 'WALLET') {
                     clearCart();
-                    router.replace('/wallet');
+                    router.replace({
+                        pathname: '/wallet',
+                        params: { orderId: order.id }
+                    });
                 } else if (selectedMode === 'COD') {
                     clearCart();
                     router.replace('/(tabs)/orders');

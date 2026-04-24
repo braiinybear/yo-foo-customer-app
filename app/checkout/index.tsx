@@ -16,8 +16,11 @@ import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
 import { useCartStore } from "@/store/useCartStore";
 import { useCreatePaymentOrder, useVerifyPayment } from "@/hooks/usePayments";
+import { useAvailableCoupons, useValidateCoupon } from "@/hooks/useCoupons";
 import { authClient } from "@/lib/auth-client";
 import { showAlert } from "@/store/useAlertStore";
+import { Coupon, ValidateCouponResponse } from "@/types/coupons";
+import { CouponDetailModal } from "@/components/CouponDetailModal";
 
 // ─── Razorpay test key ────────────────────────────────────────────────────────
 const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_XXXXXXXX";
@@ -40,12 +43,50 @@ export default function CheckoutScreen() {
     const createPaymentOrder = useCreatePaymentOrder();
     const verifyPayment = useVerifyPayment();
 
+    const { data: availableCoupons } = useAvailableCoupons();
+    const validateCouponMutation = useValidateCoupon();
+
     const [step, setStep] = useState<PaymentStep>("idle");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [appliedCoupon, setAppliedCoupon] = useState<ValidateCouponResponse | null>(null);
+    const [couponCode, setCouponCode] = useState("");
+
+    const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+    const [isCouponModalVisible, setIsCouponModalVisible] = useState(false);
 
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
+
+    const deliveryCharge = 40;
+    const platformFee = 5;
+    const gstAndCharges = itemTotal * 0.05;
+    const subTotal = itemTotal + deliveryCharge + platformFee + gstAndCharges;
+    const grandTotal = subTotal - (appliedCoupon?.discount ?? 0);
+
+    const handleApplyCoupon = async () => {
+        handleApplyCouponWithValue(couponCode);
+    };
+
+    const handleApplyCouponWithValue = async (code: string) => {
+        if (!code.trim()) return;
+
+        try {
+            const result = await validateCouponMutation.mutateAsync({
+                code: code,
+                orderTotal: itemTotal,
+            });
+            setAppliedCoupon(result);
+            showAlert("Success", result.message);
+        } catch (error: any) {
+            showAlert("Invalid Coupon", error?.response?.data?.message || "This coupon could not be applied.");
+        }
+    };
+
+    const handleRemoveCoupon = () => {
+        setAppliedCoupon(null);
+        setCouponCode("");
+    };
 
     // ── Main payment handler ──────────────────────────────────────────────────
     const handlePayNow = async () => {
@@ -149,6 +190,15 @@ export default function CheckoutScreen() {
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
+            <CouponDetailModal
+                visible={isCouponModalVisible}
+                coupon={selectedCoupon}
+                onClose={() => setIsCouponModalVisible(false)}
+                onApply={(code) => {
+                    setCouponCode(code);
+                    handleApplyCouponWithValue(code);
+                }}
+            />
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
@@ -174,6 +224,48 @@ export default function CheckoutScreen() {
                     ))}
                 </View>
 
+                {/* ── Offers & Coupons ── */}
+                <View style={[styles.card, { paddingBottom: appliedCoupon ? 12 : 18 }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <Text style={[styles.cardTitle, { marginBottom: 0 }]}>Offers & Coupons</Text>
+                        <Ionicons name="pricetag-outline" size={18} color={Colors.primary} />
+                    </View>
+
+                    {appliedCoupon ? (
+                        <View style={styles.appliedCouponContainer}>
+                            <View style={styles.couponInfo}>
+                                <View style={styles.couponTag}>
+                                    <Text style={styles.couponTagText}>{appliedCoupon.code}</Text>
+                                </View>
+                                <Text style={styles.couponSavings}>Savings: {formatCurrency(appliedCoupon.discount)}</Text>
+                            </View>
+                            <TouchableOpacity onPress={handleRemoveCoupon}>
+                                <Text style={styles.removeCouponText}>Remove</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
+
+                    {availableCoupons && availableCoupons.length > 0 && (
+                        <View style={styles.availableList}>
+                            <Text style={styles.availableTitle}>Available for you:</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                                {availableCoupons.map(c => (
+                                    <TouchableOpacity
+                                        key={c.id}
+                                        style={styles.availableItem}
+                                        onPress={() => {
+                                            setSelectedCoupon(c);
+                                            setIsCouponModalVisible(true);
+                                        }}
+                                    >
+                                        <Text style={styles.availableItemText}>{c.code}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+                </View>
+
                 {/* ── Bill Details Card ── */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Bill Details</Text>
@@ -186,23 +278,30 @@ export default function CheckoutScreen() {
                         <View style={styles.billLabelRow}>
                             <Text style={styles.billLabel}>Delivery Charges</Text>
                         </View>
-                        <Text style={styles.billValue}>{formatCurrency(40)}</Text>
+                        <Text style={styles.billValue}>{formatCurrency(deliveryCharge)}</Text>
                     </View>
                     <View style={styles.billRow}>
                         <Text style={styles.billLabel}>Platform Fee</Text>
-                        <Text style={styles.billValue}>{formatCurrency(5)}</Text>
+                        <Text style={styles.billValue}>{formatCurrency(platformFee)}</Text>
                     </View>
                     <View style={styles.billRow}>
                         <Text style={styles.billLabel}>GST & Charges</Text>
-                        <Text style={styles.billValue}>{formatCurrency(itemTotal * 0.05)}</Text>
+                        <Text style={styles.billValue}>{formatCurrency(gstAndCharges)}</Text>
                     </View>
+
+                    {appliedCoupon && (
+                        <View style={styles.billRow}>
+                            <Text style={[styles.billLabel, { color: Colors.success }]}>Coupon ({appliedCoupon.code})</Text>
+                            <Text style={[styles.billValue, { color: Colors.success }]}>-{formatCurrency(appliedCoupon.discount)}</Text>
+                        </View>
+                    )}
 
                     <View style={styles.divider} />
 
                     <View style={styles.billRow}>
                         <Text style={styles.grandTotalLabel}>Grand Total</Text>
                         <Text style={styles.grandTotalValue}>
-                            {formatCurrency(itemTotal + 45 + itemTotal * 0.05)}
+                            {formatCurrency(grandTotal)}
                         </Text>
                     </View>
                 </View>
@@ -264,7 +363,7 @@ export default function CheckoutScreen() {
                             <>
                                 <Ionicons name="lock-closed" size={18} color={Colors.white} />
                                 <Text style={styles.payButtonText}>
-                                    Pay {formatCurrency(itemTotal + 45 + itemTotal * 0.05)} Securely
+                                    Pay {formatCurrency(grandTotal)} Securely
                                 </Text>
                             </>
                         )}
@@ -533,6 +632,89 @@ const styles = StyleSheet.create({
     },
     successIcon: {
         marginBottom: 24,
+    },
+
+    // ── Coupons Styles ──────────────────────────────────────────────────────
+    couponInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F1F5',
+        borderRadius: 12,
+        height: 48,
+    },
+    applyBtn: {
+        backgroundColor: Colors.white,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+        marginRight: 6,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+    },
+    applyBtnText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 12,
+        color: Colors.primary,
+    },
+    appliedCouponContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#F0FFF4',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: Colors.success,
+    },
+    couponInfo: {
+        flex: 1,
+    },
+    couponTag: {
+        backgroundColor: Colors.success,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+        alignSelf: 'flex-start',
+        marginBottom: 4,
+    },
+    couponTagText: {
+        color: Colors.white,
+        fontFamily: Fonts.brandBold,
+        fontSize: 10,
+    },
+    couponSavings: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 12,
+        color: Colors.text,
+    },
+    removeCouponText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 12,
+        color: Colors.danger,
+    },
+    availableList: {
+        marginTop: 12,
+    },
+    availableTitle: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 10,
+        color: Colors.muted,
+        marginBottom: 6,
+        textTransform: 'uppercase',
+    },
+    availableItem: {
+        backgroundColor: Colors.white,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    availableItemText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 11,
+        color: Colors.primary,
     },
     successTitle: {
         fontFamily: Fonts.brandBlack,
