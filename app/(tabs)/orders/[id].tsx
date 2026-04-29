@@ -9,18 +9,21 @@ import {
     Platform,
     Linking,
     Animated,
+    Modal,
+    TextInput,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import Constants from 'expo-constants';
 
 import { useOrderDetail } from '@/hooks/useOrders';
 import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
 import { useOrderTracking, useSocketOrders } from '@/hooks/useSocketOrders';
 import { useSocketStore } from '@/store/useSocketStore';
+import { useSubmitReview } from '@/hooks/useReview';
 import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
@@ -137,8 +140,9 @@ const SectionCard = ({ title, icon, children }: {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function OrderDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const router = useRouter();
     const { data: order, isLoading, isError, refetch } = useOrderDetail(id ?? '');
+
+    
 
     // ✅ Register socket event listeners (new_order, order_status_update, driver_assigned)
     useSocketOrders();
@@ -153,6 +157,14 @@ export default function OrderDetailScreen() {
     const [eta, setEta] = useState<{ distanceKm: number; etaMinutes: number } | null>(null);
     const [etaPulse] = useState(() => new Animated.Value(1));
     const prevStatusRef = useRef<string | null>(null);
+
+    // ─── Review Modal State ────────────────────────────────────────────────────
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [foodRating, setFoodRating] = useState(0);
+    const [deliveryRating, setDeliveryRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState('');
+    const { mutate: submitReview, isPending: isSubmittingReview } = useSubmitReview();
+    const reviewModalRef = useRef<View>(null);
 
     // Map & Location Tracking States
     const driverLocation = useSocketStore((state) =>
@@ -300,6 +312,34 @@ export default function OrderDetailScreen() {
             setUserLocLatLng({ lat: currentLoc.coords.latitude, lng: currentLoc.coords.longitude });
         })();
     }, []);
+
+    // ─── Review submission handler ──────────────────────────────────────────
+    const handleSubmitReview = useCallback(() => {
+        if (foodRating === 0 || deliveryRating === 0) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            return;
+        }
+        submitReview(
+            {
+                orderId: order?.id || id || '',
+                foodRating,
+                deliveryRating,
+                comment: reviewComment || undefined,
+            },
+            {
+                onSuccess: () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    setShowReviewModal(false);
+                    setFoodRating(0);
+                    setDeliveryRating(0);
+                    setReviewComment('');
+                },
+                onError: () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                },
+            }
+        );
+    }, [foodRating, deliveryRating, reviewComment, order?.id, id, submitReview]);
 
     const displayStatus: OrderStatus | undefined = (realTimeStatus as OrderStatus) || order?.status;
     const showMap = displayStatus ? ['ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].includes(displayStatus) : false;
@@ -488,17 +528,8 @@ export default function OrderDetailScreen() {
                     />
                 </View>
 
-                {showDeliveryOtp && (
-                    <SectionCard title="Delivery OTP" icon="key-outline">
-                        <Text style={styles.otpValue}>{order.otp}</Text>
-                        <Text style={styles.otpHint}>
-                            Share this OTP with your rider only after the order reaches you.
-                        </Text>
-                    </SectionCard>
-                )}
-
-                {/* ── Driver (enhanced with call + vehicle info) ───── */}
-                {order.driver && (
+                {/* ── Driver (enhanced with call + chat + vehicle info) ───── */}
+                {order.driver && displayStatus !== 'DELIVERED' && (
                     <SectionCard title="Delivery Partner" icon="bicycle-outline">
                         <View style={styles.driverRow}>
                             <View style={styles.driverAvatar}>
@@ -513,47 +544,93 @@ export default function OrderDetailScreen() {
                                     </View>
                                 )}
                             </View>
-                            {/* Call Driver Button */}
-                            {order.driver.phone && (
+                            {/* Call & Chat Buttons */}
+                            <View style={styles.driverActionsContainer}>
+                                {order.driver.phone && (
+                                    <TouchableOpacity
+                                        style={styles.callDriverBtn}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            if (order.driver?.phone) {
+                                                Linking.openURL(`tel:${order.driver.phone}`);
+                                            }
+                                        }}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Ionicons name="call" size={18} color="#FFF" />
+                                    </TouchableOpacity>
+                                )}
                                 <TouchableOpacity
-                                    style={styles.callDriverBtn}
+                                    style={styles.chatDriverBtn}
                                     onPress={() => {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        if (order.driver?.phone) {
-                                            Linking.openURL(`tel:${order.driver.phone}`);
-                                        }
+                                        // Chat functionality will be implemented in future
                                     }}
                                     activeOpacity={0.8}
                                 >
-                                    <Ionicons name="call" size={18} color="#FFF" />
+                                    <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
                                 </TouchableOpacity>
-                            )}
+                            </View>
                         </View>
                     </SectionCard>
                 )}
 
-                {/* ── Restaurant ───────────────────────────────────────── */}
-                <SectionCard title="Restaurant" icon="restaurant-outline">
-                    <Text style={styles.restName}>{order.restaurant.name}</Text>
-                    {order.restaurant.description && (
-                        <Text style={styles.restDesc}>{order.restaurant.description}</Text>
-                    )}
-                    <View style={styles.restMeta}>
-                        <Ionicons name="location-outline" size={13} color={Colors.muted} />
-                        <Text style={styles.restMetaText}>{order.restaurant.address}</Text>
-                    </View>
-                    {order.restaurant.cuisineTypes.length > 0 && (
-                        <View style={styles.cuisineRow}>
-                            {order.restaurant.cuisineTypes.map((c) => (
-                                <View key={c} style={styles.cuisineChip}>
-                                    <Text style={styles.cuisineChipText}>{c}</Text>
-                                </View>
-                            ))}
+                {/* ── Driver (after delivery) ───── */}
+                {order.driver && displayStatus === 'DELIVERED' && (
+                    <SectionCard title="Delivery Partner" icon="bicycle-outline">
+                        <View style={styles.driverRow}>
+                            <View style={styles.driverAvatar}>
+                                <Ionicons name="person" size={22} color={Colors.primary} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.driverName}>{order.driver.name}</Text>
+                                {(order.driver as any).vehiclePlate && (
+                                    <View style={styles.vehicleBadge}>
+                                        <Ionicons name="car-sport-outline" size={12} color={Colors.textSecondary} />
+                                        <Text style={styles.vehiclePlateText}>{(order.driver as any).vehiclePlate}</Text>
+                                    </View>
+                                )}
+                            </View>
+                            {/* Call & Chat Buttons */}
+                            <View style={styles.driverActionsContainer}>
+                                {order.driver.phone && (
+                                    <TouchableOpacity
+                                        style={styles.callDriverBtn}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            if (order.driver?.phone) {
+                                                Linking.openURL(`tel:${order.driver.phone}`);
+                                            }
+                                        }}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Ionicons name="call" size={18} color="#FFF" />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity
+                                    style={styles.chatDriverBtn}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        // Chat functionality will be implemented in future
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    )}
-                </SectionCard>
+                    </SectionCard>
+                )}
 
-                {/* ── Items ────────────────────────────────────────────── */}
+                {showDeliveryOtp && (
+                    <SectionCard title="Delivery OTP" icon="key-outline">
+                        <Text style={styles.otpValue}>{order.otp}</Text>
+                        <Text style={styles.otpHint}>
+                            Share this OTP with your rider only after the order reaches you.
+                        </Text>
+                    </SectionCard>
+                )}
+                   {/* ── Items ────────────────────────────────────────────── */}
                 <SectionCard title="Order Items" icon="bag-outline">
                     {order.items.map((item, idx) => (
                         <View
@@ -647,7 +724,158 @@ export default function OrderDetailScreen() {
                         <Text style={styles.cancelReason}>{order.cancellationReason}</Text>
                     </SectionCard>
                 )}
+                  {/* ── Restaurant ───────────────────────────────────────── */}
+                <SectionCard title="Restaurant" icon="restaurant-outline">
+                    <Text style={styles.restName}>{order.restaurant.name}</Text>
+                    {order.restaurant.description && (
+                        <Text style={styles.restDesc}>{order.restaurant.description}</Text>
+                    )}
+                    <View style={styles.restMeta}>
+                        <Ionicons name="location-outline" size={13} color={Colors.muted} />
+                        <Text style={styles.restMetaText}>{order.restaurant.address}</Text>
+                    </View>
+                    {order.restaurant.cuisineTypes.length > 0 && (
+                        <View style={styles.cuisineRow}>
+                            {order.restaurant.cuisineTypes.map((c) => (
+                                <View key={c} style={styles.cuisineChip}>
+                                    <Text style={styles.cuisineChipText}>{c}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </SectionCard>
+
+                {/* ── Review Section (after delivery) ───── */}
+                {displayStatus === 'DELIVERED' && (
+                    <TouchableOpacity
+                        style={styles.reviewButton}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setShowReviewModal(true);
+                        }}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="star-outline" size={20} color="#FFF" />
+                        <Text style={styles.reviewButtonText}>Rate Your Experience</Text>
+                    </TouchableOpacity>
+                )}
+                
             </ScrollView>
+
+            {/* ── Review Modal (Bottom Sheet) ── */}
+            <Modal
+                visible={showReviewModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowReviewModal(false)}
+            >
+                <View style={styles.reviewModalOverlay}>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.keyboardAvoidingView}
+                    >
+                        <View style={styles.reviewModalContainer} ref={reviewModalRef}>
+                            {/* Header */}
+                            <View style={styles.reviewModalHeader}>
+                                <Text style={styles.reviewModalTitle}>Rate Your Experience</Text>
+                                <TouchableOpacity onPress={() => setShowReviewModal(false)}>
+                                    <Ionicons name="close" size={24} color={Colors.text} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView
+                                style={styles.reviewModalContent}
+                                showsVerticalScrollIndicator={false}
+                                bounces={false}
+                                scrollEnabled={true}
+                            >
+                                {/* Food Rating */}
+                                <View style={styles.ratingSection}>
+                                    <Text style={styles.ratingLabel}>Food Quality</Text>
+                                    <View style={styles.starsContainer}>
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <TouchableOpacity
+                                                key={`food-${star}`}
+                                                onPress={() => {
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                    setFoodRating(star);
+                                                }}
+                                            >
+                                                <Ionicons
+                                                    name={star <= foodRating ? 'star' : 'star-outline'}
+                                                    size={40}
+                                                    color={star <= foodRating ? '#FFD700' : Colors.muted}
+                                                />
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </View>
+
+                                {/* Delivery Rating */}
+                                <View style={styles.ratingSection}>
+                                    <Text style={styles.ratingLabel}>Delivery Experience</Text>
+                                    <View style={styles.starsContainer}>
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <TouchableOpacity
+                                                key={`delivery-${star}`}
+                                                onPress={() => {
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                    setDeliveryRating(star);
+                                                }}
+                                            >
+                                                <Ionicons
+                                                    name={star <= deliveryRating ? 'star' : 'star-outline'}
+                                                    size={40}
+                                                    color={star <= deliveryRating ? '#FFD700' : Colors.muted}
+                                                />
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </View>
+
+                                {/* Comment Input */}
+                                <View style={styles.commentSection}>
+                                    <Text style={styles.ratingLabel}>Additional Comments (Optional)</Text>
+                                    <TextInput
+                                        style={styles.commentInput}
+                                        placeholder="Share your feedback..."
+                                        placeholderTextColor={Colors.muted}
+                                        value={reviewComment}
+                                        onChangeText={setReviewComment}
+                                        multiline
+                                        maxLength={500}
+                                    />
+                                    <Text style={styles.charCount}>
+                                        {reviewComment.length}/500
+                                    </Text>
+                                </View>
+
+                                {/* Submit Button */}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.submitReviewBtn,
+                                        (foodRating === 0 || deliveryRating === 0) && styles.submitReviewBtnDisabled,
+                                    ]}
+                                    onPress={handleSubmitReview}
+                                    disabled={isSubmittingReview || foodRating === 0 || deliveryRating === 0}
+                                    activeOpacity={0.8}
+                                >
+                                    {isSubmittingReview ? (
+                                        <ActivityIndicator color="#FFF" />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                                            <Text style={styles.submitReviewBtnText}>Submit Review</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <View style={styles.modalSpacing} />
+                            </ScrollView>
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -1074,6 +1302,37 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         elevation: 5,
     },
+    chatDriverBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 5,
+    },
+    driverActionsContainer: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    quickCallBtn: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#2ECC71',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#2ECC71',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        elevation: 6,
+        flexShrink: 0,
+    },
 
     // ── ETA Overlay ────────────────────────────────────────────────────────
     etaOverlay: {
@@ -1146,5 +1405,133 @@ const styles = StyleSheet.create({
         fontSize: FontSize.sm,
         color: Colors.danger,
         lineHeight: 20,
+    },
+
+    // ── Review Button ──────────────────────────────────────────────────────
+    reviewButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        backgroundColor: Colors.primary,
+        borderRadius: 12,
+        paddingVertical: 14,
+        marginVertical: 8,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.35,
+        shadowRadius: 5,
+        elevation: 5,
+    },
+    reviewButtonText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
+        color: '#FFF',
+    },
+
+    // ── Review Modal ───────────────────────────────────────────────────────
+    reviewModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    keyboardAvoidingView: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
+    reviewModalContainer: {
+        backgroundColor: Colors.white,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '90%',
+        paddingTop: 16,
+    },
+    reviewModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    reviewModalTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.lg,
+        color: Colors.text,
+    },
+    reviewModalContent: {
+        paddingHorizontal: 16,
+        paddingTop: 20,
+    },
+
+    // ── Rating Sections ────────────────────────────────────────────────────
+    ratingSection: {
+        marginBottom: 24,
+    },
+    ratingLabel: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
+        color: Colors.text,
+        marginBottom: 12,
+    },
+    starsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 12,
+    },
+
+    // ── Comment Section ───────────────────────────────────────────────────
+    commentSection: {
+        marginBottom: 20,
+    },
+    commentInput: {
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.sm,
+        color: Colors.text,
+        textAlignVertical: 'top',
+        minHeight: 100,
+        maxHeight: 150,
+    },
+    charCount: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.muted,
+        marginTop: 6,
+        textAlign: 'right',
+    },
+
+    // ── Submit Button ──────────────────────────────────────────────────────
+    submitReviewBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: Colors.primary,
+        borderRadius: 12,
+        paddingVertical: 14,
+        marginBottom: 16,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.35,
+        shadowRadius: 5,
+        elevation: 5,
+    },
+    submitReviewBtnDisabled: {
+        backgroundColor: Colors.muted,
+        shadowOpacity: 0.15,
+    },
+    submitReviewBtnText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
+        color: '#FFF',
+    },
+    modalSpacing: {
+        height: 20,
     },
 });

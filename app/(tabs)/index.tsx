@@ -16,7 +16,7 @@ import CuisineFilter from "@/components/home/CuisineFilter";
 import HeaderBar from "@/components/home/HeaderBar";
 import RestaurantCard from "@/components/home/RestaurantCard";
 import SearchBar from "@/components/home/SearchBar";
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { useAddresses } from "@/hooks/useAddresses";
 import AddressModal from "@/components/home/AddressModal";

@@ -13,6 +13,7 @@ import {
     Dimensions
 } from "react-native";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
+import { useUpdateUser } from "@/hooks/useUpdateUser";
 
 interface SearchBarProps {
     value: string;
@@ -53,11 +54,18 @@ export default function SearchBar({
         }).start();
     }, [showFilter, scaleAnim]);
 
+    const { mutate: updateUser } = useUpdateUser();
+
     const handleSelect = (type: "veg" | "non-veg" | "vegan" | null) => {
         setSelectedVegType(type as any);
         setShowFilter(false);
-    };
 
+        // Update backend with veg preference
+        if (type) {
+            const isVeg = type !== "non-veg";
+            updateUser({ isVeg });
+        }
+    };
     const selectedOption = VEG_OPTIONS.find(opt => opt.id === selectedVegType);
 
     return (

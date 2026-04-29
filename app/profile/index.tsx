@@ -74,7 +74,7 @@ export default function ProfileScreen() {
                 setCalendarViewerDate(new Date(user.dob));
             }
         }
-    }, [user]);
+    }, [setSelectedVegType, user]);
 
     // ── Calendar Helpers ─────────────────────────────────────
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
