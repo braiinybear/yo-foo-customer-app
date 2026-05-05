@@ -193,6 +193,7 @@ export interface OrderDetails {
         createdAt: string;
         updatedAt: string;
     };
+    review?: any;
     customerAddress: {
         id: string;
         addressLine: string;

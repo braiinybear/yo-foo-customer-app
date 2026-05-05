@@ -746,7 +746,7 @@ export default function OrderDetailScreen() {
                 </SectionCard>
 
                 {/* ── Review Section (after delivery) ───── */}
-                {displayStatus === 'DELIVERED' && (
+                {displayStatus === 'DELIVERED' && !order?.review && (
                     <TouchableOpacity
                         style={styles.reviewButton}
                         onPress={() => {
