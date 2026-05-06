@@ -383,13 +383,9 @@ export default function RestaurantDetailScreen() {
                 <View style={{ height: 120 }} />
             </ScrollView>
 
-            {cartCount > 0 && (
+           {cartCount > 0 && (
                 <View style={[styles.cartBannerWrapper, { bottom: cartBannerBottom }]}>
-                    <TouchableOpacity
-                        style={styles.cartBanner}
-                        activeOpacity={0.85}
-                        onPress={() => router.push('/(tabs)/cart')}
-                    >
+                    <View style={styles.cartBanner}>
                         <View style={styles.cartContentLeft}>
                             <View style={styles.cartItemImagesContainer}>
                                 {items.slice(0, 3).map((item, index) => (
@@ -413,11 +409,15 @@ export default function RestaurantDetailScreen() {
                             >
                                 <Ionicons name="trash-outline" size={18} color={Colors.white} />
                             </TouchableOpacity>
-                            <View style={styles.viewCartAction}>
+                            <TouchableOpacity 
+                                style={styles.viewCartAction}
+                                onPress={() => router.push('/(tabs)/cart')}
+                                activeOpacity={0.7}
+                            >
                                 <Ionicons name="arrow-forward" size={20} color={Colors.white} />
-                            </View>
+                            </TouchableOpacity>
                         </View>
-                    </TouchableOpacity>
+                    </View>
                 </View>
             )}
         </View>
