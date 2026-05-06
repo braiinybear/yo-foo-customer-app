@@ -44,6 +44,7 @@ export default function ProfileScreen() {
 
     const [editForm, setEditForm] = useState({
         name: "",
+        email: "",
         gender: "",
         dob: "",
         isVeg: false
@@ -63,6 +64,7 @@ export default function ProfileScreen() {
 
             setEditForm({
                 name: user.name || "",
+                email: user.email?.endsWith('@phone.foodapp.local') ? "" : (user.email || ""),
                 gender: user.gender || "",
                 dob: formattedDob,
                 isVeg: user.isVeg || false
@@ -107,6 +109,11 @@ export default function ProfileScreen() {
         setCalendarViewerDate(prev => new Date(year, prev.getMonth(), 1));
         setIsYearSelectorVisible(false);
     };
+
+    const isEmailEditable = useMemo(() => {
+        if (!user?.email) return true;
+        return user.email.endsWith('@phone.foodapp.local');
+    }, [user?.email]);
 
     if (isLoading) {
         return (
@@ -182,22 +189,29 @@ export default function ProfileScreen() {
         }
     };
 
-
     const handleSaveProfile = async () => {
         try {
-            await updateUser.mutateAsync({
+            const updateData: any = {
                 name: editForm.name,
                 gender: editForm.gender,
                 dob: editForm.dob,
                 isVeg: editForm.isVeg
-            });
+            };
+
+            // Only send email if it was actually editable and changed
+            if (isEmailEditable && editForm.email && editForm.email !== user?.email) {
+                updateData.email = editForm.email;
+            }
+
+            await updateUser.mutateAsync(updateData);
             // Sync with VegTypeStore
             setSelectedVegType(editForm.isVeg ? "veg" : "non-veg");
             
             setIsEditModalVisible(false);
             showAlert("Success", "Profile updated successfully");
         } catch (error: any) {
-            showAlert("Error", error.message || "Failed to update profile");
+            const errorMsg = error.response?.data?.message || error.message || "Failed to update profile";
+            showAlert("Error", errorMsg);
         }
     };
 
@@ -450,6 +464,25 @@ export default function ProfileScreen() {
                                     onChangeText={(text) => setEditForm(prev => ({ ...prev, name: text }))}
                                     placeholder="Enter your name"
                                 />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Email Address</Text>
+                                <TextInput
+                                    style={[
+                                        styles.textInput, 
+                                        !isEmailEditable && { backgroundColor: '#F5F5F5', color: Colors.muted }
+                                    ]}
+                                    value={editForm.email}
+                                    onChangeText={(text) => setEditForm(prev => ({ ...prev, email: text }))}
+                                    placeholder="Enter your email"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    editable={isEmailEditable}
+                                />
+                                {!isEmailEditable && (
+                                    <Text style={styles.inputSubLabel}>Email cannot be changed once set.</Text>
+                                )}
                             </View>
 
                             <View style={styles.inputGroup}>

@@ -8,6 +8,7 @@ export interface UpdateUserDto {
   gender?: string;
   dob?: string;
   isVeg?: boolean;
+  email?: string;
 }
 
 export const useUpdateUser = () => {
