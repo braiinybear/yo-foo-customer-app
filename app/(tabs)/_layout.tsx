@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter,Tabs } from "expo-router";
+import { useRouter, Tabs } from "expo-router";
 import { TouchableOpacity } from "react-native";
 import { useCartStore } from "@/store/useCartStore";
 import { Colors } from "@/constants/colors";

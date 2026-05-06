@@ -208,11 +208,11 @@ const PastOrderItem = ({ item, onPress }: { item: UserOrder; onPress: () => void
             <View style={uiStyles.itemsList}>
                 {item.items.slice(0, 2).map((orderItem) => (
                     <Text key={orderItem.id} style={uiStyles.itemText}>
-                        {orderItem.quantity} x {orderItem.menuItem.name}
+                        {orderItem.quantity} × {orderItem.menuItem.name}
                     </Text>
                 ))}
                 {item.items.length > 2 && (
-                    <Text style={uiStyles.moreItems}>+{item.items.length - 2} more items</Text>
+                    <Text style={uiStyles.moreItemsLabel}>View all {item.items.length} items</Text>
                 )}
             </View>
 
@@ -791,19 +791,20 @@ const uiStyles = StyleSheet.create({
         borderStyle: 'dashed',
     },
     itemsList: {
-        marginBottom: 12,
+        paddingHorizontal: 16,
+        paddingBottom: 12,
     },
     itemText: {
         fontFamily: Fonts.brand,
-        fontSize: FontSize.sm,
-        color: Colors.textSecondary,
-        marginBottom: 3,
-    },
-    moreItems: {
-        fontFamily: Fonts.brandBold,
         fontSize: FontSize.xs,
+        color: Colors.textSecondary,
+        marginBottom: 2,
+    },
+    moreItemsLabel: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 10,
         color: Colors.primary,
-        marginTop: 4,
+        marginTop: 2,
     },
     cardFooter: {
         flexDirection: 'row',

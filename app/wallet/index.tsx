@@ -272,7 +272,7 @@ export default function WalletScreen() {
                     </View>
                     <TouchableOpacity
                         style={styles.trackOrderBtn}
-                        onPress={() => router.replace(`/(tabs)/orders/${orderId}`)}
+                        onPress={() => router.replace(`/(tabs)/orders`)}
                     >
                         <Text style={styles.trackOrderText}>Track Order</Text>
                     </TouchableOpacity>

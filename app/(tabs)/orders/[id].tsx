@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import MapView, { Marker, Polyline, AnimatedRegion, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
@@ -142,7 +143,7 @@ export default function OrderDetailScreen() {
     const { id, openReview } = useLocalSearchParams<{ id: string; openReview?: string }>();
     const { data: order, isLoading, isError, refetch } = useOrderDetail(id ?? '');
 
-    
+
 
     // ✅ Register socket event listeners (new_order, order_status_update, driver_assigned)
     useSocketOrders();
@@ -366,7 +367,7 @@ export default function OrderDetailScreen() {
                         edgePadding: { top: 120, right: 60, bottom: 450, left: 60 },
                         animated: true,
                     });
-    
+
                     setTimeout(() => {
                         mapRef.current?.animateCamera({ pitch: 55 });
                     }, 1000);
@@ -637,7 +638,7 @@ export default function OrderDetailScreen() {
                         </Text>
                     </SectionCard>
                 )}
-                   {/* ── Items ────────────────────────────────────────────── */}
+                {/* ── Items ────────────────────────────────────────────── */}
                 <SectionCard title="Order Items" icon="bag-outline">
                     {order.items.map((item, idx) => (
                         <View
@@ -647,22 +648,36 @@ export default function OrderDetailScreen() {
                                 idx < order.items.length - 1 && styles.itemRowBorder,
                             ]}
                         >
-                            {/* Veg / Non-veg dot */}
-                            <View
-                                style={[
-                                    styles.vegDot,
-                                    {
-                                        backgroundColor:
-                                            item.menuItem.type === 'VEG'
-                                                ? Colors.success
-                                                : Colors.danger,
-                                    },
-                                ]}
-                            />
+                            <View style={styles.itemImageContainer}>
+                                {item.menuItem.image ? (
+                                    <Image
+                                        source={{ uri: item.menuItem.image }}
+                                        style={styles.itemImage}
+                                        contentFit="cover"
+                                        transition={300}
+                                    />
+                                ) : (
+                                    <View style={styles.itemImagePlaceholder}>
+                                        <Ionicons name="fast-food-outline" size={20} color={Colors.muted} />
+                                    </View>
+                                )}
+                                {/* Veg / Non-veg dot overlay */}
+                                <View
+                                    style={[
+                                        styles.vegDotOverlay,
+                                        {
+                                            backgroundColor:
+                                                item.menuItem.type === 'VEG'
+                                                    ? Colors.success
+                                                    : Colors.danger,
+                                        },
+                                    ]}
+                                />
+                            </View>
                             <View style={styles.itemInfo}>
                                 <Text style={styles.itemName}>{item.menuItem.name}</Text>
                                 {item.menuItem.description && (
-                                    <Text style={styles.itemDesc} numberOfLines={1}>
+                                    <Text style={styles.itemDesc} numberOfLines={2}>
                                         {item.menuItem.description}
                                     </Text>
                                 )}
@@ -731,15 +746,31 @@ export default function OrderDetailScreen() {
                         <Text style={styles.cancelReason}>{order.cancellationReason}</Text>
                     </SectionCard>
                 )}
-                  {/* ── Restaurant ───────────────────────────────────────── */}
+                {/* ── Restaurant ───────────────────────────────────────── */}
                 <SectionCard title="Restaurant" icon="restaurant-outline">
-                    <Text style={styles.restName}>{order.restaurant.name}</Text>
-                    {order.restaurant.description && (
-                        <Text style={styles.restDesc}>{order.restaurant.description}</Text>
-                    )}
+                    <View style={styles.restHeader}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.restName}>{order.restaurant.name}</Text>
+                            {order.restaurant.description && (
+                                <Text style={styles.restDesc} numberOfLines={2}>{order.restaurant.description}</Text>
+                            )}
+                        </View>
+                        {order.restaurant.image ? (
+                            <Image
+                                source={{ uri: order.restaurant.image }}
+                                style={styles.restImage}
+                                contentFit="cover"
+                                transition={300}
+                            />
+                        ) : (
+                            <View style={styles.restImagePlaceholder}>
+                                <Ionicons name="restaurant-outline" size={24} color={Colors.muted} />
+                            </View>
+                        )}
+                    </View>
                     <View style={styles.restMeta}>
                         <Ionicons name="location-outline" size={13} color={Colors.muted} />
-                        <Text style={styles.restMetaText}>{order.restaurant.address}</Text>
+                        <Text style={styles.restMetaText} numberOfLines={1}>{order.restaurant.address}</Text>
                     </View>
                     {order.restaurant.cuisineTypes.length > 0 && (
                         <View style={styles.cuisineRow}>
@@ -766,7 +797,7 @@ export default function OrderDetailScreen() {
                         <Text style={styles.reviewButtonText}>Rate Your Experience</Text>
                     </TouchableOpacity>
                 )}
-                
+
             </ScrollView>
 
             {/* ── Review Modal (Bottom Sheet) ── */}
@@ -780,6 +811,7 @@ export default function OrderDetailScreen() {
                     <KeyboardAvoidingView
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={styles.keyboardAvoidingView}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
                     >
                         <View style={styles.reviewModalContainer} ref={reviewModalRef}>
                             {/* Header */}
@@ -1090,6 +1122,27 @@ const styles = StyleSheet.create({
     },
 
     // ── Restaurant ─────────────────────────────────────────────────────────
+    restHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+    },
+    restImage: {
+        width: 64,
+        height: 64,
+        borderRadius: 12,
+        backgroundColor: Colors.surface,
+    },
+    restImagePlaceholder: {
+        width: 64,
+        height: 64,
+        borderRadius: 12,
+        backgroundColor: Colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
     restName: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.lg,
@@ -1099,12 +1152,14 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.brand,
         fontSize: FontSize.sm,
         color: Colors.muted,
-        lineHeight: 20,
+        lineHeight: 18,
+        marginTop: 2,
     },
     restMeta: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        marginTop: 4,
     },
     restMetaText: {
         fontFamily: Fonts.brand,
@@ -1116,6 +1171,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 6,
+        marginTop: 4,
     },
     cuisineChip: {
         backgroundColor: Colors.surface,
@@ -1135,18 +1191,41 @@ const styles = StyleSheet.create({
     itemRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        paddingVertical: 10,
+        gap: 12,
+        paddingVertical: 12,
     },
     itemRowBorder: {
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
     },
-    vegDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        flexShrink: 0,
+    itemImageContainer: {
+        position: 'relative',
+    },
+    itemImage: {
+        width: 54,
+        height: 54,
+        borderRadius: 10,
+        backgroundColor: Colors.surface,
+    },
+    itemImagePlaceholder: {
+        width: 54,
+        height: 54,
+        borderRadius: 10,
+        backgroundColor: Colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    vegDotOverlay: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        borderWidth: 1.5,
+        borderColor: Colors.white,
     },
     itemInfo: {
         flex: 1,
@@ -1448,10 +1527,10 @@ const styles = StyleSheet.create({
     },
     reviewModalContainer: {
         backgroundColor: Colors.white,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        maxHeight: '90%',
-        paddingTop: 16,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        height: '88%',
+        paddingTop: 8,
     },
     reviewModalHeader: {
         flexDirection: 'row',
@@ -1539,6 +1618,6 @@ const styles = StyleSheet.create({
         color: '#FFF',
     },
     modalSpacing: {
-        height: 20,
+        height: 300,
     },
 });

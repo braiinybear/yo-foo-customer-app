@@ -230,7 +230,7 @@ export default function ProfileScreen() {
     const handleShare = async () => {
         try {
             const result = await Share.share({
-                message: `Hey! Use my referral code ${user.referralCode} to get amazing discounts on your first order with Yo-Foo! Download now: https://yofoo.app/download`,
+                message: `Hey! Use my referral code ${user.referralCode} to get amazing discounts on your first order with Yo-Foo! Download now: https://play.google.com/store`,
                 title: 'Refer & Earn',
             });
             if (result.action === Share.sharedAction) {
