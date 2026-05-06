@@ -243,6 +243,22 @@ export default function OrderHistoryScreen() {
     const { isFallbackPolling, connectionStatus } = useOrderRealTimeUpdate(currentOrder?.id ?? null);
 
     const meta = ordersData?.meta;
+    
+    // Categorize orders from history
+    const activeOrdersFromHistory = allOrders.filter(order => 
+        !['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status)
+    );
+    
+    const pastOrders = allOrders.filter(order => 
+        ['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status)
+    );
+
+    // Combine with currentOrder for a unified active orders list
+    // This ensures we always have the most detailed data for the main active order
+    const activeOrders = [...activeOrdersFromHistory];
+    if (currentOrder && !activeOrders.find(o => o.id === currentOrder.id)) {
+        activeOrders.unshift(currentOrder as any);
+    }
 
     // Accumulate orders when page changes
     React.useEffect(() => {
@@ -265,7 +281,7 @@ export default function OrderHistoryScreen() {
         );
     }
 
-    if (!currentOrder && allOrders.length === 0) {
+    if (activeOrders.length === 0 && pastOrders.length === 0) {
         return (
             <View style={uiStyles.centerContainer}>
                 <Ionicons name="receipt-outline" size={80} color={Colors.light} />
@@ -342,23 +358,32 @@ export default function OrderHistoryScreen() {
             <FlatList
                 ListHeaderComponent={
                     <>
-                        {currentOrder && (
+                        {activeOrders.length > 0 && (
                             <>
                                 <View style={uiStyles.sectionHeader}>
                                     <Ionicons name="flash" size={20} color={Colors.primary} />
-                                    <Text style={uiStyles.sectionTitle}>Current Order</Text>
+                                    <Text style={uiStyles.sectionTitle}>Current Order{activeOrders.length > 1 ? 's' : ''}</Text>
                                 </View>
-                                <CurrentOrderCard
-                                    order={currentOrder}
-                                    onPress={() => router.push(`/(tabs)/orders/${currentOrder.id}`)}
-                                    realtimeStatus={realtimeStatus}
-                                    isUpdating={isUpdating}
-                                    isFallbackPolling={isFallbackPolling}
-                                    connectionStatus={connectionStatus}
-                                />
+                                {activeOrders.map(order => {
+                                    const isMainOrder = order.id === currentOrder?.id;
+                                    const detailedOrder = isMainOrder ? currentOrder : order;
+                                    const orderRealtimeStatus = socketStore.orderUpdates[order.id]?.status;
+                                    
+                                    return (
+                                        <CurrentOrderCard
+                                            key={order.id}
+                                            order={detailedOrder as any}
+                                            onPress={() => router.push(`/(tabs)/orders/${order.id}`)}
+                                            realtimeStatus={orderRealtimeStatus}
+                                            isUpdating={isMainOrder && isUpdating}
+                                            isFallbackPolling={isMainOrder && isFallbackPolling}
+                                            connectionStatus={isMainOrder ? connectionStatus : undefined}
+                                        />
+                                    );
+                                })}
                             </>
                         )}
-                        {allOrders.length > 0 && (
+                        {pastOrders.length > 0 && (
                             <View style={uiStyles.sectionHeader}>
                                 <Ionicons name="bag-outline" size={20} color={Colors.primary} />
                                 <Text style={uiStyles.sectionTitle}>Past Orders</Text>
@@ -366,7 +391,7 @@ export default function OrderHistoryScreen() {
                         )}
                     </>
                 }
-                data={allOrders}
+                data={pastOrders}
                 keyExtractor={(item, index) => `${item.id}-${item.placedAt}-${index}`}
                 renderItem={({ item }) => <PastOrderItem item={item} onPress={() => router.push(`/(tabs)/orders/${item.id}`)} />}
                 contentContainerStyle={uiStyles.listContent}
@@ -462,9 +487,10 @@ const uiStyles = StyleSheet.create({
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        marginBottom: 16,
-        marginTop: 8,
+        gap: 12,
+        marginBottom: 20,
+        marginTop: 12,
+        paddingHorizontal: 4,
     },
     sectionTitle: {
         fontFamily: Fonts.brandBold,
@@ -474,16 +500,16 @@ const uiStyles = StyleSheet.create({
     // Current Order Card
     currentOrderCard: {
         backgroundColor: Colors.white,
-        borderRadius: 20,
+        borderRadius: 24,
         marginBottom: 24,
-        borderWidth: 2,
-        borderColor: Colors.primary,
+        borderWidth: 1,
+        borderColor: Colors.primary + '20',
         overflow: 'hidden',
         shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 6,
     },
     currentOrderHeader: {
         flexDirection: 'row',
@@ -701,16 +727,16 @@ const uiStyles = StyleSheet.create({
     // Past Order Card
     card: {
         backgroundColor: Colors.white,
-        borderRadius: 16,
+        borderRadius: 20,
         padding: 16,
-        marginBottom: 12,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: Colors.light,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        elevation: 3,
     },
     cardHeader: {
         flexDirection: 'row',
