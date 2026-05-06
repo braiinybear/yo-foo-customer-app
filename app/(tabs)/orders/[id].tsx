@@ -139,7 +139,7 @@ const SectionCard = ({ title, icon, children }: {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function OrderDetailScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, openReview } = useLocalSearchParams<{ id: string; openReview?: string }>();
     const { data: order, isLoading, isError, refetch } = useOrderDetail(id ?? '');
 
     
@@ -165,6 +165,13 @@ export default function OrderDetailScreen() {
     const [reviewComment, setReviewComment] = useState('');
     const { mutate: submitReview, isPending: isSubmittingReview } = useSubmitReview();
     const reviewModalRef = useRef<View>(null);
+
+    // ─── Auto-open review modal from deep link ─────────────────────────────────
+    useEffect(() => {
+        if (openReview === 'true' && order && !order.review) {
+            setShowReviewModal(true);
+        }
+    }, [openReview, order]);
 
     // Map & Location Tracking States
     const driverLocation = useSocketStore((state) =>
