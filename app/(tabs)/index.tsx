@@ -47,7 +47,6 @@ export default function Index() {
     [pagedData],
   );
 
-  const totalCount = pagedData?.pages[0]?.meta.total ?? 0;
 
   // ── Addresses ────────────────────────────────────────────────────────────
   const {

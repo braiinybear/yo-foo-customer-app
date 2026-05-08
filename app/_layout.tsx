@@ -1,32 +1,43 @@
-import SplashScreenView from "@/components/SplashScreenView";
 import { Colors } from "@/constants/colors";
-
-// Better-auth authentication.
 import { authClient } from "@/lib/auth-client";
+
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
   Nunito_700Bold,
   Nunito_900Black,
 } from "@expo-google-fonts/nunito";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 
-// This is the expo splash screen.
 import * as ExpoSplashScreen from "expo-splash-screen";
-
-// This is for setting the Android navigation bar button colors.
 import * as NavigationBar from "expo-navigation-bar";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+
+import {
+  AppState,
+  Platform,
+  StyleSheet,
+  View,
+} from "react-native";
+
 import GlobalCustomAlert from "@/components/GlobalCustomAlert";
+
 import { NotificationProvider } from "@/context/NotificationContext";
+
 import * as Notifications from "expo-notifications";
-import { User } from "@/types/user";
+
 import { SocketProvider } from "@/context/SocketContext";
-import LocationSetupScreen, { shouldShowLocationSetup } from "@/components/LocationSetupScreen";
+
+import LocationSetupScreen, {
+  shouldShowLocationSetup,
+} from "@/components/LocationSetupScreen";
+
+import { User } from "@/types/user";
+import SplashScreenView from "@/components/SplashScreenView";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -38,27 +49,29 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Keep the native splash visible while we load
+// Keep native splash visible
 ExpoSplashScreen.preventAutoHideAsync();
 
-// Create a client outside the component to prevent re-instantiation
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // Data stays fresh for 5 minutes
-      gcTime: 1000 * 60 * 15, // Unused data is garbage collected after 15 minutes
-      retry: 2, // Retry failed requests twice before throwing an error
-      refetchOnWindowFocus: false, // Turn off for less aggressive fetching
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 15,
+      retry: 2,
+      refetchOnWindowFocus: false,
     },
   },
 });
 
 export default function RootLayout() {
   const { data: session, isPending } = authClient.useSession();
-  const [splashDone, setSplashDone] = useState<boolean>(false);
-  const [showLocationSetup, setShowLocationSetup] = useState<boolean>(false);
 
-  // Font loading
+  const [showLocationSetup, setShowLocationSetup] = useState(false);
+  const [splashFinished, setSplashFinished] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
+  const [wasLoggedIn, setWasLoggedIn] = useState(false);
+
+  // Load fonts
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
@@ -66,72 +79,95 @@ export default function RootLayout() {
     Nunito_900Black,
   });
 
-  // Combined readiness check
+  // App ready only when fonts loaded
   const isAppReady = fontsLoaded;
 
-  // Hide splash screen when app is ready
+  // Hide native splash screen
   const onLayoutRootView = useCallback(async () => {
     if (isAppReady) {
       await ExpoSplashScreen.hideAsync();
     }
   }, [isAppReady]);
 
-  // Make Android nav bar buttons dark so they're visible on light backgrounds
+  // Android navigation buttons & AppState for resume handling
   useEffect(() => {
     if (Platform.OS === "android") {
       NavigationBar.setButtonStyleAsync("dark");
     }
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        setIsResuming(true);
+        // Delay to allow auth session to settle on resume
+        setTimeout(() => setIsResuming(false), 2500);
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
-  // Check if we need to show the location setup screen after login
+  // Track if we've ever had a session in this lifecycle
   useEffect(() => {
-    if (session && splashDone) {
+    if (session) {
+      setWasLoggedIn(true);
+    } else if (!isPending && !isResuming) {
+      // Only clear if we are sure it's a real logout
+      setWasLoggedIn(false);
+    }
+  }, [session, isPending, isResuming]);
+
+  // Location setup logic
+  useEffect(() => {
+    if (session) {
       shouldShowLocationSetup().then((needed) => {
-        if (needed) setShowLocationSetup(true);
+        if (needed) {
+          setShowLocationSetup(true);
+        }
       });
-    } else if (!session) {
-      // Reset when user logs out so it shows again on next fresh login
+    } else {
       setShowLocationSetup(false);
     }
-  }, [session, splashDone]);
+  }, [session]);
 
-  // Show nothing until fonts are ready
-  if (!isAppReady) return null;
+  // Wait until fonts are loaded
+  if (!isAppReady) {
+    return null;
+  }
 
-  const isLoggedIn = !isPending && !!session;
-  const isLoggedOut = !isPending && !session;
+  // BLOCK UI while auth session restores, splash animation is running, or app is resuming/re-validating
+  // We stay on splash if we WERE logged in but don't have a session yet
+  if (isPending || !splashFinished || (wasLoggedIn && !session) || (isResuming && !session)) {
+    return (
+      <SplashScreenView onFinish={() => setSplashFinished(true)} />
+    );
+  }
+
+  const isLoggedIn = !isPending && (!!session || (isResuming && wasLoggedIn));
+  const isLoggedOut = !isPending && !session && !isResuming && !wasLoggedIn;
 
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
         <SocketProvider user={session?.user as User | undefined}>
-          <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-            {/* Animated in-app splash on first load */}
-            {!splashDone && (
-              <SplashScreenView onFinish={() => setSplashDone(true)} />
-            )}
-
-            {/* Transition overlay during auth state transitions */}
-            {splashDone && isPending && (
-              <View style={transitionStyles.overlay}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-              </View>
-            )}
-
+          <View
+            style={{ flex: 1 }}
+            onLayout={onLayoutRootView}
+          >
             <Stack>
-              {/* Only accessible when not logged in */}
+              {/* AUTH ROUTES */}
               <Stack.Protected guard={isLoggedOut}>
                 <Stack.Screen
                   name="(auth)/login"
                   options={{ headerShown: false }}
                 />
+
                 <Stack.Screen
                   name="(auth)/register"
                   options={{ headerShown: false }}
                 />
               </Stack.Protected>
 
-              {/* Only accessible when logged in */}
+              {/* APP ROUTES */}
               <Stack.Protected guard={isLoggedIn}>
                 <Stack.Screen
                   name="(tabs)"
@@ -139,6 +175,7 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+
                 <Stack.Screen
                   name="profile"
                   options={{
@@ -154,6 +191,7 @@ export default function RootLayout() {
                     },
                   }}
                 />
+
                 <Stack.Screen
                   name="wallet"
                   options={{
@@ -169,20 +207,21 @@ export default function RootLayout() {
                     },
                   }}
                 />
+
                 <Stack.Screen
                   name="search"
                   options={{
                     headerShown: false,
-                    headerTitle: "Search",
                   }}
                 />
+
                 <Stack.Screen
                   name="restaurants"
                   options={{
                     headerShown: false,
-                    headerTitle: "Restaurants",
                   }}
                 />
+
                 <Stack.Screen
                   name="checkout"
                   options={{
@@ -196,40 +235,32 @@ export default function RootLayout() {
                     },
                   }}
                 />
-                <Stack.Screen
-                  name="animation"
-                  options={{
-                    headerShown: false,
-                    headerTintColor: "#fff",
-                    headerStyle: {
-                      backgroundColor: Colors.primary,
-                    },
-                    headerTitleStyle: {
-                      color: "#fff",
-                    },
-                  }}
-                />
               </Stack.Protected>
             </Stack>
           </View>
-          {/* Location Setup — shown once after first login/register */}
+
+          {/* LOCATION SETUP */}
           {showLocationSetup && (
             <View style={StyleSheet.absoluteFill}>
-              <LocationSetupScreen onDone={() => setShowLocationSetup(false)} />
+              <LocationSetupScreen
+                onDone={() => setShowLocationSetup(false)}
+              />
             </View>
           )}
+
+
         </SocketProvider>
       </NotificationProvider>
+
       <GlobalCustomAlert />
     </QueryClientProvider>
   );
 }
 
-const transitionStyles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
+const styles = StyleSheet.create({
+  loaderContainer: {
+    flex: 1,
     backgroundColor: Colors.background,
-    zIndex: 999,
     alignItems: "center",
     justifyContent: "center",
   },
