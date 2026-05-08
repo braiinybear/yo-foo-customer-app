@@ -14,13 +14,13 @@ export interface DriverLocation {
   lng: number;
 }
 
-interface OrderUpdate {
+export interface OrderUpdate {
   orderId: string;
   status: string;
   timestamp: string;
 }
 
-interface SocketState {
+export interface SocketState {
   // Connection state
   isConnected: boolean;
   connectionError: string | null;

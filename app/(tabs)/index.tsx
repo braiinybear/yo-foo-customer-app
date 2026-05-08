@@ -23,6 +23,7 @@ import AddressModal from "@/components/home/AddressModal";
 import { UserAddress } from "@/types/user";
 import { Restaurant } from "@/types/restaurants";
 import RestaurantCardSkeleton from "@/components/loadingSkelton/RestaurantCardSkeleton";
+import CuisineFilterSkeleton from "@/components/loadingSkelton/CuisineFilterSkeleton";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 
 // The root page of the app
@@ -133,36 +134,40 @@ export default function Index() {
 
   // ── Header (rendered inside FlatList as ListHeaderComponent) ─────────────
   const ListHeader = (
-    <View style={styles.sectionHeader}>
-      {isRestaurantsError && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            Failed to load restaurants. Please try again.
+    <View>
+      <View style={styles.sectionHeader}>
+        {isRestaurantsError && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              Failed to load restaurants. Please try again.
+            </Text>
+            <Text onPress={() => refetchRestaurants()} style={styles.retryLink}>
+              Retry
+            </Text>
+          </View>
+        )}
+        {!isLoading && !isRestaurantsError ? (
+          <Text style={styles.sectionHeading}>
+            {`${filteredRestaurants.length} ${
+              selectedVegType === "veg"
+                ? "Vegetarian"
+                : selectedVegType === "non-veg"
+                  ? "Non-Vegetarian"
+                  : selectedVegType === "vegan"
+                    ? "Vegan"
+                    : ""
+            } Restaurants`}
           </Text>
-          <Text onPress={() => refetchRestaurants()} style={styles.retryLink}>
-            Retry
-          </Text>
-        </View>
-      )}
-      {isLoading && !isRestaurantsError ? (
+        ) : null}
+      </View>
+      
+      {isLoading && !isRestaurantsError && (
         <View>
           {Array.from({ length: 6 }).map((_, i) => (
             <RestaurantCardSkeleton key={i} />
           ))}
         </View>
-      ) : !isRestaurantsError ? (
-        <Text style={styles.sectionHeading}>
-          {`${filteredRestaurants.length} ${
-            selectedVegType === "veg"
-              ? "Vegetarian"
-              : selectedVegType === "non-veg"
-                ? "Non-Vegetarian"
-                : selectedVegType === "vegan"
-                  ? "Vegan"
-                  : ""
-          } Restaurants`}
-        </Text>
-      ) : null}
+      )}
     </View>
   );
 
@@ -214,11 +219,15 @@ export default function Index() {
           placeholder="Search restaurants or dishes..."
           onSearchPress={() => router.push("/search")}
         />
-        <CuisineFilter
-          cuisines={cuisines}
-          selected={selectedCuisine}
-          onSelect={setSelectedCuisine}
-        />
+        {isLoading ? (
+          <CuisineFilterSkeleton />
+        ) : (
+          <CuisineFilter
+            cuisines={cuisines}
+            selected={selectedCuisine}
+            onSelect={setSelectedCuisine}
+          />
+        )}
       </View>
 
       {/* Scrollable restaurant list */}
@@ -306,10 +315,10 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     fontFamily: Fonts.brandBold,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.md,
     color: Colors.text,
     marginBottom: 12,
-    textTransform: "uppercase",
+    textTransform: "lowercase",
     letterSpacing: 0.4,
   },
 

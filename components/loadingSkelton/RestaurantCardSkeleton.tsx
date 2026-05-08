@@ -21,7 +21,7 @@ export default function RestaurantCardSkeleton() {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    marginHorizontal: 16,
+    marginHorizontal: 10,
     marginVertical: 8,
     borderRadius: 12,
     overflow: "hidden",
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    padding: 12,
+    padding: 5,
     gap: 8,
   },
 

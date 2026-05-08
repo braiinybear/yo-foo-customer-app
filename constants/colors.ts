@@ -2,7 +2,7 @@ export const Colors = {
   background: "#FFFFFF",
   surface: "#F9FAFB",
 
-  primary: "#004D4D",        // food red
+  primary: "#10B981",        // food red
   primaryLight: "#FFEDEE",
   secondary: "#FFB800",
 

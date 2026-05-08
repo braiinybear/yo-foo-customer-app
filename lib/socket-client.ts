@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { parseCookieBlob } from './axios';
 import { useSocketStore } from '@/store/useSocketStore';
 
-const SOCKET_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+const SOCKET_URL = process.env.EXPO_PUBLIC_BACKEND_URL
 const BETTER_AUTH_COOKIE_KEY = 'better-auth_cookie';
 
 
@@ -11,16 +11,15 @@ let socket: Socket | null = null;
 
 export async function initSocket(): Promise<Socket> {
   if (socket && socket.connected) {
-    console.log('[Socket] ℹ️  Socket already connected');
+    // socket is already connected and initialized
     return socket;
   }
 
   try {
-    // Get the Better Auth cookie blob (same source as axios)
     const cookieBlob = await SecureStore.getItemAsync(BETTER_AUTH_COOKIE_KEY);
     const cookieHeader = parseCookieBlob(cookieBlob);
 
-    console.log('[Socket] 🔌 Initializing socket connection...');
+    // [Socket] 🔌 Initializing socket connection...
     socket = io(SOCKET_URL, {
       // Send cookies as headers (same as HTTP requests)
       extraHeaders: {
@@ -34,44 +33,40 @@ export async function initSocket(): Promise<Socket> {
     });
 
     socket.on('connect', () => {
-      console.log('🟢 [Socket] Connected:', socket?.id);
-      // 🔴 UPDATE STORE: Socket is connected
+      // UPDATE STORE: Socket is connected
       useSocketStore.setState({ isConnected: true, connectionError: null });
-      console.log('[Socket] ✅ Store updated: isConnected = true');
+      // [Socket] ✅ Store updated: isConnected = true'
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('🔴 [Socket] Disconnected - Reason:', reason);
       // 🔴 UPDATE STORE: Socket is disconnected
       useSocketStore.setState({ isConnected: false, connectionError: reason });
-      console.log(`[Socket] ✅ Store updated: isConnected = false (reason: ${reason})`);
-      console.log('[Socket] ℹ️  Auto-reconnection will start, fallback polling activates');
+      // console.log(`[Socket] ✅ Store updated: isConnected = false (reason: ${reason})`);
+      // console.log('[Socket] ℹ️  Auto-reconnection will start, fallback polling activates');
     });
 
     socket.on('reconnect_attempt', (attempt) => {
-      console.log(`🔄 [Socket] Reconnect attempt ${attempt}...`);
+      // console.log(`🔄 [Socket] Reconnect attempt ${attempt}...`);
     });
 
     socket.on('reconnect', () => {
-      console.log('🟢 [Socket] Successfully reconnected!');
       // 🔴 UPDATE STORE: Socket reconnected
       useSocketStore.setState({ isConnected: true, connectionError: null });
-      console.log('[Socket] ✅ Store updated: isConnected = true (reconnected)');
+      // [Socket] ✅ Store updated: isConnected = true (reconnected)
     });
 
     socket.on('connect_error', (error) => {
-      console.error('❌ [Socket] Connection Error:', error?.message || error);
       // 🔴 UPDATE STORE: Connection error
-      useSocketStore.setState({ 
-        isConnected: false, 
-        connectionError: error?.message || 'Connection error' 
+      useSocketStore.setState({
+        isConnected: false,
+        connectionError: error?.message || 'Connection error'
       });
-      console.log('[Socket] ✅ Store updated: connectionError set');
+      // [Socket] ✅ Store updated: connectionError set
     });
 
     return socket;
   } catch (error) {
-    console.error('[Socket] ❌ Init Error:', error instanceof Error ? error.message : error);
+    // console.error('[Socket] ❌ Init Error:', error instanceof Error ? error.message : error);
     throw error;
   }
 }

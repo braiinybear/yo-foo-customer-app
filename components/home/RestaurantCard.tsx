@@ -53,25 +53,12 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
             <View style={styles.info}>
                 <View style={styles.nameRow}>
                     <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
-                    <View style={styles.ratingBadge}>
-                        <Ionicons name="star" size={11} color={Colors.white} />
-                        <Text style={styles.ratingText}>4.0</Text>
-                    </View>
                 </View>
-
                 <Text style={styles.cuisine} numberOfLines={1}>
                     {restaurant.cuisineTypes?.join(" · ") || "Various Cuisines"}
                 </Text>
                 <Text style={styles.priceHint}>₹{restaurant.costForTwo} for two</Text>
 
-                <View style={styles.metaRow}>
-                    <MaterialCommunityIcons name="lightning-bolt" size={12} color={Colors.success} />
-                    <Text style={styles.metaText}>30-35 mins</Text>
-                    <Text style={styles.dot}>·</Text>
-                    <Text style={styles.metaText}>1.2 km</Text>
-                    <Text style={styles.dot}>·</Text>
-                    <Text style={styles.metaText}>Free Delivery</Text>
-                </View>
             </View>
         </TouchableOpacity>
     );
