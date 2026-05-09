@@ -14,10 +14,12 @@ export const FontSize = {
   lg: 18,
   xl: 22,
   xxl: 28,
+  xxxl: 34,
 };
 
 export const LineHeight = {
   sm: 18,
   md: 22,
   lg: 26,
+  xl: 30,
 };

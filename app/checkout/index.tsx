@@ -420,12 +420,14 @@ const styles = StyleSheet.create({
     // ── Cards ────────────────────────────────────────────────────────────────
     card: {
         backgroundColor: Colors.white,
-        borderRadius: 16,
+        borderRadius: 18,
         padding: 18,
+        borderWidth: 1,
+        borderColor: Colors.border,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
         elevation: 2,
     },
     cardTitle: {
@@ -500,16 +502,16 @@ const styles = StyleSheet.create({
     divider: {
         height: 1,
         backgroundColor: Colors.border,
-        marginVertical: 10,
+        marginVertical: 12,
     },
     grandTotalLabel: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.md,
+        fontSize: FontSize.lg,
         color: Colors.text,
     },
     grandTotalValue: {
         fontFamily: Fonts.brandBlack,
-        fontSize: FontSize.lg,
+        fontSize: FontSize.xl,
         color: Colors.primary,
     },
 
@@ -589,13 +591,13 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         gap: 8,
         backgroundColor: Colors.primary,
-        paddingVertical: 16,
-        borderRadius: 14,
+        height: 56,
+        borderRadius: 16,
         shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        elevation: 8,
     },
     retryButton: {
         flexDirection: "row",
@@ -603,11 +605,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         gap: 8,
         backgroundColor: Colors.warning,
-        paddingVertical: 16,
-        borderRadius: 14,
+        height: 56,
+        borderRadius: 16,
     },
     payButtonDisabled: {
-        opacity: 0.65,
+        opacity: 0.6,
     },
     payButtonText: {
         fontFamily: Fonts.brandBold,

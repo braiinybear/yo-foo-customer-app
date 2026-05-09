@@ -73,7 +73,9 @@ export default function SearchBar({
 
             {/* Search input */}
             <View style={styles.inputWrapper}>
-                <Ionicons name="search" size={18} color={Colors.primary} style={styles.searchIcon} />
+                <View style={styles.searchIconWrap}>
+                    <Ionicons name="search" size={16} color={Colors.primary} />
+                </View>
                 <TextInput
                     style={styles.input}
                     value={value}
@@ -82,19 +84,16 @@ export default function SearchBar({
                     placeholderTextColor={Colors.muted}
                     onPress={onSearchPress}
                 />
-                {/* <TouchableOpacity style={styles.micButton} activeOpacity={0.7}>
-                    <Ionicons name="mic" size={18} color={Colors.primary} />
-                </TouchableOpacity> */}
             </View>
 
             {/* Veg Type Filter Button */}
             <TouchableOpacity
                 style={[
                     styles.vegToggle,
-                    selectedOption && { backgroundColor: `${selectedOption.color}20`, borderColor: selectedOption.color }
+                    selectedOption && { backgroundColor: `${selectedOption.color}15`, borderColor: selectedOption.color }
                 ]}
                 onPress={() => setShowFilter(true)}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
             >
                 <Text style={styles.vegEmoji}>{selectedOption?.emoji || "🥦"}</Text>
                 <Text style={[styles.vegLabel, selectedOption && { color: selectedOption.color }]}>
@@ -132,8 +131,8 @@ export default function SearchBar({
                     >
                         <View style={styles.popupHeader}>
                             <Text style={styles.popupTitle}>Filter by Type</Text>
-                            <TouchableOpacity onPress={() => setShowFilter(false)}>
-                                <Ionicons name="close" size={24} color={Colors.text} />
+                            <TouchableOpacity onPress={() => setShowFilter(false)} style={styles.closeBtn}>
+                                <Ionicons name="close" size={20} color={Colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
 
@@ -161,13 +160,13 @@ export default function SearchBar({
                                         </Text>
                                         <Text style={[
                                             styles.optionDescription,
-                                            selectedVegType === option.id && { color: Colors.white }
+                                            selectedVegType === option.id && { color: "rgba(255,255,255,0.85)" }
                                         ]}>
                                             {option.description}
                                         </Text>
                                     </View>
                                     {selectedVegType === option.id && (
-                                        <Ionicons name="checkmark-circle" size={24} color={Colors.white} />
+                                        <Ionicons name="checkmark-circle" size={22} color={Colors.white} />
                                     )}
                                 </TouchableOpacity>
                             ))}
@@ -194,8 +193,8 @@ const styles = StyleSheet.create({
     wrapper: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
         gap: 10,
     },
     inputWrapper: {
@@ -203,23 +202,32 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: Colors.surface,
-        borderRadius: 12,
+        borderRadius: 25,
         borderWidth: 1,
         borderColor: Colors.border,
-        paddingHorizontal: 10,
-        height: 46,
+        paddingHorizontal: 4,
+        height: 48,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    searchIcon: {
-        marginRight: 6,
+    searchIconWrap: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: `${Colors.primary}12`,
+        alignItems: "center",
+        justifyContent: "center",
+        marginLeft: 4,
     },
     input: {
         flex: 1,
         fontFamily: Fonts.brand,
         fontSize: FontSize.sm,
         color: Colors.text,
-    },
-    micButton: {
-        padding: 4,
+        paddingHorizontal: 8,
     },
 
     // Enhanced Veg Toggle Button
@@ -228,13 +236,13 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         paddingVertical: 4,
         paddingHorizontal: 8,
-        borderRadius: 10,
-        borderWidth: 2,
-        borderColor: Colors.primary,
-        backgroundColor: `${Colors.primary}15`,
-        minWidth: 54,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: Colors.border,
+        backgroundColor: Colors.surface,
+        minWidth: 56,
         gap: 2,
-        height: 46,
+        height: 48,
     },
     vegEmoji: {
         fontSize: 20,
@@ -242,7 +250,7 @@ const styles = StyleSheet.create({
     vegLabel: {
         fontFamily: Fonts.brandBold,
         fontSize: 9,
-        color: Colors.primary,
+        color: Colors.textSecondary,
         textAlign: "center",
     },
 
@@ -251,20 +259,20 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.5)"
+        backgroundColor: "rgba(0, 0, 0, 0.45)"
     },
 
     popupContainer: {
-        backgroundColor: Colors.surface,
-        borderRadius: 16,
-        width: Dimensions.get('window').width - 40,
-        maxWidth: 350,
+        backgroundColor: Colors.white,
+        borderRadius: 20,
+        width: Dimensions.get('window').width - 48,
+        maxWidth: 360,
         overflow: "hidden",
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+        elevation: 12,
     },
 
     popupHeader: {
@@ -272,10 +280,9 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 18,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
-        backgroundColor: `${Colors.primary}08`,
     },
 
     popupTitle: {
@@ -284,9 +291,18 @@ const styles = StyleSheet.create({
         color: Colors.text,
     },
 
+    closeBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: Colors.surface,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
     optionsContainer: {
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 14,
         gap: 10,
     },
 
@@ -295,15 +311,15 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 14,
         paddingVertical: 14,
-        borderRadius: 12,
-        borderWidth: 2,
+        borderRadius: 14,
+        borderWidth: 1.5,
         borderColor: Colors.border,
-        backgroundColor: Colors.background,
+        backgroundColor: Colors.white,
         gap: 12,
     },
 
     optionEmoji: {
-        fontSize: 24,
+        fontSize: 26,
     },
 
     optionTextContainer: {
@@ -326,16 +342,17 @@ const styles = StyleSheet.create({
     clearButton: {
         marginHorizontal: 16,
         marginBottom: 16,
-        paddingVertical: 12,
-        borderRadius: 10,
+        paddingVertical: 13,
+        borderRadius: 14,
         borderWidth: 1.5,
-        borderColor: Colors.muted,
+        borderColor: Colors.border,
         alignItems: "center",
+        backgroundColor: Colors.surface,
     },
 
     clearButtonText: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.sm,
-        color: Colors.muted,
+        color: Colors.textSecondary,
     },
 });

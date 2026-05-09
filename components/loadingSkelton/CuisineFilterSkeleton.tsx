@@ -29,22 +29,22 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     gap: 12,
   },
   chip: {
     alignItems: "center",
-    width: 60,
+    width: 68,
   },
   circle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: Colors.light,
     marginBottom: 6,
   },
   label: {
-    width: 35,
+    width: 40,
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.light,

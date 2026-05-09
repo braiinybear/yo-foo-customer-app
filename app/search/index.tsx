@@ -15,9 +15,16 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native";
+import { useVegTypeStore } from "@/store/useVegTypeStore";
+import { 
+  useCuisines, 
+  useRecentSearches, 
+  useAddRecentSearch, 
+  useClearRecentSearches,
+  useMenuItemsDiscovery
+} from "@/hooks/useDiscovery";
 import { useSearchRestaurants } from "@/hooks/useRestaurantSearch";
 import { router } from "expo-router";
-import { useVegTypeStore } from "@/store/useVegTypeStore";
 const VEG_TYPE_OPTIONS = [
   { id: "VEG", label: "Vegetarian", emoji: "🥦", color: "#10B981" },
   { id: "NON_VEG", label: "Non-Vegetarian", emoji: "🍗", color: "#EF4444" },
@@ -78,7 +85,7 @@ export default function SearchPage() {
   }, [searchQuery]);
 
   // Fetch search results
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, refetch: refetchSearch } =
     useSearchRestaurants({
       query: debouncedSearchQuery,
       type: vegTypeForAPI as any,
@@ -86,6 +93,13 @@ export default function SearchPage() {
       page: 1,
       limit: 5,
     });
+
+  // Discovery Hooks
+  const { data: cuisines } = useCuisines();
+  const { data: recentSearches } = useRecentSearches();
+  const { data: popularItems } = useMenuItemsDiscovery();
+  const { mutate: addRecentSearch } = useAddRecentSearch();
+  const { mutate: clearRecentSearches } = useClearRecentSearches();
 
   // Get all unique dishes (for horizontal scroll)
   const allDishes = useMemo(() => {
@@ -187,6 +201,12 @@ export default function SearchPage() {
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
+  };
+
+  const onSearchSubmit = () => {
+    if (searchQuery.trim()) {
+      addRecentSearch(searchQuery.trim());
+    }
   };
 
   const renderDishItem = (dish: any) => (
@@ -295,6 +315,8 @@ export default function SearchPage() {
             placeholderTextColor={Colors.muted}
             value={searchQuery}
             onChangeText={handleSearch}
+            onSubmitEditing={onSearchSubmit}
+            returnKeyType="search"
           />
           {searchQuery && (
             <TouchableOpacity onPress={() => setSearchQuery("")}>
@@ -313,13 +335,85 @@ export default function SearchPage() {
 
       {/* Results or Empty State */}
       {!searchQuery ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="search" size={64} color={Colors.muted} />
-          <Text style={styles.emptyTitle}>Search for dishes</Text>
-          <Text style={styles.emptySubtitle}>
-            Find your favorite food from nearby restaurants
-          </Text>
-        </View>
+        <ScrollView style={styles.discoveryContainer} showsVerticalScrollIndicator={false}>
+          {/* Recent Searches Section */}
+          {recentSearches && recentSearches.length > 0 && (
+            <View style={styles.discoverySection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>YOUR RECENT SEARCHES</Text>
+                <TouchableOpacity onPress={() => clearRecentSearches()}>
+                  <Text style={styles.clearText}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.recentSearchesList}
+              >
+                {recentSearches.map((item) => (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={styles.recentSearchChip}
+                    onPress={() => setSearchQuery(item.query)}
+                  >
+                    <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
+                    <Text style={styles.recentSearchText}>{item.query}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* What's on your mind Section */}
+          <View style={styles.discoverySection}>
+            <Text style={styles.sectionTitle}>WHAT'S ON YOUR MIND?</Text>
+            <View style={styles.cuisinesGrid}>
+              {cuisines?.map((cuisine) => (
+                <TouchableOpacity 
+                  key={cuisine.id} 
+                  style={styles.cuisineItem}
+                  onPress={() => {
+                    setSearchQuery(cuisine.name);
+                    addRecentSearch(cuisine.name);
+                  }}
+                >
+                  <View style={styles.cuisineImageWrapper}>
+                    <Image source={{ uri: cuisine.image || getPlaceholderImage(cuisine.id) }} style={styles.cuisineImage} />
+                  </View>
+                  <Text style={styles.cuisineName} numberOfLines={1}>{cuisine.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Popular Dishes Section */}
+          {popularItems && popularItems.length > 0 && (
+            <View style={[styles.discoverySection, { paddingBottom: 40 }]}>
+              <Text style={styles.sectionTitle}>POPULAR DISHES</Text>
+              <View style={styles.popularItemsGrid}>
+                {popularItems.map((item) => (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={styles.popularItemCard}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/restaurants/[id]",
+                        params: { id: item.restaurantId }
+                      });
+                      addRecentSearch(item.name);
+                    }}
+                  >
+                    <Image source={{ uri: item.image || getPlaceholderImage(item.id) }} style={styles.popularItemImage} />
+                    <View style={styles.popularItemInfo}>
+                      <Text style={styles.popularItemName} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.popularItemPrice}>₹{item.price}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </ScrollView>
       ) : isLoading && allDishes.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -711,9 +805,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 44,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    height: 48,
     gap: 8,
   },
 
@@ -725,9 +821,9 @@ const styles = StyleSheet.create({
   },
 
   filterButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: `${Colors.primary}15`,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: `${Colors.primary}12`,
   },
 
   // Empty State
@@ -986,9 +1082,9 @@ const styles = StyleSheet.create({
   },
 
   filterModal: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: "80%",
   },
 
@@ -1303,5 +1399,123 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.brand,
     fontSize: FontSize.sm,
     color: Colors.muted,
+  },
+
+  // Discovery Container
+  discoveryContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  discoverySection: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sectionTitle: {
+    fontFamily: Fonts.brandBold,
+    fontSize: 13,
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 16,
+  },
+  clearText: {
+    fontFamily: Fonts.brandBold,
+    fontSize: 13,
+    color: Colors.primary,
+  },
+  recentSearchesList: {
+    paddingRight: 16,
+    gap: 12,
+  },
+  recentSearchChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 6,
+  },
+  recentSearchText: {
+    fontFamily: Fonts.brandMedium,
+    fontSize: 14,
+    color: Colors.text,
+  },
+
+  // Cuisines Grid
+  cuisinesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  cuisineItem: {
+    width: "30%", // 3 items per row
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  cuisineImageWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.surface,
+    overflow: "hidden",
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  cuisineImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  cuisineName: {
+    fontFamily: Fonts.brandMedium,
+    fontSize: 12,
+    color: Colors.text,
+    textAlign: "center",
+  },
+
+  // Popular Items Grid
+  popularItemsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  popularItemCard: {
+    width: "48%", // 2 items per row
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 12,
+  },
+  popularItemImage: {
+    width: "100%",
+    height: 120,
+    resizeMode: "cover",
+  },
+  popularItemInfo: {
+    padding: 10,
+    gap: 4,
+  },
+  popularItemName: {
+    fontFamily: Fonts.brandBold,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  popularItemPrice: {
+    fontFamily: Fonts.brandBold,
+    fontSize: 12,
+    color: Colors.primary,
   },
 });

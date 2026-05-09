@@ -39,11 +39,13 @@ export default function HeaderBar({
     return (
         <View style={styles.container}>
             {/* Address */}
-            <TouchableOpacity style={styles.addressSection} onPress={onAddressPress} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.addressSection} onPress={onAddressPress} activeOpacity={0.8}>
                 <View style={styles.addressRow}>
-                    <Ionicons name="location-sharp" size={16} color="red" />
-                    <Text style={styles.addressName} numberOfLines={1}>{displayAddress.slice(0, 25) + '...'}</Text>
-                    <MaterialIcons name="keyboard-arrow-down" size={20} color={Colors.white} />
+                    <View style={styles.locationDot}>
+                        <Ionicons name="location-sharp" size={14} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.addressName} numberOfLines={1}>{displayAddress.slice(0, 28) + '...'}</Text>
+                    <MaterialIcons name="keyboard-arrow-down" size={22} color={Colors.muted} />
                 </View>
                 <Text style={styles.subAddress} numberOfLines={1}>{subAddress}</Text>
             </TouchableOpacity>
@@ -51,12 +53,12 @@ export default function HeaderBar({
             {/* Right icons */}
             <View style={styles.iconsRow}>
                 {/* Wallet */}
-                <TouchableOpacity style={styles.iconButton} onPress={onWalletPress} activeOpacity={0.7}>
-                    <Ionicons name="wallet-outline" size={22} color={Colors.text} />
+                <TouchableOpacity style={styles.iconButton} onPress={onWalletPress} activeOpacity={0.8}>
+                    <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
                 </TouchableOpacity>
 
                 {/* Profile avatar */}
-                <TouchableOpacity style={styles.avatar} onPress={onProfilePress} activeOpacity={0.7}>
+                <TouchableOpacity style={styles.avatar} onPress={onProfilePress} activeOpacity={0.8}>
                     {userImage ? (
                         <Image source={{ uri: userImage }} style={styles.avatarImage} />
                     ) : (
@@ -74,9 +76,8 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-
+        paddingHorizontal: 12,
+        paddingVertical: 14,
     },
     addressSection: {
         flex: 1,
@@ -84,19 +85,28 @@ const styles = StyleSheet.create({
     addressRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
+        gap: 6,
+    },
+    locationDot: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: Colors.primary + "12",
+        alignItems: "center",
+        justifyContent: "center",
     },
     addressName: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.white,
+        color: Colors.text,
+        flex: 1,
     },
     subAddress: {
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
-        color: Colors.white,
-        marginTop: 2,
-        marginLeft: 20,
+        color: Colors.textSecondary,
+        marginTop: 3,
+        marginLeft: 30,
     },
     iconsRow: {
         flexDirection: "row",
@@ -104,22 +114,24 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     iconButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        backgroundColor: Colors.light,
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: Colors.surface,
         alignItems: "center",
         justifyContent: "center",
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
     avatar: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        backgroundColor: Colors.primary,
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: Colors.surface,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth:1,
-        borderColor: Colors.white,
+        borderWidth: 1.5,
+        borderColor: Colors.border,
         overflow: 'hidden',
     },
     avatarImage: {
@@ -129,7 +141,7 @@ const styles = StyleSheet.create({
     avatarText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.white,
+        color: Colors.primary,
     },
     badge: {
         position: "absolute",

@@ -67,13 +67,13 @@ export default function HeroBanner() {
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // One Animated.Value per dot for smooth width spring
-    const dotAnims = useRef(SLIDES.map((_, i) => new Animated.Value(i === 0 ? 18 : 6))).current;
+    const dotAnims = useRef(SLIDES.map((_, i) => new Animated.Value(i === 0 ? 20 : 6))).current;
 
     // Spring-animate dots whenever activeIndex changes
     useEffect(() => {
         SLIDES.forEach((_, i) => {
             Animated.spring(dotAnims[i], {
-                toValue: i === activeIndex ? 18 : 6,
+                toValue: i === activeIndex ? 20 : 6,
                 useNativeDriver: false,
                 speed: 20,
                 bounciness: 4,
@@ -139,8 +139,9 @@ export default function HeroBanner() {
                 {SLIDES.map((slide) => (
                     <View key={slide.id} style={[styles.slide, { backgroundColor: slide.backgroundColor }]}>
                         {/* Decorative circles */}
-                        <View style={[styles.decorCircle, styles.decorCircleLarge, { backgroundColor: "rgba(255,255,255,0.07)" }]} />
+                        <View style={[styles.decorCircle, styles.decorCircleLarge, { backgroundColor: "rgba(255,255,255,0.08)" }]} />
                         <View style={[styles.decorCircle, styles.decorCircleSmall, { backgroundColor: "rgba(255,255,255,0.05)" }]} />
+                        <View style={[styles.decorCircle, styles.decorCircleTiny, { backgroundColor: "rgba(255,255,255,0.04)" }]} />
 
                         <View style={styles.slideContent}>
                             <Text style={styles.slideTitle}>{slide.title}</Text>
@@ -178,11 +179,11 @@ export default function HeroBanner() {
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: 4,
+        marginBottom: 8,
     },
     slide: {
         width: SCREEN_WIDTH,
-        height: 180,
+        height: 200,
         overflow: "hidden",
         justifyContent: "flex-end",
     },
@@ -191,38 +192,44 @@ const styles = StyleSheet.create({
         borderRadius: 999,
     },
     decorCircleLarge: {
-        width: 200,
-        height: 200,
-        right: -50,
-        top: -50,
+        width: 220,
+        height: 220,
+        right: -60,
+        top: -60,
     },
     decorCircleSmall: {
-        width: 120,
-        height: 120,
-        right: 40,
-        bottom: -30,
+        width: 140,
+        height: 140,
+        right: 30,
+        bottom: -40,
+    },
+    decorCircleTiny: {
+        width: 80,
+        height: 80,
+        left: -20,
+        top: 20,
     },
     slideContent: {
-        padding: 20,
-        paddingBottom: 24,
+        padding: 24,
+        paddingBottom: 28,
     },
     slideTitle: {
         fontFamily: Fonts.brandBlack,
         fontSize: FontSize.xxl,
         color: Colors.white,
-        marginBottom: 4,
+        marginBottom: 6,
     },
     slideSubtitle: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.sm,
         color: "rgba(255,255,255,0.85)",
-        marginBottom: 12,
+        marginBottom: 14,
     },
     ctaButton: {
         alignSelf: "flex-start",
-        paddingHorizontal: 14,
-        paddingVertical: 7,
-        borderRadius: 20,
+        paddingHorizontal: 18,
+        paddingVertical: 9,
+        borderRadius: 24,
     },
     ctaText: {
         fontFamily: Fonts.brandBold,
@@ -233,7 +240,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        paddingTop: 8,
+        paddingTop: 10,
         gap: 5,
     },
     dot: {
@@ -241,7 +248,7 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     dotActive: {
-        width: 18,
+        width: 20,
         backgroundColor: Colors.primary,
     },
     dotInactive: {

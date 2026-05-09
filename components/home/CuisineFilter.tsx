@@ -60,16 +60,17 @@ export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineF
                             onPress={() => onSelect(item)}
                             activeOpacity={0.75}
                         >
-                        <Image 
-  source={{ 
-    uri: cuisinesDummy.find(c => c.id === item.toLowerCase())?.imageUrl 
-  }} 
-  style={styles.emoji} 
-/>
+                        <View style={[styles.emojiWrapper, isActive && styles.emojiWrapperActive]}>
+                            <Image 
+                                source={{ 
+                                    uri: cuisinesDummy.find(c => c.id === item.toLowerCase())?.imageUrl 
+                                }} 
+                                style={styles.emoji} 
+                            />
+                        </View>
                             <Text style={[styles.label, isActive && styles.labelActive]}>
                                 {item}
                             </Text>
-                            {isActive && <View style={styles.underline} />}
                         </TouchableOpacity>
                     );
                 })}
@@ -80,46 +81,51 @@ export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineF
 
 const styles = StyleSheet.create({
     container: {
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
         backgroundColor: Colors.background,
     },
     scrollContent: {
         paddingHorizontal: 12,
-        paddingVertical: 10,
-        gap: 6,
+        paddingVertical: 12,
+        gap: 4,
     },
     chip: {
         alignItems: "center",
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        marginRight: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        marginRight: 4,
         position: "relative",
     },
     chipActive: {},
-   emoji: {
-        width: 40,  // Set a specific width
-        height: 40, // Set a specific height
-        borderRadius: 20, // Optional: makes it circular like a logo
-        marginBottom: 4,
-        backgroundColor: '#f0f0f0', // Optional: placeholder color while loading
+    emojiWrapper: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        overflow: "hidden",
+        marginBottom: 6,
+        borderWidth: 2,
+        borderColor: "transparent",
+        backgroundColor: Colors.surface,
+    },
+    emojiWrapperActive: {
+        borderColor: Colors.primary,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    emoji: {
+        width: '100%',
+        height: '100%',
     },
     label: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.xs,
         color: Colors.muted,
+        textAlign: "center",
     },
     labelActive: {
         color: Colors.primary,
         fontFamily: Fonts.brandBold,
-    },
-    underline: {
-        position: "absolute",
-        bottom: -10,
-        left: 0,
-        right: 0,
-        height: 2,
-        backgroundColor: Colors.primary,
-        borderRadius: 2,
     },
 });

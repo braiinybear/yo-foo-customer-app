@@ -34,21 +34,19 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        // tabBarActiveTintColor is the color of the active tab icon and label, while tabBarInactiveTintColor is for inactive tabs
         tabBarActiveTintColor: Colors.white,
-        // tabBarInactiveTintColor: "rgba(255,255,255,0.55)" makes the inactive icons and labels semi-transparent white, giving a nice contrast against the primary color background
-        tabBarInactiveTintColor: "rgba(255,255,255,0.55)",
+        tabBarInactiveTintColor: "rgba(255,255,255,0.5)",
         tabBarStyle: {
           backgroundColor: Colors.primary,
           borderTopWidth: 0,
-          height: 56 + bottomPadding,
+          height: 58 + bottomPadding,
           paddingBottom: bottomPadding,
           paddingTop: 6,
-          elevation: 8,
-          shadowColor: "#000",
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: -2 },
+          elevation: 12,
+          shadowColor: Colors.primary,
+          shadowOpacity: 0.3,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
         },
       }}
     >

@@ -6,10 +6,21 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  StatusBar,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import Animated, { 
+  useSharedValue, 
+  useAnimatedScrollHandler, 
+  useAnimatedStyle, 
+  interpolate, 
+  withTiming,
+  Extrapolation,
+  useDerivedValue,
+  Easing
+} from 'react-native-reanimated';
 
 // ── Home components ───────────────────────────────────────────────────────────
 import CuisineFilter from "@/components/home/CuisineFilter";
@@ -65,6 +76,48 @@ export default function Index() {
   const [selectedCuisine, setSelectedCuisine] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const { selectedVegType, setSelectedVegType } = useVegTypeStore();
+  
+  // ── Header Animations (Reanimated) ──────────────────────────────────────
+  const FIXED_HEADER_HEIGHT = 100;
+  const HIDEABLE_HEIGHT = 180;
+  
+  const scrollY = useSharedValue(0);
+  const lastScrollY = useSharedValue(0);
+  const headerTranslateY = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const currentY = event.contentOffset.y;
+      const diff = currentY - lastScrollY.value;
+      
+      // Update translation based on scroll diff, clamped to HIDEABLE_HEIGHT
+      const newTranslateY = headerTranslateY.value - diff;
+      headerTranslateY.value = Math.min(0, Math.max(-HIDEABLE_HEIGHT, newTranslateY));
+      
+      lastScrollY.value = currentY;
+      scrollY.value = currentY;
+    },
+  });
+
+  const animatedHeaderStyle = useAnimatedStyle(() => {
+    const config = {
+      duration: 400,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1), // Custom smooth curve
+    };
+
+    return {
+      transform: [{ translateY: withTiming(headerTranslateY.value, config) }],
+      opacity: withTiming(
+        interpolate(
+          headerTranslateY.value,
+          [-HIDEABLE_HEIGHT, -HIDEABLE_HEIGHT * 0.4, 0],
+          [0, 1, 1],
+          Extrapolation.CLAMP
+        ),
+        config
+      ),
+    };
+  });
 
   // Derive unique cuisine types from all fetched restaurants, always with "all" first
   const cuisines = useMemo(() => {
@@ -135,6 +188,9 @@ export default function Index() {
   // ── Header (rendered inside FlatList as ListHeaderComponent) ─────────────
   const ListHeader = (
     <View>
+      {/* Spacer for floating headers (Fixed(100) + Hideable(180)) */}
+      <View style={{ height: FIXED_HEADER_HEIGHT + HIDEABLE_HEIGHT - 20 }} />
+
       <View style={styles.sectionHeader}>
         {isRestaurantsError && (
           <View style={styles.errorContainer}>
@@ -183,8 +239,10 @@ export default function Index() {
 
   return (
     <View style={styles.root}>
-      {/* Top bar: HeaderBar - sticky */}
-      <View style={styles.stickyTop}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+
+      {/* FIXED Top bar: HeaderBar */}
+      <View style={[styles.stickyTop, { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 110, height: FIXED_HEADER_HEIGHT }]}>
         <HeaderBar
           address={selectedAddress ? [selectedAddress] : addresses}
           subAddress="Tap to change delivery address"
@@ -196,44 +254,56 @@ export default function Index() {
         />
       </View>
 
-      {/* Error banner for addresses */}
-      {isAddressesError && (
-        <View style={styles.addressErrorBanner}>
-          <Text style={styles.addressErrorText}>
-            ⚠ Could not load delivery addresses
-          </Text>
-          <Text
-            onPress={() => refetchAddresses()}
-            style={styles.retryLinkBanner}
-          >
-            Retry
-          </Text>
-        </View>
-      )}
-
-      {/* Sticky header: SearchBar, CuisineFilter */}
-      <View style={styles.stickyHeader}>
-        <SearchBar
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search restaurants or dishes..."
-          onSearchPress={() => router.push("/search")}
-        />
-        {isLoading ? (
-          <CuisineFilterSkeleton />
-        ) : (
-          <CuisineFilter
-            cuisines={cuisines}
-            selected={selectedCuisine}
-            onSelect={setSelectedCuisine}
-          />
+      {/* Floating Collapsible Container for Search & Cuisine */}
+      <Animated.View style={[
+        styles.floatingHeader,
+        animatedHeaderStyle,
+        { 
+          top: FIXED_HEADER_HEIGHT, 
+          zIndex: 100,
+        }
+      ]}>
+        {/* Error banner for addresses */}
+        {isAddressesError && (
+          <View style={styles.addressErrorBanner}>
+            <Text style={styles.addressErrorText}>
+              ⚠ Could not load delivery addresses
+            </Text>
+            <Text
+              onPress={() => refetchAddresses()}
+              style={styles.retryLinkBanner}
+            >
+              Retry
+            </Text>
+          </View>
         )}
-      </View>
+
+        {/* Header: SearchBar, CuisineFilter */}
+        <View style={styles.stickyHeader}>
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search restaurants or dishes..."
+            onSearchPress={() => router.push("/search")}
+          />
+          {isLoading ? (
+            <CuisineFilterSkeleton />
+          ) : (
+            <CuisineFilter
+              cuisines={cuisines}
+              selected={selectedCuisine}
+              onSelect={setSelectedCuisine}
+            />
+          )}
+        </View>
+      </Animated.View>
 
       {/* Scrollable restaurant list */}
-      <FlatList<Restaurant>
+      <Animated.FlatList<Restaurant>
         data={filteredRestaurants}
         keyExtractor={(r) => r.id}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         renderItem={({ item }) => (
           <RestaurantCard
             restaurant={item}
@@ -257,6 +327,7 @@ export default function Index() {
             onRefresh={onRefresh}
             colors={[Colors.primary]}
             tintColor={Colors.primary}
+            progressViewOffset={FIXED_HEADER_HEIGHT + 60}
           />
         }
       />
@@ -281,35 +352,38 @@ const styles = StyleSheet.create({
 
   // Sticky top header
   stickyTop: {
-    backgroundColor: "#004D4D",
-    color: Colors.white,
-    borderTopWidth: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 4,
+    backgroundColor: Colors.background,
     zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: Colors.background,
   },
 
   stickyHeader: {
     backgroundColor: Colors.background,
     gap: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
     zIndex: 9,
+    paddingTop: 12,
   },
 
   scrollContent: {
-    paddingBottom: 28,
+    paddingBottom: 32,
   },
 
   // Section header inside FlatList
   sectionHeader: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 20,
     backgroundColor: Colors.background,
   },
@@ -319,7 +393,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: 12,
     textTransform: "lowercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
 
   loadingContainer: {
@@ -332,22 +406,22 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: Fonts.brandMedium,
     fontSize: FontSize.md,
-    color: Colors.text,
+    color: Colors.textSecondary,
   },
 
   footerSpinner: {
-    marginVertical: 20,
+    marginVertical: 24,
   },
 
   // Error styles
   errorContainer: {
-    backgroundColor: "#FEE8E8",
+    backgroundColor: "#FEF2F2",
     borderLeftWidth: 4,
-    borderLeftColor: "#DC2626",
+    borderLeftColor: Colors.danger,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     marginBottom: 16,
-    borderRadius: 6,
+    borderRadius: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -364,17 +438,19 @@ const styles = StyleSheet.create({
   retryLink: {
     fontFamily: Fonts.brandBold,
     fontSize: FontSize.sm,
-    color: "#DC2626",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    color: Colors.danger,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(231,76,60,0.1)",
   },
 
   addressErrorBanner: {
-    backgroundColor: "#FECACA",
+    backgroundColor: "#FEF2F2",
     borderBottomWidth: 1,
-    borderBottomColor: "#EF4444",
+    borderBottomColor: Colors.danger,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -391,7 +467,7 @@ const styles = StyleSheet.create({
   retryLinkBanner: {
     fontFamily: Fonts.brandBold,
     fontSize: FontSize.sm,
-    color: "#DC2626",
-    paddingHorizontal: 8,
+    color: Colors.danger,
+    paddingHorizontal: 10,
   },
 });

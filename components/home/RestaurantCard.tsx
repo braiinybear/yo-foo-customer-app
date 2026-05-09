@@ -26,39 +26,48 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
     const isFavorite = useFavoritesStore((state) => state.isFavorite(restaurant.id));
 
     return (
-        <TouchableOpacity style={styles.card} activeOpacity={0.88} onPress={onPress}>
+        <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={onPress}>
             {/* Food visual */}
             <View style={[styles.imageWrapper, { backgroundColor: bgColor }]}>
                 <Image source={{ uri: imageUri }} style={styles.image} />
-
 
                 {/* Bookmark */}
                 <TouchableOpacity 
                     style={styles.bookmark} 
                     activeOpacity={0.7}
                     onPress={(e) => {
-                        // Prevent the click from bubble to the card
                         toggleFavorite(restaurant);
                     }}
                 >
                     <Ionicons 
                         name={isFavorite ? "bookmark" : "bookmark-outline"} 
-                        size={16} 
+                        size={18} 
                         color={isFavorite ? Colors.secondary : Colors.white} 
                     />
                 </TouchableOpacity>
             </View>
 
-            {/* Info */}
+            {/* Bottom info */}
             <View style={styles.info}>
                 <View style={styles.nameRow}>
                     <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
+                    <View style={styles.ratingBadge}>
+                        <Ionicons name="star" size={11} color={Colors.white} />
+                        <Text style={styles.ratingText}>4.5</Text>
+                    </View>
                 </View>
+
                 <Text style={styles.cuisine} numberOfLines={1}>
                     {restaurant.cuisineTypes?.join(" · ") || "Various Cuisines"}
                 </Text>
-                <Text style={styles.priceHint}>₹{restaurant.costForTwo} for two</Text>
-
+                <View style={styles.metaRow}>
+                    <View style={styles.metaItem}>
+                        <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
+                        <Text style={styles.metaText}>30-40 min</Text>
+                    </View>
+                    <View style={styles.dot} />
+                    <Text style={styles.priceHint}>₹{restaurant.costForTwo} for two</Text>
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -66,102 +75,85 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.background,
-        borderRadius: 16,
+        backgroundColor: Colors.white,
+        borderRadius: 18,
         overflow: "hidden",
+        marginHorizontal: 12,
         marginBottom: 16,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.07,
-        shadowRadius: 6,
-        elevation: 3,
-        margin:5
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
     },
     imageWrapper: {
-        height: 160,
+        height: 200,
         justifyContent: "center",
         alignItems: "center",
         position: "relative",
-    },
-    foodEmoji: {
-        fontSize: 72,
     },
     image: {
         width: "100%",
         height: "100%",
         resizeMode: "cover",
     },
-    offerBadge: {
-        position: "absolute",
-        top: 10,
-        left: 10,
-        backgroundColor: "rgba(0,0,0,0.65)",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-    },
-    offerText: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.xs,
-        color: Colors.white,
-    },
     bookmark: {
         position: "absolute",
-        top: 10,
-        right: 10,
+        top: 12,
+        right: 12,
         backgroundColor: "rgba(0,0,0,0.35)",
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: "center",
         justifyContent: "center",
     },
     info: {
-        padding: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
     },
     nameRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 2,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
     },
     name: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.md,
+        fontSize: FontSize.lg,
         color: Colors.text,
         flex: 1,
         marginRight: 8,
+    },
+    cuisine: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.sm,
+        color: Colors.textSecondary,
+        marginBottom: 10,
     },
     ratingBadge: {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: Colors.success,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-        borderRadius: 6,
-        gap: 2,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        gap: 3,
     },
     ratingText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.xs,
         color: Colors.white,
     },
-    cuisine: {
-        fontFamily: Fonts.brand,
-        fontSize: FontSize.xs,
-        color: Colors.muted,
-        marginBottom: 2,
-    },
-    priceHint: {
-        fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.xs,
-        color: Colors.textSecondary,
-        marginBottom: 6,
-    },
     metaRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 3,
+        gap: 6,
+    },
+    metaItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
     },
     metaText: {
         fontFamily: Fonts.brandMedium,
@@ -169,7 +161,14 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
     },
     dot: {
-        color: Colors.muted,
+        width: 3,
+        height: 3,
+        borderRadius: 1.5,
+        backgroundColor: Colors.muted,
+    },
+    priceHint: {
+        fontFamily: Fonts.brandMedium,
         fontSize: FontSize.xs,
+        color: Colors.textSecondary,
     },
 });

@@ -1,5 +1,6 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
+import { Colors } from "@/constants/colors";
 
 export default function RestaurantCardSkeleton() {
   return (
@@ -7,8 +8,6 @@ export default function RestaurantCardSkeleton() {
       <View style={styles.image} />
 
       <View style={styles.content}>
-        <View style={styles.title} />
-        <View style={styles.subtitle} />
         <View style={styles.row}>
           <View style={styles.small} />
           <View style={styles.small} />
@@ -20,35 +19,26 @@ export default function RestaurantCardSkeleton() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    marginHorizontal: 10,
+    backgroundColor: Colors.white,
+    marginHorizontal: 16,
     marginVertical: 8,
-    borderRadius: 12,
+    borderRadius: 18,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
   image: {
-    height: 140,
-    backgroundColor: "#E5E7EB",
+    height: 200,
+    backgroundColor: Colors.light,
   },
 
   content: {
-    padding: 5,
+    padding: 14,
     gap: 8,
-  },
-
-  title: {
-    height: 16,
-    width: "70%",
-    backgroundColor: "#E5E7EB",
-    borderRadius: 6,
-  },
-
-  subtitle: {
-    height: 12,
-    width: "50%",
-    backgroundColor: "#E5E7EB",
-    borderRadius: 6,
   },
 
   row: {
@@ -58,8 +48,8 @@ const styles = StyleSheet.create({
 
   small: {
     height: 10,
-    width: 60,
-    backgroundColor: "#E5E7EB",
+    width: 70,
+    backgroundColor: Colors.light,
     borderRadius: 6,
   },
 });
