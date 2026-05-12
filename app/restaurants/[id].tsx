@@ -22,7 +22,7 @@ import { showAlert } from "@/store/useAlertStore";
 import { MenuCategory, MenuItem } from "@/types/restaurants";
 
 export default function RestaurantDetailScreen() {
-    const { id, dishName} = useLocalSearchParams<{ id: string; dishName?: string }>();
+    const { id, menuItemName, menuItemId } = useLocalSearchParams<{ id: string; menuItemName?: string; menuItemId?: string }>();
     const insets = useSafeAreaInsets();
     const { data: restaurant, isPending, error, refetch } = useRestaurantDetail(id);
     const { addItem, items, updateQuantity, totalAmount } = useCartStore();
@@ -85,14 +85,17 @@ export default function RestaurantDetailScreen() {
 
     // Reorder menu categories to show searched item's category at the top
     const getReorderedCategories = () => {
-        if (!dishName || !restaurant?.menuCategories) {
+        if ((!menuItemName && !menuItemId) || !restaurant?.menuCategories) {
             return restaurant?.menuCategories || [];
         }
 
         // Find the category containing the searched dish
         let categoryWithSearchedItem : MenuCategory | null = null;
         for (const category of restaurant.menuCategories) {
-            const item = category.items.find((i: MenuItem) => String(i.name) === String(dishName));
+            const item = category.items.find((i: MenuItem) => 
+                (menuItemId && i.id === menuItemId) || 
+                (menuItemName && String(i.name) === String(menuItemName))
+            );
             if (item) {
                 categoryWithSearchedItem = category;
                 break;
@@ -194,13 +197,16 @@ export default function RestaurantDetailScreen() {
                 </View>
 
                 {/* Searched Item Section */}
-                {dishName && (() => {
+                {(menuItemName || menuItemId) && (() => {
                     let searchedItem: any = null;
                     let searchedCategory: any = null;
                     
                     // Search for the dish in all categories
                     for (const category of restaurant.menuCategories) {
-                        const item = category.items.find((i: any) => String(i.name) === String(dishName));
+                        const item = category.items.find((i: any) => 
+                            (menuItemId && i.id === menuItemId) || 
+                            (menuItemName && String(i.name) === String(menuItemName))
+                        );
                         if (item) {
                             searchedItem = item;
                             searchedCategory = category;   

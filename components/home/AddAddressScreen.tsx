@@ -24,6 +24,8 @@ interface AddressFormState {
     type?: string;
     addressLine: string;
     landmark?: string;
+    receiverName?: string;
+    receiverPhone?: string;
     lat: number | null;
     lng: number | null;
 }
@@ -40,6 +42,8 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
         type: '', // 👈 UPDATED: Starts blank instead of 'HOME'
         addressLine: '',
         landmark: '',
+        receiverName: '',
+        receiverPhone: '',
         lat: null,
         lng: null,
     });
@@ -164,19 +168,42 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
                         multiline
                         textAlignVertical="top"
                     />
-
-                    {/* Landmark Input */}
                     <Text style={styles.inputLabel}>Landmark (Optional)</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="e.g. Opposite Silvercity Mall"
+                        placeholder="E.g. Near Apollo Hospital"
                         placeholderTextColor={Colors.muted}
                         value={form.landmark}
                         onChangeText={(text: string) => setForm({ ...form, landmark: text })}
                     />
 
+                    {/* Receiver Contact Details */}
+                    <View style={styles.row}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                            <Text style={styles.inputLabel}>Receiver Name</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g. Rahul"
+                                placeholderTextColor={Colors.muted}
+                                value={form.receiverName}
+                                onChangeText={(text: string) => setForm({ ...form, receiverName: text })}
+                            />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                            <Text style={styles.inputLabel}>Receiver Phone</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g. 9876543210"
+                                placeholderTextColor={Colors.muted}
+                                value={form.receiverPhone}
+                                onChangeText={(text: string) => setForm({ ...form, receiverPhone: text })}
+                                keyboardType="phone-pad"
+                            />
+                        </View>
+                    </View>
+
                     {/* Address Type Selector */}
-                    <Text style={styles.inputLabel}>Save As (Optional)</Text>
+                    <Text style={styles.inputLabel}>Save As</Text>
                     <View style={styles.typeContainer}>
                         {addressTypes.map((type) => {
                             const isSelected = form.type === type.id;
@@ -303,6 +330,10 @@ const styles = StyleSheet.create({
         fontSize: FontSize.md,
         fontFamily: Fonts.brand,
         color: Colors.text,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     textArea: {
         height: 100,

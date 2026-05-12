@@ -20,7 +20,7 @@ export default function RestaurantCardSkeleton() {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.white,
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginVertical: 8,
     borderRadius: 18,
     overflow: "hidden",

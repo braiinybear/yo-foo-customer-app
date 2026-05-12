@@ -2,11 +2,11 @@ export const Colors = {
   background: "#FFFFFF",
   surface: "#F8F9FA",
 
-  // primary: "#FF324B",
-
   primary: "#34b441ff",
   primaryLight: "#FFEDEE",
-  secondary: "#FFB800",
+  secondary: "#1B263B",
+  //  secondary: "#7B2CBF",
+  // secondary: "#00A8E8",
 
   text: "#1C1C1E",
   textSecondary: "#636366",

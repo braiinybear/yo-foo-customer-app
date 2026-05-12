@@ -74,7 +74,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   listContent: {
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   cardContainer: {
     marginBottom: 4, // Reduced margin since contentContainer has padding and RestaurantCard has internal margin

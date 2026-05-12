@@ -740,6 +740,32 @@ export default function OrderDetailScreen() {
                     </View>
                 </SectionCard>
 
+                {/* ── Delivery Address ─────────────────────────────────── */}
+                {order.customerAddress && (
+                    <SectionCard title="Delivery Address" icon="location-outline">
+                        <View style={{ gap: 4 }}>
+                            {(order.customerAddress as any).receiverName ? (
+                                <Text style={{ fontFamily: Fonts.brandBold, fontSize: FontSize.sm, color: Colors.text }}>
+                                    {(order.customerAddress as any).receiverName}
+                                </Text>
+                            ) : null}
+                            <Text style={{ fontFamily: Fonts.brandMedium, fontSize: FontSize.sm, color: Colors.textSecondary }}>
+                                {order.customerAddress.addressLine}
+                            </Text>
+                            {order.customerAddress.landmark ? (
+                                <Text style={{ fontFamily: Fonts.brand, fontSize: FontSize.xs, color: Colors.muted }}>
+                                    Landmark: {order.customerAddress.landmark}
+                                </Text>
+                            ) : null}
+                            {(order.customerAddress as any).receiverPhone ? (
+                                <Text style={{ fontFamily: Fonts.brand, fontSize: FontSize.xs, color: Colors.muted }}>
+                                    Phone: {(order.customerAddress as any).receiverPhone}
+                                </Text>
+                            ) : null}
+                        </View>
+                    </SectionCard>
+                )}
+
                 {/* ── Cancellation Reason ───────────────────────────────── */}
                 {order.cancellationReason && (
                     <SectionCard title="Cancellation Reason" icon="information-circle-outline">

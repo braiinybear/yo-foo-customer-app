@@ -114,6 +114,7 @@ export default function CartScreen() {
             restaurantId,
             items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity })),
             paymentMode: selectedMode,
+            addressId: selectedAddress?.id,
         };
 
         createOrderMutation.mutate(payload, {

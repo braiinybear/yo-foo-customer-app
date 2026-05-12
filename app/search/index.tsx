@@ -245,8 +245,8 @@ export default function SearchPage() {
             pathname: "/restaurants/[id]",
             params: {
               id: item.restaurantId,
-              dishName: item.dishName,
-              dishId: item.dishId,
+              menuItemName: item.dishName,
+              menuItemId: item.dishId,
             },
           })
         }
@@ -398,7 +398,11 @@ export default function SearchPage() {
                     onPress={() => {
                       router.push({
                         pathname: "/restaurants/[id]",
-                        params: { id: item.restaurantId }
+                        params: { 
+                          id: item.restaurantId,
+                          menuItemName: item.name,
+                          menuItemId: item.id
+                        }
                       });
                       addRecentSearch(item.name);
                     }}
