@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
@@ -17,6 +17,8 @@ interface FilterRowProps {
 }
 
 export default function FilterRow({ activeFilter, onFilterSelect }: FilterRowProps) {
+    const { Colors, isDark } = useTheme();
+    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     return (
         <View style={styles.container}>
             {/* Filters pill with icon */}
@@ -39,7 +41,7 @@ export default function FilterRow({ activeFilter, onFilterSelect }: FilterRowPro
                             <Ionicons
                                 name="flash"
                                 size={12}
-                                color={isActive ? Colors.white : Colors.secondary}
+                                color={isActive ? Colors.background : Colors.secondary}
                                 style={{ marginRight: 2 }}
                             />
                         )}
@@ -53,7 +55,7 @@ export default function FilterRow({ activeFilter, onFilterSelect }: FilterRowPro
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         flexDirection: "row",
         alignItems: "center",
@@ -100,6 +102,6 @@ const styles = StyleSheet.create({
         color: Colors.text,
     },
     pillTextActive: {
-        color: Colors.white,
+        color: Colors.background,
     },
 });

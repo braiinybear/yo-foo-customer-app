@@ -1,16 +1,12 @@
 import { Stack } from "expo-router";
 
 export default function WalletRootLayout() {
-    return <Stack
-        screenOptions={{
-            headerTitleAlign: "center",
-            headerShown: false
-        }}
-    >
+    return <Stack>
         <Stack.Screen
             name="index"
             options={{
-                title: "My wallet",
+                title: "Wallet",
+                headerShown: false
             }}
         />
     </Stack>

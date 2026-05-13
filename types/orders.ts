@@ -7,8 +7,8 @@ export type OrderStatus =
     | "DELIVERED"
     | "CANCELLED"
     | "REFUSED"
-    |   "READY"
-   | "PICKED_UP"
+    | "READY"
+    | "PICKED_UP"
 
 
 export interface OrderItem {

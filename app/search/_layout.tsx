@@ -1,4 +1,3 @@
-import { Colors } from "@/constants/colors";
 import { Stack } from "expo-router";
 
 export default function SearchLayout() {
@@ -14,15 +13,7 @@ export default function SearchLayout() {
       <Stack.Screen
         name="index"
         options={{
-          headerShown: true,
-          headerTintColor: "#fff",
-          headerStyle: {
-            backgroundColor: Colors.primary,
-          },
-          headerTitleAlign: "center",
-          headerTitleStyle: {
-            color: "#fff",
-          },
+          headerShown: false,
         }}
       />
     </Stack>

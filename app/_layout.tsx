@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/colors";
+
 import { authClient } from "@/lib/auth-client";
 
 import {
@@ -10,7 +10,7 @@ import {
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 
 import * as ExpoSplashScreen from "expo-splash-screen";
 import * as NavigationBar from "expo-navigation-bar";
@@ -27,10 +27,10 @@ import {
 import GlobalCustomAlert from "@/components/GlobalCustomAlert";
 
 import { NotificationProvider } from "@/context/NotificationContext";
-
 import * as Notifications from "expo-notifications";
-
 import { SocketProvider } from "@/context/SocketContext";
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
+import { StatusBar } from "expo-status-bar";
 
 import LocationSetupScreen, {
   shouldShowLocationSetup,
@@ -64,7 +64,18 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <ThemedRoot />
+    </ThemeProvider>
+  );
+}
+
+function ThemedRoot() {
+  const { Colors, isDark } = useTheme();
   const { data: session, isPending } = authClient.useSession();
+  const segments = useSegments();
+  const router = useRouter();
 
   const [showLocationSetup, setShowLocationSetup] = useState(false);
   const [splashFinished, setSplashFinished] = useState(false);
@@ -92,19 +103,20 @@ export default function RootLayout() {
   // Android navigation buttons & AppState for resume handling
   useEffect(() => {
     if (Platform.OS === "android") {
-      NavigationBar.setButtonStyleAsync("dark");
+      NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark");
+      NavigationBar.setBackgroundColorAsync(Colors.background);
     }
 
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "active") {
         setIsResuming(true);
         // Delay to allow auth session to settle on resume
-        setTimeout(() => setIsResuming(false), 2500);
+        setTimeout(() => setIsResuming(false), 3000);
       }
     });
 
     return () => subscription.remove();
-  }, []);
+  }, [isDark, Colors.background]);
 
   // Track if we've ever had a session in this lifecycle
   useEffect(() => {
@@ -115,6 +127,21 @@ export default function RootLayout() {
       setWasLoggedIn(false);
     }
   }, [session, isPending, isResuming]);
+
+  // Auth Guard: Redirect based on session state
+  useEffect(() => {
+    if (isPending || !splashFinished || isResuming) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (!session && !inAuthGroup) {
+      // Not logged in -> go to login
+      router.replace("/(auth)/login");
+    } else if (session && inAuthGroup) {
+      // Logged in but on auth page -> go home
+      router.replace("/");
+    }
+  }, [session, isPending, segments, splashFinished, isResuming]);
 
   // Location setup logic
   useEffect(() => {
@@ -138,130 +165,69 @@ export default function RootLayout() {
   // We stay on splash if we WERE logged in but don't have a session yet
   if (isPending || !splashFinished || (wasLoggedIn && !session) || (isResuming && !session)) {
     return (
-      <SplashScreenView onFinish={() => setSplashFinished(true)} />
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <SplashScreenView onFinish={() => setSplashFinished(true)} />
+      </View>
     );
   }
 
-  const isLoggedIn = !isPending && (!!session || (isResuming && wasLoggedIn));
-  const isLoggedOut = !isPending && !session && !isResuming && !wasLoggedIn;
-
   return (
     <QueryClientProvider client={queryClient}>
-      <NotificationProvider>
-        <SocketProvider user={session?.user as User | undefined}>
-          <View
-            style={{ flex: 1 }}
-            onLayout={onLayoutRootView}
-          >
-            <Stack>
-              {/* AUTH ROUTES */}
-              <Stack.Protected guard={isLoggedOut}>
-                <Stack.Screen
-                  name="(auth)/login"
-                  options={{ headerShown: false }}
-                />
-
-                <Stack.Screen
-                  name="(auth)/register"
-                  options={{ headerShown: false }}
-                />
-              </Stack.Protected>
-
-              {/* APP ROUTES */}
-              <Stack.Protected guard={isLoggedIn}>
-                <Stack.Screen
-                  name="(tabs)"
-                  options={{
-                    headerShown: false,
-                  }}
-                />
-
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        <StatusBar style={isDark ? "light" : "dark"} />
+        {showLocationSetup ? (
+          <LocationSetupScreen onDone={() => setShowLocationSetup(false)} />
+        ) : (
+          <SocketProvider user={session?.user}>
+            <NotificationProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: Colors.background },
+                }}
+              >
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
                 <Stack.Screen
                   name="profile"
                   options={{
                     headerShown: true,
                     headerTitle: "Profile",
-                    headerTintColor: "#fff",
+                    headerTintColor: Colors.white,
                     headerStyle: {
-                      backgroundColor: Colors.primary,
+                      backgroundColor: isDark ? Colors.background : Colors.secondary,
                     },
                     headerTitleAlign: "center",
                     headerTitleStyle: {
-                      color: "#fff",
+                      color: Colors.primary,
                     },
                   }}
                 />
 
-                <Stack.Screen
-                  name="wallet"
-                  options={{
-                    headerShown: true,
-                    headerTitle: "Wallet",
-                    headerTintColor: "#fff",
-                    headerStyle: {
-                      backgroundColor: Colors.primary,
-                    },
-                    headerTitleAlign: "center",
-                    headerTitleStyle: {
-                      color: "#fff",
-                    },
-                  }}
-                />
 
-                <Stack.Screen
-                  name="search"
-                  options={{
-                    headerShown: false,
-                  }}
-                />
-
-                <Stack.Screen
-                  name="restaurants"
-                  options={{
-                    headerShown: false,
-                  }}
-                />
 
                 <Stack.Screen
                   name="checkout"
                   options={{
                     headerShown: true,
-                    headerTintColor: "#fff",
+                    headerTitle: "Checkout",
+                    headerTintColor: Colors.white,
                     headerStyle: {
-                      backgroundColor: Colors.primary,
+                      backgroundColor: isDark ? Colors.background : Colors.secondary,
                     },
+                    headerTitleAlign: "center",
                     headerTitleStyle: {
-                      color: "#fff",
+                      color: Colors.primary,
                     },
                   }}
                 />
-              </Stack.Protected>
-            </Stack>
-          </View>
-
-          {/* LOCATION SETUP */}
-          {showLocationSetup && (
-            <View style={StyleSheet.absoluteFill}>
-              <LocationSetupScreen
-                onDone={() => setShowLocationSetup(false)}
-              />
-            </View>
-          )}
-
-
-        </SocketProvider>
-      </NotificationProvider>
-
-      <GlobalCustomAlert />
+              </Stack>
+              <GlobalCustomAlert />
+            </NotificationProvider>
+          </SocketProvider>
+        )}
+      </View>
     </QueryClientProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  loaderContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

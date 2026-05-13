@@ -1,8 +1,8 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import * as SecureStore from "expo-secure-store";
 import {
     ActivityIndicator, // IGNORE: This is a standard React Native component for showing a loading spinner
@@ -19,6 +19,8 @@ import {
 import { showAlert } from "@/store/useAlertStore";
 
 export default function Register() {
+    const { Colors, isDark } = useTheme();
+    const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
     const [name, setName] = useState("");
@@ -38,20 +40,9 @@ export default function Register() {
             { name, email, password },
             {
                 body: haveReferralCode ? { invitedByCode: referralCode } : undefined,
-                onSuccess: async (ctx) => {
-                    // 1. Extract token directly from the response body (ctx.data)
-                    const apiToken = ctx.data?.token;
-                    if (apiToken) {
-                        // 2. Save it to SecureStore under the name "token"
-                        await SecureStore.setItemAsync("token", apiToken);
-                        console.log("✅ Token successfully saved as 'token':", apiToken);
-                        router.replace("/");
-                    }
-
+                onSuccess: async () => {
                     setIsLoading(false);
-                    showAlert("Success", "Account created successfully", [
-                        { text: "OK", onPress: () => router.replace("/") }
-                    ]);
+                    showAlert("Success", "Account created successfully");
                 },
                 onError: (ctx: any) => {
                     setIsLoading(false);
@@ -176,14 +167,14 @@ export default function Register() {
                     onPress={() => router.push("/(auth)/login")}
                     style={styles.switchContainer}
                 >
-                    <Text style={styles.switchText}>Already have an account? Sign In</Text>
+                    <Text style={styles.switchText}>Already have an account? <Text style={{ color: Colors.primary }}>Sign In</Text></Text>
                 </TouchableOpacity>
             </ScrollView>
         </KeyboardAvoidingView>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         flexGrow: 1,
         padding: 24,
@@ -221,13 +212,13 @@ const styles = StyleSheet.create({
         marginBottom: 14,
         fontSize: FontSize.md,
         fontFamily: Fonts.brand,
-        backgroundColor: Colors.background,
+        backgroundColor: Colors.surface,
         color: Colors.text,
     },
 
     // ── Buttons ──────────────────────────────────────────────
     primaryButton: {
-        backgroundColor: Colors.primary,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary,
         padding: 16,
         borderRadius: 12,
         flexDirection: "row",
@@ -270,7 +261,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
         padding: 12,
         borderRadius: 12,
-        backgroundColor: Colors.background,
+        backgroundColor: Colors.surface,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.06,
@@ -288,12 +279,12 @@ const styles = StyleSheet.create({
     // ── Switch ───────────────────────────────────────────────
     switchContainer: { marginTop: 20, alignItems: "center" },
     switchText: {
-        color: Colors.primary,
+        color: Colors.secondary,
         fontSize: FontSize.sm,
         fontFamily: Fonts.brandMedium,
     },
     referralCodeText: {
-        color: Colors.primary,
+        color: Colors.secondary,
         fontSize: FontSize.sm,
         fontFamily: Fonts.brandMedium,
         textAlign: "center",

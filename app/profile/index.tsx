@@ -1,8 +1,6 @@
-import { Colors } from "@/constants/colors";
-import { Fonts, FontSize } from "@/constants/typography";
+import { authClient } from "@/lib/auth-client";
 import { useUser } from "@/hooks/useUser";
 import { useUpdateUser } from "@/hooks/useUpdateUser";
-import { authClient } from "@/lib/auth-client";
 import { uploadImageToCloudinary } from "@/utils/cloudinary";
 import * as ImagePicker from "expo-image-picker";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
@@ -26,13 +24,18 @@ import {
     FlatList
 } from "react-native";
 import { showAlert } from "@/store/useAlertStore";
+import { Fonts, FontSize } from "@/constants/typography";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function ProfileScreen() {
+    const { Colors, isDark, toggleTheme } = useTheme();
     const setSelectedVegType = useVegTypeStore(state => state.setSelectedVegType);
     const router = useRouter();
     const { data: user, isLoading, error } = useUser();
     const updateUser = useUpdateUser();
     
+    const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
+
     // States for Editing
     const [isUploading, setIsUploading] = useState(false);
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -61,380 +64,250 @@ export default function ProfileScreen() {
                 const day = d.getUTCDate().toString().padStart(2, '0');
                 formattedDob = `${y}-${m}-${day}`;
             }
-
             setEditForm({
                 name: user.name || "",
-                email: user.email?.endsWith('@phone.foodapp.local') ? "" : (user.email || ""),
+                email: user.email || "",
                 gender: user.gender || "",
                 dob: formattedDob,
                 isVeg: user.isVeg || false
             });
-            // Sync store on load
-            setSelectedVegType(user.isVeg ? "veg" : "non-veg");
-            
-            if (user.dob) {
-                setCalendarViewerDate(new Date(user.dob));
-            }
         }
-    }, [setSelectedVegType, user]);
-
-    // ── Calendar Helpers ─────────────────────────────────────
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-    const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-    const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
-
-    const calendarData = useMemo(() => {
-        const year = calendarViewerDate.getFullYear();
-        const month = calendarViewerDate.getMonth();
-        const daysInMonth = getDaysInMonth(year, month);
-        const firstDay = getFirstDayOfMonth(year, month);
-        
-        const days = [];
-        for (let i = 0; i < firstDay; i++) {
-            days.push({ day: "", type: 'padding' });
-        }
-        for (let i = 1; i <= daysInMonth; i++) {
-            days.push({ day: i, type: 'day' });
-        }
-        return days;
-    }, [calendarViewerDate]);
-
-    const changeMonth = (delta: number) => {
-        setCalendarViewerDate(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
-    };
-
-    const handleSelectYear = (year: number) => {
-        setCalendarViewerDate(prev => new Date(year, prev.getMonth(), 1));
-        setIsYearSelectorVisible(false);
-    };
-
-    const isEmailEditable = useMemo(() => {
-        if (!user?.email) return true;
-        return user.email.endsWith('@phone.foodapp.local');
-    }, [user?.email]);
-
-    if (isLoading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
-        );
-    }
-
-    if (error || !user) {
-        return (
-            <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Failed to load profile.</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
-                    <Text style={styles.retryText}>Go Back</Text>
-                </TouchableOpacity>
-            </View>
-        );
-    }
-
-    const handleDateSelect = (day: number) => {
-        const year = calendarViewerDate.getFullYear();
-        const month = (calendarViewerDate.getMonth() + 1).toString().padStart(2, '0');
-        const formattedDay = day.toString().padStart(2, '0');
-        const dateString = `${year}-${month}-${formattedDay}`;
-        
-        setEditForm(prev => ({ ...prev, dob: dateString }));
-        setIsCalendarVisible(false);
-    };
+    }, [user]);
 
     const handleSignOut = async () => {
         try {
-            await authClient.signOut({
-                fetchOptions: {
-                    onSuccess: () => {
-                        router.replace("/(auth)/login");
-                    },
-                },
-            });
-        } catch (error) {
-            showAlert("Error", "Failed to sign out");
+            await authClient.signOut();
+            router.replace("/(auth)/login");
+        } catch (e) {
+            console.error(e);
         }
     };
 
-    const handlePickImage = async () => {
+    const toggleVegMode = () => {
+        const newValue = !editForm.isVeg;
+        setEditForm({ ...editForm, isVeg: newValue });
+        setSelectedVegType(newValue ? 'veg' : 'non-veg');
+        updateUser.mutate({ isVeg: newValue });
+    };
+
+    const handleImagePicker = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            showAlert('Permission Denied', 'We need access to your gallery to upload a profile picture.');
+            showAlert("Permission Denied", "We need camera roll permissions to change profile picture.");
             return;
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [1, 1],
-            quality: 0.7,
+            quality: 0.5,
         });
 
-        if (!result.canceled) {
-            uploadProfileImage(result.assets[0].uri);
+        if (!result.canceled && result.assets && result.assets[0].uri) {
+            uploadImage(result.assets[0].uri);
         }
     };
 
-    const uploadProfileImage = async (uri: string) => {
+    const uploadImage = async (uri: string) => {
         setIsUploading(true);
         try {
-            const response = await uploadImageToCloudinary(uri, "user_profiles");
-            await updateUser.mutateAsync({ image: response.secure_url });
-        } catch (error: any) {
-            showAlert("Upload Error", error.message || "Failed to upload image");
+            const imageUrl = await uploadImageToCloudinary(uri);
+            if (imageUrl) {
+                updateUser.mutate({ image: imageUrl.secure_url }, {
+                    onSuccess: () => showAlert("Success", "Profile picture updated!"),
+                    onError: () => showAlert("Error", "Failed to update profile picture.")
+                });
+            }
+        } catch (e) {
+            showAlert("Error", "Image upload failed.");
         } finally {
             setIsUploading(false);
         }
     };
 
-    const handleSaveProfile = async () => {
-        try {
-            const updateData: any = {
-                name: editForm.name,
-                gender: editForm.gender,
-                dob: editForm.dob,
-                isVeg: editForm.isVeg
-            };
-
-            // Only send email if it was actually editable and changed
-            if (isEmailEditable && editForm.email && editForm.email !== user?.email) {
-                updateData.email = editForm.email;
-            }
-
-            await updateUser.mutateAsync(updateData);
-            // Sync with VegTypeStore
-            setSelectedVegType(editForm.isVeg ? "veg" : "non-veg");
-            
-            setIsEditModalVisible(false);
-            showAlert("Success", "Profile updated successfully");
-        } catch (error: any) {
-            const errorMsg = error.response?.data?.message || error.message || "Failed to update profile";
-            showAlert("Error", errorMsg);
-        }
-    };
-
-    const toggleVegMode = async (value: boolean) => {
-        try {
-            setEditForm(prev => ({ ...prev, isVeg: value }));
-            await updateUser.mutateAsync({ isVeg: value });
-            // Sync with VegTypeStore
-            setSelectedVegType(value ? "veg" : "non-veg");
-        } catch (error) {
-            setEditForm(prev => ({ ...prev, isVeg: !value }));
-            showAlert("Error", "Failed to update preference");
-        }
-    };
-
     const handleShare = async () => {
+        if (!user?.referralCode) return;
         try {
-            const result = await Share.share({
-                message: `Hey! Use my referral code ${user.referralCode} to get amazing discounts on your first order with Yo-Foo! Download now: https://play.google.com/store`,
-                title: 'Refer & Earn',
+            await Share.share({
+                message: `Hey! Order delicious food using my referral code: ${user.referralCode} and get rewards!`,
             });
-            if (result.action === Share.sharedAction) {
-                if (result.activityType) {
-                    // shared with activity type of result.activityType
-                } else {
-                    // shared
-                }
-            } else if (result.action === Share.dismissedAction) {
-                // dismissed
-            }
         } catch (error) {
-            showAlert('Error', 'Could not share referral code');
+            console.error(error);
         }
     };
+
+    const handleSaveProfile = () => {
+        updateUser.mutate(editForm, {
+            onSuccess: () => {
+                setIsEditModalVisible(false);
+                showAlert("Success", "Profile updated successfully!");
+            },
+            onError: () => showAlert("Error", "Failed to update profile.")
+        });
+    };
+
+    if (isLoading) return (
+        <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+    );
+
+    if (!user) return (
+        <View style={styles.loadingContainer}>
+            <Text style={{ color: Colors.text }}>Please log in to view profile.</Text>
+        </View>
+    );
 
     return (
-        <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                {/* Profile Header Info */}
-                <View style={styles.profileHeaderCard}>
-                    <View style={styles.avatarContainer}>
-                        {isUploading ? (
-                            <View style={[styles.avatar, styles.loadingAvatar]}>
-                                <ActivityIndicator color={Colors.white} />
-                            </View>
-                        ) : user.image ? (
-                            <Image source={{ uri: user.image }} style={styles.avatar} />
-                        ) : (
-                            <View style={[styles.avatar, styles.placeholderAvatar]}>
-                                <Text style={styles.avatarInitial}>
-                                    {user.name?.charAt(0).toUpperCase()}
-                                </Text>
-                            </View>
-                        )}
-                        <TouchableOpacity 
-                            style={styles.cameraIcon} 
-                            onPress={handlePickImage}
-                            disabled={isUploading}
-                        >
-                            <Ionicons name="camera" size={16} color={Colors.white} />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={styles.userName}>{user.name}</Text>
-                    <Text style={styles.userSubInfo}>{user.email || user.phoneNumber}</Text>
-                    
-                    <TouchableOpacity 
-                        style={styles.editProfileButton} 
-                        onPress={() => setIsEditModalVisible(true)}
-                    >
-                        <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            {/* Profile Header */}
+            <View style={styles.header}>
+                <Text style={styles.screenTitle}>PROFILE</Text>
+                <View style={styles.profileImageContainer}>
+                    <Image 
+                        source={{ uri: user.image || "https://ui-avatars.com/api/?name=" + user.name }} 
+                        style={styles.profileImage} 
+                    />
+                    <TouchableOpacity style={styles.cameraIcon} onPress={handleImagePicker} disabled={isUploading}>
+                        {isUploading ? <ActivityIndicator size="small" color={isDark ? Colors.secondary : Colors.white} /> : <Ionicons name="camera" size={16} color={isDark ? Colors.secondary : Colors.white} />}
                     </TouchableOpacity>
                 </View>
-
-                {/* Referral Card */}
-                <View style={styles.referralCard}>
-                    <View style={styles.referralInfo}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <View style={styles.referralBadge}>
-                                <MaterialCommunityIcons name="gift" size={16} color={Colors.white} />
-                                <Text style={styles.referralBadgeText}>REFER & EARN</Text>
-                            </View>
-                            <Text style={[styles.statsValue, { fontSize: 14 }]}>
-                                {user.referralCount} <Text style={{ fontSize: 10, color: Colors.muted }}>Successful</Text>
-                            </Text>
-                        </View>
-                        <Text style={styles.referralHeader}>Share code, get rewards!</Text>
-                        <View style={styles.referralCodeContainer}>
-                            <Text style={styles.referralCode}>{user.referralCode}</Text>
-                        </View>
-                    </View>
-                    <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-                        <Ionicons name="share-social" size={20} color={Colors.white} />
-                        <Text style={styles.shareButtonText}>Share</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Personal Information Summary */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Personal Details</Text>
-                    <View style={styles.menuCard}>
-                        <View style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#F3E5F5' }]}>
-                                    <Ionicons name="person-outline" size={20} color="#9C27B0" />
-                                </View>
-                                <Text style={styles.menuItemText}>Gender</Text>
-                            </View>
-                            <Text style={styles.menuValueText}>{user.gender || "Not specified"}</Text>
-                        </View>
-                        <View style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#E1F5FE' }]}>
-                                    <Ionicons name="calendar-outline" size={20} color="#03A9F4" />
-                                </View>
-                                <Text style={styles.menuItemText}>Born on</Text>
-                            </View>
-                            <Text style={styles.menuValueText}>
-                                {user.dob ? new Date(user.dob).toLocaleDateString() : "Not specified"}
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Preference Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Preferences</Text>
-                    <View style={styles.menuCard}>
-                        <View style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
-                                    <MaterialCommunityIcons name="leaf" size={20} color="#4CAF50" />
-                                </View>
-                                <Text style={styles.menuItemText}>Veg Mode Only</Text>
-                            </View>
-                            <Switch
-                                value={editForm.isVeg}
-                                trackColor={{ false: '#D1D1D1', true: Colors.primary }}
-                                thumbColor={'#FFF'}
-                                onValueChange={toggleVegMode}
-                            />
-                        </View>
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#E3F2FD' }]}>
-                                    <Ionicons name="language-outline" size={20} color="#2196F3" />
-                                </View>
-                                <Text style={styles.menuItemText}>App Language</Text>
-                            </View>
-                            <View style={styles.menuItemRight}>
-                                <Text style={styles.menuValueText}>{user.language.toUpperCase()}</Text>
-                                <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Account Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Account settings</Text>
-                    <View style={styles.menuCard}>
-                        <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/profile/address")}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#FFF3E0' }]}>
-                                    <Ionicons name="location-outline" size={20} color="#FF9800" />
-                                </View>
-                                <Text style={styles.menuItemText}>Saved Addresses</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#F3E5F5' }]}>
-                                    <Ionicons name="card-outline" size={20} color="#9C27B0" />
-                                </View>
-                                <Text style={styles.menuItemText}>Payments & Refunds</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#E0F2F1' }]}>
-                                    <Ionicons name="notifications-outline" size={20} color="#009688" />
-                                </View>
-                                <Text style={styles.menuItemText}>Notifications</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Support Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Support</Text>
-                    <View style={styles.menuCard}>
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#F5F5F5' }]}>
-                                    <Ionicons name="help-circle-outline" size={20} color={Colors.textSecondary} />
-                                </View>
-                                <Text style={styles.menuItemText}>Help Center</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuItemLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#F5F5F5' }]}>
-                                    <Ionicons name="shield-checkmark-outline" size={20} color={Colors.textSecondary} />
-                                </View>
-                                <Text style={styles.menuItemText}>Privacy Policy</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-                    <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
-                    <Text style={styles.signOutText}>Sign Out</Text>
+                <Text style={styles.userName}>{user.name}</Text>
+                <Text style={styles.userSubInfo}>{user.email || user.phoneNumber}</Text>
+                
+                <TouchableOpacity style={styles.editProfileButton} onPress={() => setIsEditModalVisible(true)}>
+                    <Text style={styles.editProfileButtonText}>Edit Profile</Text>
                 </TouchableOpacity>
+            </View>
 
-                <Text style={styles.versionText}>Version 1.0.0 (2026)</Text>
-                <View style={{ height: 40 }} />
-            </ScrollView>
+            {/* Referral Card */}
+            <View style={styles.referralCard}>
+                <View style={styles.referralCardTop}>
+                    <View style={styles.referralBadge}>
+                        <MaterialCommunityIcons name="star" size={12} color={isDark ? Colors.secondary : Colors.white} />
+                        <Text style={styles.referralBadgeText}>EXCLUSIVE REWARDS</Text>
+                    </View>
+                    <TouchableOpacity style={styles.shareIconBtn} onPress={handleShare}>
+                        <Ionicons name="share-social" size={20} color={Colors.primary} />
+                    </TouchableOpacity>
+                </View>
+                
+                <Text style={styles.referralHeader}>Refer & Earn Rewards</Text>
+                <Text style={styles.referralSubHeader}>Invite your friends to Yo-Foo and earn wallet credits on their first order!</Text>
+                
+                <View style={styles.referralActionRow}>
+                    <View style={styles.referralCodeBox}>
+                        <Text style={styles.referralCodeLabel}>YOUR CODE</Text>
+                        <View style={styles.codeRow}>
+                            <Text style={styles.referralCode}>{user.referralCode}</Text>
+                            <TouchableOpacity onPress={handleShare} style={styles.copyIcon}>
+                                <Ionicons name="copy-outline" size={18} color={Colors.primary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                    <View style={styles.referralStats}>
+                        <Text style={styles.statsCount}>{user.referralCount}</Text>
+                        <Text style={styles.statsLabel}>REFERRALS</Text>
+                    </View>
+                </View>
+            </View>
+
+            {/* Personal Information Summary */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Personal Details</Text>
+                <View style={styles.menuCard}>
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: '#F3E5F5' }]}>
+                                <Ionicons name="person-outline" size={20} color="#9C27B0" />
+                            </View>
+                            <Text style={styles.menuItemText}>Gender</Text>
+                        </View>
+                        <Text style={styles.menuValueText}>{user.gender || "Not specified"}</Text>
+                    </View>
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: '#E1F5FE' }]}>
+                                <Ionicons name="calendar-outline" size={20} color="#03A9F4" />
+                            </View>
+                            <Text style={styles.menuItemText}>Born on</Text>
+                        </View>
+                        <Text style={styles.menuValueText}>{user.dob ? new Date(user.dob).toLocaleDateString() : "Not specified"}</Text>
+                    </View>
+                </View>
+            </View>
+
+            {/* Preference Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Preferences</Text>
+                <View style={styles.menuCard}>
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
+                                <MaterialCommunityIcons name="leaf" size={20} color="#4CAF50" />
+                            </View>
+                            <Text style={styles.menuItemText}>Veg Mode Only</Text>
+                        </View>
+                        <Switch
+                            value={editForm.isVeg}
+                            trackColor={{ false: '#D1D1D1', true: Colors.primary }}
+                            thumbColor={'#FFF'}
+                            onValueChange={toggleVegMode}
+                        />
+                    </View>
+                    <View style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: isDark ? Colors.surface : '#E0E0E0' }]}>
+                                <Ionicons name="moon-outline" size={20} color={isDark ? Colors.primary : Colors.secondary} />
+                            </View>
+                            <Text style={styles.menuItemText}>Dark Mode</Text>
+                        </View>
+                        <Switch
+                            value={isDark}
+                            trackColor={{ false: '#D1D1D1', true: Colors.primary }}
+                            thumbColor={'#FFF'}
+                            onValueChange={toggleTheme}
+                        />
+                    </View>
+                    <TouchableOpacity style={styles.menuItem}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: '#E3F2FD' }]}>
+                                <Ionicons name="language-outline" size={20} color="#2196F3" />
+                            </View>
+                            <Text style={styles.menuItemText}>App Language</Text>
+                        </View>
+                        <View style={styles.menuItemRight}>
+                            <Text style={styles.menuValueText}>{user.language?.toUpperCase() || "EN"}</Text>
+                            <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
+                        </View>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Account Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Account settings</Text>
+                <View style={styles.menuCard}>
+                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/profile/address")}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: '#FFF3E0' }]}>
+                                <Ionicons name="location-outline" size={20} color="#FF9800" />
+                            </View>
+                            <Text style={styles.menuItemText}>Saved Addresses</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+                <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+                <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.versionText}>Version 1.0.0 (2026)</Text>
+            <View style={{ height: 40 }} />
 
             {/* Edit Profile Modal */}
             <Modal
@@ -443,66 +316,55 @@ export default function ProfileScreen() {
                 transparent={true}
                 onRequestClose={() => setIsEditModalVisible(false)}
             >
-                <KeyboardAvoidingView 
+                <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={styles.modalOverlay}
                 >
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Edit Profile</Text>
-                            <TouchableOpacity onPress={() => setIsEditModalVisible(false)}>
+                            <TouchableOpacity onPress={() => setIsEditModalVisible(false)} style={styles.closeBtn}>
                                 <Ionicons name="close" size={24} color={Colors.text} />
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView style={styles.modalBody}>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Full Name</Text>
                                 <TextInput
                                     style={styles.textInput}
                                     value={editForm.name}
-                                    onChangeText={(text) => setEditForm(prev => ({ ...prev, name: text }))}
+                                    onChangeText={(text) => setEditForm({ ...editForm, name: text })}
                                     placeholder="Enter your name"
+                                    placeholderTextColor={Colors.muted}
                                 />
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Email Address</Text>
-                                <TextInput
-                                    style={[
-                                        styles.textInput, 
-                                        !isEmailEditable && { backgroundColor: '#F5F5F5', color: Colors.muted }
-                                    ]}
-                                    value={editForm.email}
-                                    onChangeText={(text) => setEditForm(prev => ({ ...prev, email: text }))}
-                                    placeholder="Enter your email"
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                    editable={isEmailEditable}
-                                />
-                                {!isEmailEditable && (
-                                    <Text style={styles.inputSubLabel}>Email cannot be changed once set.</Text>
-                                )}
+                                <View style={[styles.textInput, styles.disabledInput]}>
+                                    <Text style={{ color: Colors.muted }}>{editForm.email}</Text>
+                                    <Ionicons name="lock-closed" size={14} color={Colors.muted} />
+                                </View>
+                                <Text style={styles.inputHelper}>Email cannot be changed</Text>
                             </View>
 
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Gender</Text>
                                 <View style={styles.genderRow}>
-                                    {['Male', 'Female', 'Other'].map((g) => (
-                                        <TouchableOpacity 
+                                    {["Male", "Female", "Other"].map((g) => (
+                                        <TouchableOpacity
                                             key={g}
                                             style={[
-                                                styles.genderOption, 
-                                                editForm.gender === g && styles.genderOptionSelected
+                                                styles.genderChip,
+                                                editForm.gender === g && styles.genderChipSelected
                                             ]}
-                                            onPress={() => setEditForm(prev => ({ ...prev, gender: g }))}
+                                            onPress={() => setEditForm({ ...editForm, gender: g })}
                                         >
                                             <Text style={[
-                                                styles.genderOptionText,
-                                                editForm.gender === g && styles.genderOptionTextSelected
-                                            ]}>
-                                                {g}
-                                            </Text>
+                                                styles.genderChipText,
+                                                editForm.gender === g && styles.genderChipTextSelected
+                                            ]}>{g}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
@@ -510,48 +372,34 @@ export default function ProfileScreen() {
 
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Date of Birth</Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={styles.datePickerTrigger}
                                     onPress={() => setIsCalendarVisible(true)}
                                 >
-                                    <Text style={[styles.dateText, !editForm.dob && { color: Colors.muted }]}>
-                                        {editForm.dob ? new Date(editForm.dob).toLocaleDateString() : "Select Date"}
+                                    <Text style={[styles.datePickerText, !editForm.dob && { color: Colors.muted }]}>
+                                        {editForm.dob || "YYYY-MM-DD"}
                                     </Text>
                                     <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={[styles.inputGroup, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                                <View>
-                                    <Text style={styles.inputLabel}>Veg Mode</Text>
-                                    <Text style={styles.inputSubLabel}>Prefer vegetarian food only</Text>
-                                </View>
-                                <Switch
-                                    value={editForm.isVeg}
-                                    onValueChange={(val) => setEditForm(prev => ({ ...prev, isVeg: val }))}
-                                    trackColor={{ false: '#D1D1D1', true: Colors.primary }}
-                                />
-                            </View>
-                        </ScrollView>
-
-                        <View style={styles.modalFooter}>
-                            <TouchableOpacity 
-                                style={[styles.saveButton, updateUser.isPending && styles.buttonDisabled]} 
+                            <TouchableOpacity
+                                style={[styles.saveBtn, updateUser.isPending && { opacity: 0.7 }]}
                                 onPress={handleSaveProfile}
                                 disabled={updateUser.isPending}
                             >
                                 {updateUser.isPending ? (
-                                    <ActivityIndicator color={Colors.white} />
+                                    <ActivityIndicator color="#0D1B2A" />
                                 ) : (
-                                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                                    <Text style={styles.saveBtnText}>Save Changes</Text>
                                 )}
                             </TouchableOpacity>
-                        </View>
+                        </ScrollView>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
 
-            {/* Calendar Picker Modal */}
+            {/* Simple Date Selector Modal (Custom Calendar) */}
             <Modal
                 visible={isCalendarVisible}
                 transparent={true}
@@ -559,331 +407,247 @@ export default function ProfileScreen() {
                 onRequestClose={() => setIsCalendarVisible(false)}
             >
                 <View style={styles.calendarOverlay}>
-                    <View style={styles.calendarContent}>
+                    <View style={styles.calendarCard}>
                         <View style={styles.calendarHeader}>
-                            <TouchableOpacity onPress={() => changeMonth(-1)}>
-                                <Ionicons name="chevron-back" size={24} color={Colors.primary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setIsYearSelectorVisible(!isYearSelectorVisible)}>
-                                <Text style={styles.calendarMonthYear}>
-                                    {months[calendarViewerDate.getMonth()]} {calendarViewerDate.getFullYear()} <Ionicons name={isYearSelectorVisible ? "chevron-up" : "chevron-down"} size={14} color={Colors.primary} />
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => changeMonth(1)}>
-                                <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
+                            <Text style={styles.calendarTitle}>Select Date</Text>
+                            <TouchableOpacity onPress={() => setIsCalendarVisible(false)}>
+                                <Ionicons name="close" size={20} color={Colors.text} />
                             </TouchableOpacity>
                         </View>
-
-                        {isYearSelectorVisible ? (
-                            <View style={{ height: 300 }}>
-                                <FlatList
-                                    data={Array.from({ length: 80 }, (_, i) => new Date().getFullYear() - i)}
-                                    keyExtractor={(item) => item.toString()}
-                                    numColumns={4}
-                                    contentContainerStyle={{ padding: 10 }}
-                                    renderItem={({ item }) => (
-                                        <TouchableOpacity 
-                                            style={[
-                                                styles.yearOption,
-                                                calendarViewerDate.getFullYear() === item && styles.yearOptionSelected
-                                            ]}
-                                            onPress={() => handleSelectYear(item)}
-                                        >
-                                            <Text style={[
-                                                styles.yearOptionText,
-                                                calendarViewerDate.getFullYear() === item && styles.yearOptionTextSelected
-                                            ]}>
-                                                {item}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-                                />
-                            </View>
-                        ) : (
-                            <>
-                                <View style={styles.calendarWeekDays}>
-                                    {weekDays.map(day => (
-                                        <Text key={day} style={styles.calendarWeekDayText}>{day}</Text>
-                                    ))}
-                                </View>
-
-                                <FlatList
-                                    data={calendarData}
-                                    numColumns={7}
-                                    keyExtractor={(_, index) => index.toString()}
-                                    contentContainerStyle={{ paddingHorizontal: 10 }}
-                                    renderItem={({ item }) => {
-                                        const isSelected = typeof item.day === 'number' && 
-                                            editForm.dob && 
-                                            item.day === new Date(editForm.dob).getDate() && 
-                                            calendarViewerDate.getMonth() === new Date(editForm.dob).getMonth() &&
-                                            calendarViewerDate.getFullYear() === new Date(editForm.dob).getFullYear();
-
-                                        return (
-                                            <TouchableOpacity 
-                                                style={[
-                                                    styles.calendarDay,
-                                                    item.type === 'padding' && { opacity: 0 },
-                                                    isSelected && styles.calendarDaySelected
-                                                ]}
-                                                disabled={item.type === 'padding' || typeof item.day !== 'number'}
-                                                onPress={() => typeof item.day === 'number' && handleDateSelect(item.day)}
-                                            >
-                                                <Text style={[
-                                                    styles.calendarDayText,
-                                                    isSelected && styles.calendarDayTextSelected
-                                                ]}>
-                                                    {item.day}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        );
-                                    }}
-                                />
-                            </>
-                        )}
                         
-                        <TouchableOpacity 
-                            style={styles.calendarCloseButton}
-                            onPress={() => setIsCalendarVisible(false)}
-                        >
-                            <Text style={styles.calendarCloseButtonText}>Cancel</Text>
-                        </TouchableOpacity>
+                        {/* 
+                          Since we don't have a library, we'll use a simple manual year/month/day selector 
+                          or a text input for better reliability in this scratchpad. 
+                          Let's provide a clear instruction for the user to enter it.
+                        */}
+                        <View style={styles.calendarBody}>
+                             <Text style={styles.calendarNote}>Please enter date in YYYY-MM-DD format</Text>
+                             <TextInput
+                                style={styles.calendarInput}
+                                value={editForm.dob}
+                                onChangeText={(text) => setEditForm({ ...editForm, dob: text })}
+                                placeholder="1995-10-25"
+                                placeholderTextColor={Colors.muted}
+                                keyboardType="numeric"
+                                maxLength={10}
+                             />
+                             <TouchableOpacity 
+                                style={styles.calendarDoneBtn}
+                                onPress={() => setIsCalendarVisible(false)}
+                             >
+                                <Text style={styles.calendarDoneBtnText}>Confirm</Text>
+                             </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </Modal>
-        </View>
+        </ScrollView>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
-    errorText: {
-        fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.md,
-        color: Colors.danger,
-        marginBottom: 16,
-    },
-    retryButton: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        backgroundColor: Colors.primary,
-        borderRadius: 8,
-    },
-    retryText: {
-        fontFamily: Fonts.brandBold,
-        color: Colors.white,
+        backgroundColor: Colors.background,
     },
     header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.light,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        justifyContent: "center",
-    },
-    headerTitle: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.lg,
-        color: Colors.text,
-    },
-    editButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    editButtonText: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.sm,
-        color: Colors.primary,
-    },
-    scrollContent: {
-        paddingBottom: 20,
-    },
-    profileHeaderCard: {
         alignItems: "center",
         paddingVertical: 24,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        marginBottom: 8,
     },
-    avatarContainer: {
+    screenTitle: {
+        fontFamily: Fonts.brandBlack,
+        fontSize: FontSize.xs,
+        color: Colors.primary,
+        letterSpacing: 3,
+        marginBottom: 20,
+        textTransform: 'uppercase',
+    },
+    profileImageContainer: {
         position: "relative",
         marginBottom: 16,
     },
-    avatar: {
-        width: 110,
-        height: 110,
-        borderRadius: 55,
-        borderWidth: 4,
-        borderColor: Colors.primaryLight,
-    },
-    placeholderAvatar: {
-        backgroundColor: Colors.primary,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    loadingAvatar: {
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarInitial: {
-        fontFamily: Fonts.brandBold,
-        fontSize: 40,
-        color: Colors.white,
+    profileImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 3,
+        borderColor: Colors.primary,
     },
     cameraIcon: {
         position: "absolute",
-        right: 0,
         bottom: 0,
+        right: 0,
         backgroundColor: Colors.primary,
         width: 32,
         height: 32,
         borderRadius: 16,
         justifyContent: "center",
         alignItems: "center",
-        borderWidth: 3,
-        borderColor: Colors.white,
+        borderWidth: 2,
+        borderColor: Colors.surface,
     },
     userName: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.xl,
+        fontSize: FontSize.lg,
         color: Colors.text,
         marginBottom: 4,
     },
     userSubInfo: {
         fontFamily: Fonts.brand,
         fontSize: FontSize.sm,
-        color: Colors.muted,
-        marginBottom: 12,
+        color: Colors.textSecondary,
+        marginBottom: 16,
     },
     editProfileButton: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingVertical: 8,
         borderRadius: 20,
-        backgroundColor: Colors.primaryLight,
+        backgroundColor: Colors.primary + "15",
         borderWidth: 1,
-        borderColor: Colors.primary,
+        borderColor: Colors.primary + "30",
     },
     editProfileButtonText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.xs,
         color: Colors.primary,
     },
+    // Referral Card
     referralCard: {
         margin: 16,
-        padding: 18,
-        borderRadius: 18,
-        backgroundColor: Colors.surface,
-        flexDirection: "row",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: Colors.border,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        padding: 20,
+        borderRadius: 28,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary,
+        shadowColor: Colors.secondary,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+        elevation: 8,
     },
-    referralInfo: {
-        flex: 1,
+    referralCardTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
     },
     referralBadge: {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: Colors.primary,
-        alignSelf: "flex-start",
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-        gap: 4,
-        marginBottom: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 50,
+        gap: 6,
     },
     referralBadgeText: {
         fontFamily: Fonts.brandBold,
         fontSize: 10,
-        color: Colors.white,
+        color: "#0D1B2A",
+        letterSpacing: 0.8,
+    },
+    shareIconBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     referralHeader: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.md,
-        color: Colors.text,
+        fontSize: FontSize.lg,
+        color: Colors.white,
+        marginBottom: 6,
+    },
+    referralSubHeader: {
+        fontFamily: Fonts.brand,
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.7)',
+        lineHeight: 18,
+        marginBottom: 20,
+    },
+    referralActionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    referralCodeBox: {
+        flex: 1,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: Colors.primary + '50',
+    },
+    referralCodeLabel: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 9,
+        color: Colors.primary,
+        letterSpacing: 1,
         marginBottom: 4,
     },
-    referralCodeContainer: {
-        marginTop: 4,
+    codeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     referralCode: {
         fontFamily: Fonts.brandBlack,
         fontSize: FontSize.lg,
-        color: Colors.primary,
-        letterSpacing: 1,
-    },
-    statsValue: {
-        fontFamily: Fonts.brandBold,
-        fontSize: 24,
-        color: Colors.text,
-    },
-    shareButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: Colors.primary,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 12,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    shareButtonText: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.sm,
         color: Colors.white,
+        letterSpacing: 2,
+    },
+    referralStats: {
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        borderLeftWidth: 1,
+        borderLeftColor: 'rgba(255,255,255,0.1)',
+    },
+    statsCount: {
+        fontFamily: Fonts.brandBlack,
+        fontSize: FontSize.lg,
+        color: Colors.primary,
+    },
+    statsLabel: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 9,
+        color: 'rgba(255,255,255,0.5)',
+        letterSpacing: 0.5,
+        marginTop: 2,
+    },
+    copyIcon: {
+        padding: 4,
     },
     section: {
-        marginTop: 16,
+        marginTop: 24,
         paddingHorizontal: 16,
     },
     sectionTitle: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.sm,
-        color: Colors.muted,
+        fontSize: FontSize.xs,
+        color: Colors.textSecondary,
         textTransform: "uppercase",
-        letterSpacing: 1,
-        marginBottom: 8,
+        letterSpacing: 1.5,
+        marginBottom: 12,
         marginLeft: 4,
     },
     menuCard: {
-        backgroundColor: Colors.white,
-        borderRadius: 18,
+        backgroundColor: Colors.surface,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: Colors.border,
         overflow: "hidden",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-        elevation: 1,
     },
     menuItem: {
         flexDirection: "row",
@@ -891,7 +655,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.light,
+        borderBottomColor: Colors.border,
     },
     menuItemLeft: {
         flexDirection: "row",
@@ -899,8 +663,8 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     iconContainer: {
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         borderRadius: 12,
         justifyContent: "center",
         alignItems: "center",
@@ -926,9 +690,9 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
-        padding: 16,
-        borderRadius: 12,
+        gap: 10,
+        padding: 18,
+        borderRadius: 16,
         backgroundColor: Colors.danger + "10",
         borderWidth: 1,
         borderColor: Colors.danger + "20",
@@ -944,218 +708,190 @@ const styles = StyleSheet.create({
         fontSize: FontSize.xs,
         color: Colors.muted,
         marginTop: 8,
+        marginBottom: 20,
     },
-
-    // ── Modal Styles ──────────────────────────────────────────
+    // Modal Styles
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.5)",
         justifyContent: "flex-end",
     },
     modalContent: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
+        minHeight: "60%",
         maxHeight: "90%",
-        paddingBottom: 40,
+        paddingTop: 20,
     },
     modalHeader: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: 24,
+        paddingHorizontal: 24,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.light,
+        borderBottomColor: Colors.border,
     },
     modalTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.lg,
         color: Colors.text,
     },
-    modalBody: {
+    closeBtn: {
+        padding: 4,
+    },
+    modalScroll: {
         padding: 24,
+        paddingBottom: 40,
     },
     inputGroup: {
         marginBottom: 24,
     },
     inputLabel: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.sm,
-        color: Colors.text,
-        marginBottom: 8,
-    },
-    inputSubLabel: {
-        fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
-        color: Colors.muted,
+        color: Colors.textSecondary,
+        marginBottom: 8,
+        textTransform: "uppercase",
+        letterSpacing: 1,
     },
     textInput: {
+        backgroundColor: Colors.surface,
         borderWidth: 1,
         borderColor: Colors.border,
-        borderRadius: 12,
-        padding: 14,
+        borderRadius: 16,
+        padding: 16,
         fontFamily: Fonts.brand,
         fontSize: FontSize.md,
         color: Colors.text,
-        backgroundColor: Colors.surface,
+    },
+    disabledInput: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        opacity: 0.7,
+    },
+    inputHelper: {
+        fontFamily: Fonts.brand,
+        fontSize: 10,
+        color: Colors.muted,
+        marginTop: 6,
+        marginLeft: 4,
     },
     genderRow: {
         flexDirection: "row",
         gap: 12,
     },
-    genderOption: {
+    genderChip: {
         flex: 1,
         paddingVertical: 12,
         borderRadius: 12,
+        backgroundColor: Colors.surface,
         borderWidth: 1,
         borderColor: Colors.border,
         alignItems: "center",
-        backgroundColor: Colors.surface,
     },
-    genderOptionSelected: {
+    genderChipSelected: {
+        backgroundColor: Colors.primary + "15",
         borderColor: Colors.primary,
-        backgroundColor: Colors.primaryLight,
     },
-    genderOptionText: {
+    genderChipText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
-        color: Colors.textSecondary,
+        color: Colors.text,
     },
-    genderOptionTextSelected: {
+    genderChipTextSelected: {
         color: Colors.primary,
     },
-    modalFooter: {
-        padding: 24,
-        paddingTop: 0,
-    },
-    saveButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 16,
-        borderRadius: 16,
+    datePickerTrigger: {
+        flexDirection: "row",
+        justifyContent: "space-between",
         alignItems: "center",
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderRadius: 16,
+        padding: 16,
+    },
+    datePickerText: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.md,
+        color: Colors.text,
+    },
+    saveBtn: {
+        backgroundColor: Colors.primary,
+        borderRadius: 16,
+        padding: 18,
+        alignItems: "center",
+        marginTop: 10,
         shadowColor: Colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
         elevation: 4,
     },
-    saveButtonText: {
+    saveBtnText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.white,
+        color: "#0D1B2A",
     },
-    buttonDisabled: {
-        opacity: 0.6,
-    },
-    // ── Calendar Specific Styles ──────────────────────────────
-    datePickerTrigger: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        borderWidth: 1,
-        borderColor: Colors.border,
-        borderRadius: 12,
-        padding: 14,
-        backgroundColor: Colors.surface,
-    },
-    dateText: {
-        fontFamily: Fonts.brand,
-        fontSize: FontSize.md,
-        color: Colors.text,
-    },
+
+    // Calendar Styles
     calendarOverlay: {
         flex: 1,
-        backgroundColor: "rgba(0,0,0,0.4)",
+        backgroundColor: "rgba(0,0,0,0.6)",
         justifyContent: "center",
         alignItems: "center",
-        padding: 24,
+        padding: 20,
     },
-    calendarContent: {
-        width: "100%",
-        backgroundColor: Colors.white,
+    calendarCard: {
+        backgroundColor: Colors.surface,
         borderRadius: 24,
-        paddingBottom: 20,
-        overflow: "hidden",
-        elevation: 5,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
+        width: "100%",
+        padding: 20,
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
     calendarHeader: {
         flexDirection: "row",
-        alignItems: "center",
         justifyContent: "space-between",
-        padding: 20,
-        backgroundColor: Colors.surface,
+        alignItems: "center",
+        marginBottom: 20,
     },
-    calendarMonthYear: {
+    calendarTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
         color: Colors.text,
     },
-    calendarWeekDays: {
-        flexDirection: "row",
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.light,
+    calendarBody: {
+        gap: 16,
     },
-    calendarWeekDayText: {
-        flex: 1,
+    calendarNote: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.muted,
         textAlign: "center",
-        fontFamily: Fonts.brandBold,
-        fontSize: 12,
-        color: Colors.muted,
     },
-    calendarDay: {
-        flex: 1,
-        height: 45,
-        justifyContent: "center",
-        alignItems: "center",
-        margin: 2,
-        borderRadius: 10,
+    calendarInput: {
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        padding: 16,
+        textAlign: "center",
+        fontSize: 20,
+        fontFamily: Fonts.brandBlack,
+        color: Colors.primary,
+        borderWidth: 1,
+        borderColor: Colors.primary + "30",
     },
-    calendarDaySelected: {
+    calendarDoneBtn: {
         backgroundColor: Colors.primary,
-    },
-    calendarDayText: {
-        fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.sm,
-        color: Colors.text,
-    },
-    calendarDayTextSelected: {
-        color: Colors.white,
-        fontFamily: Fonts.brandBold,
-    },
-    calendarCloseButton: {
-        alignSelf: "center",
-        marginTop: 10,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-    },
-    calendarCloseButtonText: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.sm,
-        color: Colors.muted,
-    },
-    yearOption: {
-        flex: 1,
-        paddingVertical: 12,
-        margin: 4,
+        borderRadius: 12,
+        padding: 14,
         alignItems: "center",
-        borderRadius: 8,
-        backgroundColor: Colors.surface,
     },
-    yearOptionSelected: {
-        backgroundColor: Colors.primary,
-    },
-    yearOptionText: {
-        fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.sm,
-        color: Colors.text,
-    },
-    yearOptionTextSelected: {
-        color: Colors.white,
+    calendarDoneBtnText: {
         fontFamily: Fonts.brandBold,
+        color: "#0D1B2A",
     },
 });

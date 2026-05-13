@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useTheme } from "@/context/ThemeContext";
 import {
     View,
     Text,
@@ -13,15 +14,29 @@ import { useRouter } from 'expo-router';
 import { useCurrentOrder, useOrders } from '@/hooks/useOrders';
 import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
 import { useSocketStore } from '@/store/useSocketStore';
-import { Colors } from '@/constants/colors';
+// import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';   
 import { Ionicons } from '@expo/vector-icons';
 import { getPlaceholderImage } from '@/constants/images';
 import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { UserOrder, OrderStatus, CurrentOrder } from '@/types/orders';
 
-const StatusBadge = ({ status }: { status: OrderStatus }) => {
+const StatusBadge = ({ status, isDark, uiStyles }: { status: OrderStatus, isDark: boolean, uiStyles: any }) => {
     const getStatusStyles = () => {
+        if (isDark) {
+            switch (status) {
+                case 'PLACED': return { bg: 'rgba(21, 101, 192, 0.2)', text: '#64B5F6', icon: 'time-outline' as const };
+                case 'ACCEPTED': return { bg: 'rgba(46, 125, 50, 0.2)', text: '#81C784', icon: 'checkmark-done-outline' as const };
+                case 'PREPARING': return { bg: 'rgba(239, 108, 0, 0.2)', text: '#FFB74D', icon: 'restaurant-outline' as const };
+                case 'READY': return { bg: 'rgba(0, 131, 143, 0.2)', text: '#4DD0E1', icon: 'cube-outline' as const };
+                case 'PICKED_UP': return { bg: 'rgba(106, 27, 154, 0.2)', text: '#BA68C8', icon: 'bag-handle-outline' as const };
+                case 'ON_THE_WAY': return { bg: 'rgba(0, 121, 107, 0.2)', text: '#4DB6AC', icon: 'bicycle-outline' as const };
+                case 'DELIVERED': return { bg: 'rgba(27, 94, 32, 0.2)', text: '#81C784', icon: 'checkmark-circle-outline' as const };
+                case 'CANCELLED': return { bg: 'rgba(198, 40, 40, 0.2)', text: '#E57373', icon: 'close-circle-outline' as const };
+                case 'REFUSED': return { bg: 'rgba(216, 67, 21, 0.2)', text: '#FF8A65', icon: 'alert-circle-outline' as const };
+                default: return { bg: 'rgba(55, 71, 79, 0.2)', text: '#90A4AE', icon: 'help-circle-outline' as const };
+            }
+        }
         switch (status) {
             case 'PLACED':
                 return { bg: '#E3F2FD', text: '#1565C0', icon: 'time-outline' as const };
@@ -55,19 +70,19 @@ const StatusBadge = ({ status }: { status: OrderStatus }) => {
         }
     };
 
-    const styles = getStatusStyles();
+    const statusStyles = getStatusStyles();
 
     return (
-        <View style={[uiStyles.badgeContainer, { backgroundColor: styles.bg }]}>
-            <Ionicons name={styles.icon} size={14} color={styles.text} />
-            <Text style={[uiStyles.badgeText, { color: styles.text }]}>
+        <View style={[uiStyles.badgeContainer, { backgroundColor: statusStyles.bg }]}>
+            <Ionicons name={statusStyles.icon} size={14} color={statusStyles.text} />
+            <Text style={[uiStyles.badgeText, { color: statusStyles.text }]}>
                 {status.replace(/_/g, ' ')}
             </Text>
         </View>
     );
 };
 
-const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallbackPolling, connectionStatus }: { order: CurrentOrder | undefined; onPress: () => void; realtimeStatus?: string | null; isUpdating?: boolean; isFallbackPolling?: boolean; connectionStatus?: string }) => {
+const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallbackPolling, connectionStatus, Colors, uiStyles, isDark }: { order: CurrentOrder | undefined; onPress: () => void; realtimeStatus?: string | null; isUpdating?: boolean; isFallbackPolling?: boolean; connectionStatus?: string, Colors: any, uiStyles: any, isDark: boolean }) => {
     if (!order) return null;
 
     const displayStatus: OrderStatus = (realtimeStatus as OrderStatus) || order.status;
@@ -84,11 +99,11 @@ const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallba
         <TouchableOpacity style={uiStyles.currentOrderCard} onPress={onPress} activeOpacity={0.7}>
             <View style={uiStyles.currentOrderHeader}>
                 <View style={uiStyles.currentOrderBadge}>
-                    <Ionicons name="flash" size={16} color={Colors.white} />
+                    <Ionicons name="flash" size={16} color={isDark ? Colors.secondary : Colors.white} />
                     <Text style={uiStyles.currentOrderBadgeText}>Active Order</Text>
                 </View>
                 <View style={uiStyles.statusRow}>
-                    <StatusBadge status={displayStatus} />
+                    <StatusBadge status={displayStatus} isDark={isDark} uiStyles={uiStyles} />
                     {isUpdating && connectionStatus === 'connected' && (
                         <View style={uiStyles.liveIndicator}>
                             <Ionicons name="radio-button-on" size={10} color={Colors.success} />
@@ -147,7 +162,7 @@ const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallba
                             <Text style={uiStyles.driverPhone}>{order.driver.phone}</Text>
                         </View>
                         <TouchableOpacity style={uiStyles.callBtn}>
-                            <Ionicons name="call" size={18} color={Colors.white} />
+                            <Ionicons name="call" size={18} color={isDark ? Colors.secondary : Colors.white} />
                         </TouchableOpacity>
                     </View>
                 )}
@@ -174,7 +189,7 @@ const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallba
     );
 };
 
-const PastOrderItem = ({ item, onPress }: { item: UserOrder; onPress: () => void }) => {
+const PastOrderItem = ({ item, onPress, uiStyles, isDark }: { item: UserOrder; onPress: () => void, uiStyles: any, isDark: boolean }) => {
     const date = new Date(item.placedAt).toLocaleDateString('en-IN', {
         day: 'numeric',
         month: 'short',
@@ -200,7 +215,7 @@ const PastOrderItem = ({ item, onPress }: { item: UserOrder; onPress: () => void
                         <Text style={uiStyles.orderDate}>{date}</Text>
                     </View>
                 </View>
-                <StatusBadge status={item.status} />
+                <StatusBadge status={item.status} isDark={isDark} uiStyles={uiStyles} />
             </View>
 
             <View style={uiStyles.divider} />
@@ -225,6 +240,8 @@ const PastOrderItem = ({ item, onPress }: { item: UserOrder; onPress: () => void
 };
 
 export default function OrderHistoryScreen() {
+    const { Colors, isDark } = useTheme();
+    const uiStyles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const router = useRouter();
     const [page, setPage] = useState(1);
     const [limit] = useState(10);
@@ -284,7 +301,7 @@ export default function OrderHistoryScreen() {
     if (activeOrders.length === 0 && pastOrders.length === 0) {
         return (
             <View style={uiStyles.centerContainer}>
-                <Ionicons name="receipt-outline" size={80} color={Colors.light} />
+                <Ionicons name="receipt-outline" size={80} color={isDark ? 'rgba(255,255,255,0.1)' : Colors.light} />
                 <Text style={uiStyles.emptyTitle}>No orders yet</Text>
                 <Text style={uiStyles.emptySubtitle}>When you place an order, it will appear here.</Text>
                 
@@ -327,7 +344,7 @@ export default function OrderHistoryScreen() {
                                 >
                                     <Text style={[
                                         uiStyles.bubbleText,
-                                        { color: isActive ? Colors.white : Colors.text }
+                                        { color: isActive ? (isDark ? Colors.secondary : Colors.white) : Colors.text }
                                     ]}>
                                         {pageNum}
                                     </Text>
@@ -378,6 +395,9 @@ export default function OrderHistoryScreen() {
                                             isUpdating={isMainOrder && isUpdating}
                                             isFallbackPolling={isMainOrder && isFallbackPolling}
                                             connectionStatus={isMainOrder ? connectionStatus : undefined}
+                                            Colors={Colors}
+                                            uiStyles={uiStyles}
+                                            isDark={isDark}
                                         />
                                     );
                                 })}
@@ -393,7 +413,7 @@ export default function OrderHistoryScreen() {
                 }
                 data={pastOrders}
                 keyExtractor={(item, index) => `${item.id}-${item.placedAt}-${index}`}
-                renderItem={({ item }) => <PastOrderItem item={item} onPress={() => router.push(`/(tabs)/orders/${item.id}`)} />}
+                renderItem={({ item }) => <PastOrderItem item={item} onPress={() => router.push(`/(tabs)/orders/${item.id}`)} uiStyles={uiStyles} isDark={isDark} />}
                 contentContainerStyle={uiStyles.listContent}
                 refreshControl={
                     <RefreshControl 
@@ -468,17 +488,17 @@ export default function OrderHistoryScreen() {
     );
 }
 
-const uiStyles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
     },
     centerContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
     },
     listContent: {
         padding: 16,
@@ -499,7 +519,7 @@ const uiStyles = StyleSheet.create({
     },
     // Current Order Card
     currentOrderCard: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 24,
         marginBottom: 24,
         borderWidth: 1,
@@ -523,17 +543,19 @@ const uiStyles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: Colors.primary,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.primary + '40',
     },
     currentOrderBadgeText: {
         fontFamily: Fonts.brandBold,
         fontSize: 11,
-        color: Colors.white,
+        color: Colors.primary, // Gold text
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 0.8,
     },
     statusRow: {
         flexDirection: 'row',
@@ -585,7 +607,7 @@ const uiStyles = StyleSheet.create({
         height: 60,
         borderRadius: 14,
         overflow: 'hidden',
-        backgroundColor: Colors.light,
+        backgroundColor: Colors.background,
     },
     currentOrderImg: {
         width: '100%',
@@ -613,7 +635,7 @@ const uiStyles = StyleSheet.create({
         marginTop: 2,
     },
     currentOrderBreakdown: {
-        backgroundColor: Colors.light,
+        backgroundColor: Colors.background,
         borderRadius: 12,
         padding: 12,
         gap: 8,
@@ -713,20 +735,19 @@ const uiStyles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        borderWidth: 1.5,
-        borderColor: Colors.primary,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy
         borderRadius: 12,
-        paddingVertical: 10,
+        paddingVertical: 12,
         paddingHorizontal: 14,
     },
     viewDetailsBtnText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
-        color: Colors.primary,
+        color: Colors.primary, // Gold text
     },
     // Past Order Card
     card: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 20,
         padding: 16,
         marginBottom: 16,
@@ -754,7 +775,7 @@ const uiStyles = StyleSheet.create({
         borderRadius: 10,
         overflow: 'hidden',
         marginRight: 12,
-        backgroundColor: Colors.light,
+        backgroundColor: Colors.background,
     },
     resImage: {
         width: '100%',

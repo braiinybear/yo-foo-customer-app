@@ -1,10 +1,10 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { useAddresses, useDeleteAddress, useSetDefaultAddress } from "@/hooks/useAddresses";
 import { UserAddress } from "@/types/user";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -18,12 +18,14 @@ import AddAddressScreen from "@/components/home/AddAddressScreen";
 import { showAlert } from "@/store/useAlertStore";
 
 export default function AddressesScreen() {
+    const { Colors, isDark } = useTheme();
     const router = useRouter();
     const { data: addresses, isLoading, error } = useAddresses();
     const deleteMutation = useDeleteAddress();
     const setDefaultMutation = useSetDefaultAddress();
     
     const [isAddMode, setIsAddMode] = useState(false);
+    const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
     const handleDelete = (id: string) => {
         showAlert(
@@ -54,36 +56,39 @@ export default function AddressesScreen() {
 
     if (isAddMode) {
         return (
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.header}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? Colors.surface : Colors.secondary }]}>
+                <View style={[styles.header, { borderBottomColor: 'rgba(255,255,255,0.1)' }]}>
                     <TouchableOpacity onPress={() => setIsAddMode(false)} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                        <Ionicons name="arrow-back" size={24} color={Colors.white} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Add New Address</Text>
+                    <Text style={[styles.headerTitle, { color: Colors.primary }]}>Add New Address</Text>
                     <View style={{ width: 40 }} />
                 </View>
-                <AddAddressScreen setOpenAdressAddform={setIsAddMode} />
+                <View style={{ flex: 1, backgroundColor: Colors.background }}>
+                    <AddAddressScreen setOpenAdressAddform={setIsAddMode} />
+                </View>
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? Colors.surface : Colors.secondary }]}>
+            <View style={[styles.header, { borderBottomColor: 'rgba(255,255,255,0.1)' }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                    <Ionicons name="arrow-back" size={24} color={Colors.white} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Saved Addresses</Text>
+                <Text style={[styles.headerTitle, { color: Colors.primary }]}>Saved Addresses</Text>
                 <TouchableOpacity onPress={() => setIsAddMode(true)} style={styles.addButtonIcon}>
                     <Ionicons name="add" size={28} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
 
-            <FlatList
-                data={addresses}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContainer}
-                ListEmptyComponent={
+            <View style={{ flex: 1, backgroundColor: Colors.background }}>
+                <FlatList
+                    data={addresses}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.listContainer}
+                    ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="location-outline" size={64} color={Colors.muted} />
                         <Text style={styles.emptyTitle}>No Addresses Saved</Text>
@@ -151,14 +156,15 @@ export default function AddressesScreen() {
                     ) : null
                 }
             />
+            </View>
         </SafeAreaView>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
     },
     loadingContainer: {
         flex: 1,
@@ -190,7 +196,7 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     addressCard: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 16,
         padding: 16,
         marginBottom: 16,

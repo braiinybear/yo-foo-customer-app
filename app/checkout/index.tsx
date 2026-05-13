@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import RazorpayCheckout from "react-native-razorpay";
 
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { useCartStore } from "@/store/useCartStore";
 import { useCreatePaymentOrder, useVerifyPayment } from "@/hooks/usePayments";
@@ -35,6 +35,8 @@ export default function CheckoutScreen() {
     const { orderId, amount } = useLocalSearchParams<{ orderId: string; amount: string }>();
 
     const { data: session } = authClient.useSession();
+    const { Colors, isDark } = useTheme();
+    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const { items, clearCart } = useCartStore();
 
     // itemTotal comes from the route param so it survives cart being cleared
@@ -379,10 +381,10 @@ export default function CheckoutScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: "#F5F6FA",
+        backgroundColor: Colors.background,
     },
 
     // ── Header ──────────────────────────────────────────────────────────────
@@ -392,7 +394,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         paddingHorizontal: 16,
         paddingVertical: 14,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
     },
@@ -407,7 +409,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.lg,
-        color: Colors.text,
+        color: Colors.secondary, // Midnight Navy
     },
 
     // ── Scroll ──────────────────────────────────────────────────────────────
@@ -419,7 +421,7 @@ const styles = StyleSheet.create({
 
     // ── Cards ────────────────────────────────────────────────────────────────
     card: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 18,
         padding: 18,
         borderWidth: 1,
@@ -433,7 +435,7 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.text,
+        color: Colors.secondary, // Midnight Navy
         marginBottom: 14,
     },
 
@@ -461,7 +463,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.sm,
-        color: Colors.text,
+        color: Colors.secondary, // Midnight Navy
     },
     summaryQty: {
         fontFamily: Fonts.brand,
@@ -507,7 +509,7 @@ const styles = StyleSheet.create({
     grandTotalLabel: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.lg,
-        color: Colors.text,
+        color: Colors.secondary, // Midnight Navy
     },
     grandTotalValue: {
         fontFamily: Fonts.brandBlack,
@@ -525,7 +527,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 12,
-        backgroundColor: Colors.primaryLight,
+        backgroundColor: Colors.secondary + '10',
         alignItems: "center",
         justifyContent: "center",
     },
@@ -533,7 +535,7 @@ const styles = StyleSheet.create({
     paymentMethodName: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
-        color: Colors.text,
+        color: Colors.secondary, // Midnight Navy
     },
     paymentMethodSub: {
         fontFamily: Fonts.brand,
@@ -562,7 +564,7 @@ const styles = StyleSheet.create({
 
     // ── Footer ───────────────────────────────────────────────────────────────
     footer: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         paddingTop: 16,
         paddingHorizontal: 20,
         borderTopWidth: 1,
@@ -590,10 +592,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        backgroundColor: Colors.primary,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy
         height: 56,
         borderRadius: 16,
-        shadowColor: Colors.primary,
+        shadowColor: Colors.secondary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.35,
         shadowRadius: 12,
@@ -614,7 +616,7 @@ const styles = StyleSheet.create({
     payButtonText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.white,
+        color: Colors.primary, // Gold
     },
     secureNote: {
         textAlign: "center",
@@ -630,7 +632,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: 32,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
     },
     successIcon: {
         marginBottom: 24,
@@ -640,12 +642,12 @@ const styles = StyleSheet.create({
     couponInputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F0F1F5',
+        backgroundColor: Colors.background,
         borderRadius: 12,
         height: 48,
     },
     applyBtn: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 8,
@@ -706,7 +708,7 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     availableItem: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 20,
@@ -721,7 +723,7 @@ const styles = StyleSheet.create({
     successTitle: {
         fontFamily: Fonts.brandBlack,
         fontSize: FontSize.xxl,
-        color: Colors.text,
+        color: Colors.secondary, // Midnight Navy
         textAlign: "center",
         marginBottom: 12,
     },
@@ -735,7 +737,7 @@ const styles = StyleSheet.create({
     },
     primaryButton: {
         width: "100%",
-        backgroundColor: Colors.primary,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy
         paddingVertical: 16,
         borderRadius: 14,
         alignItems: "center",
@@ -744,7 +746,7 @@ const styles = StyleSheet.create({
     primaryButtonText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.white,
+        color: Colors.primary, // Gold
     },
     ghostButton: {
         width: "100%",

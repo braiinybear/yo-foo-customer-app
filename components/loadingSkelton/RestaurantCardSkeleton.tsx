@@ -1,8 +1,10 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function RestaurantCardSkeleton() {
+  const { Colors, isDark } = useTheme();
+  const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
   return (
     <View style={styles.card}>
       <View style={styles.image} />
@@ -17,9 +19,9 @@ export default function RestaurantCardSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     marginHorizontal: 0,
     marginVertical: 8,
     borderRadius: 18,
@@ -33,7 +35,7 @@ const styles = StyleSheet.create({
 
   image: {
     height: 200,
-    backgroundColor: Colors.light,
+    backgroundColor: Colors.border,
   },
 
   content: {
@@ -49,7 +51,7 @@ const styles = StyleSheet.create({
   small: {
     height: 10,
     width: 70,
-    backgroundColor: Colors.light,
+    backgroundColor: Colors.border,
     borderRadius: 6,
   },
 });

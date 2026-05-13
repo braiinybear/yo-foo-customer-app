@@ -1,8 +1,10 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import React from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 
 export default function CuisineFilterSkeleton() {
+  const { Colors, isDark } = useTheme();
+  const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
   return (
     <View style={styles.container}>
       <ScrollView
@@ -21,7 +23,7 @@ export default function CuisineFilterSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
@@ -40,13 +42,13 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: Colors.light,
+    backgroundColor: Colors.border,
     marginBottom: 6,
   },
   label: {
     width: 40,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.light,
+    backgroundColor: Colors.border,
   },
 });

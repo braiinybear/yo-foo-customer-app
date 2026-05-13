@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, Tabs } from "expo-router";
 import { TouchableOpacity } from "react-native";
 import { useCartStore } from "@/store/useCartStore";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
@@ -13,6 +13,7 @@ export default function TabsLayout() {
   const restaurantId = useCartStore((state) => state.restaurantId);
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 10);
+  const { Colors, isDark } = useTheme();
 
   const BackButton = () => (
     <TouchableOpacity
@@ -34,17 +35,18 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.white,
-        tabBarInactiveTintColor: "rgba(255,255,255,0.5)",
+        tabBarActiveTintColor: Colors.primary, // Gold
+        tabBarInactiveTintColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)",
         tabBarStyle: {
-          backgroundColor: Colors.primary,
-          borderTopWidth: 0,
+          backgroundColor: isDark ? Colors.background : Colors.white,
+          borderTopWidth: 1,
+          borderTopColor: Colors.border,
           height: 58 + bottomPadding,
           paddingBottom: bottomPadding,
           paddingTop: 6,
           elevation: 12,
-          shadowColor: Colors.primary,
-          shadowOpacity: 0.3,
+          shadowColor: isDark ? Colors.secondary : "#000",
+          shadowOpacity: 0.1,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: -4 },
         },
@@ -60,24 +62,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="favorites"
+        name="wallet"
         options={{
-          title: "Favorites",
+          title: "Wallet",
           headerShown: true,
           headerLeft: () => <BackButton />,
           headerStyle: {
-            backgroundColor: Colors.primary,
+            backgroundColor: isDark ? Colors.background : Colors.secondary,
             borderBottomWidth: 1,
-            borderBottomColor: Colors.text + '08',
+            borderBottomColor: Colors.primary + '20',
           },
           headerTitleStyle: {
             fontSize: 18,
             fontWeight: '700',
-            color: Colors.white,
+            color: Colors.primary, // Gold
           },
           headerTitleAlign: 'center',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" color={color} size={size} />
+            <Ionicons name="wallet-outline" color={color} size={size} />
           ),
         }}
       />
@@ -88,20 +90,20 @@ export default function TabsLayout() {
           headerShown: true,
           headerLeft: () => <BackButton />,
           headerStyle: {
-            backgroundColor: Colors.primary,
+            backgroundColor: isDark ? Colors.background : Colors.secondary,
             borderBottomWidth: 1,
-            borderBottomColor: Colors.text + '08',
+            borderBottomColor: Colors.primary + '20', // Subtle Gold line
           },
           headerTitleStyle: {
             fontSize: 18,
             fontWeight: '700',
-            color: Colors.white,
+            color: Colors.primary, // Gold
           },
           headerTitleAlign: 'center',
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: Colors.secondary,
-            color: Colors.white,
+            backgroundColor: Colors.primary, // Gold badge
+            color: Colors.secondary, // Navy text
             fontSize: 10,
             top: -2,
           },
@@ -117,14 +119,14 @@ export default function TabsLayout() {
           headerShown: true,
           headerLeft: () => <BackButton />,
           headerStyle: {
-            backgroundColor: Colors.primary,
+            backgroundColor: isDark ? Colors.background : Colors.secondary,
             borderBottomWidth: 1,
-            borderBottomColor: Colors.text + '08',
+            borderBottomColor: Colors.primary + '20',
           },
           headerTitleStyle: {
             fontSize: 18,
             fontWeight: '700',
-            color: Colors.white,
+            color: Colors.primary, // Gold
           },
           headerTitleAlign: 'center',
           tabBarIcon: ({ color, size }) => (

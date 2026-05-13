@@ -29,7 +29,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
   useSocketOrders();
 
   // ✅ Register fallback polling (activated when socket is disconnected)
-  const { isPolling } = useOrderPolling();
+  const { isPolling } = useOrderPolling(user);
   if (isPolling) {
     console.log('[SocketProvider] 📡 Fallback polling is ACTIVE');
   }

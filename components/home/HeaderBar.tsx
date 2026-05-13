@@ -1,8 +1,8 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { UserAddress } from "@/types/user";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import React from "react";
+import React, { useMemo } from "react";
 import {
     Image,
     StyleSheet,
@@ -30,6 +30,8 @@ export default function HeaderBar({
     onWalletPress,
     onProfilePress,
 }: HeaderBarProps) {
+    const { Colors } = useTheme();
+    const styles = useMemo(() => createStyles(Colors), [Colors]);
   
 
     const displayAddress = address && address.length > 0
@@ -45,16 +47,16 @@ export default function HeaderBar({
                         <Ionicons name="location-sharp" size={14} color={Colors.primary} />
                     </View>
                     <Text style={styles.addressName} numberOfLines={1}>{displayAddress.slice(0, 28) + '...'}</Text>
-                    <MaterialIcons name="keyboard-arrow-down" size={22} color={Colors.muted} />
+                    <MaterialIcons name="keyboard-arrow-down" size={22} color={Colors.primary} />
                 </View>
                 <Text style={styles.subAddress} numberOfLines={1}>{subAddress}</Text>
             </TouchableOpacity>
 
             {/* Right icons */}
             <View style={styles.iconsRow}>
-                {/* Wallet */}
+                {/*Notification */}
                 <TouchableOpacity style={styles.iconButton} onPress={onWalletPress} activeOpacity={0.8}>
-                    <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
+                    <Ionicons name="notifications-outline" size={20} color={Colors.primary} />
                 </TouchableOpacity>
 
                 {/* Profile avatar */}
@@ -70,7 +72,7 @@ export default function HeaderBar({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     container: {
         marginTop: 30,
         flexDirection: "row",
@@ -98,13 +100,13 @@ const styles = StyleSheet.create({
     addressName: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.text,
+        color: Colors.white, // White for better readability on Navy
         flex: 1,
     },
     subAddress: {
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
-        color: Colors.textSecondary,
+        color: "rgba(255,255,255,0.6)", // Muted white
         marginTop: 3,
         marginLeft: 30,
     },
@@ -117,21 +119,21 @@ const styles = StyleSheet.create({
         width: 42,
         height: 42,
         borderRadius: 21,
-        backgroundColor: Colors.surface,
+        backgroundColor: "rgba(255,255,255,0.1)", // Glass effect
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: "rgba(255,255,255,0.2)",
     },
     avatar: {
         width: 42,
         height: 42,
         borderRadius: 21,
-        backgroundColor: Colors.surface,
+        backgroundColor: "rgba(255,255,255,0.1)",
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1.5,
-        borderColor: Colors.border,
+        borderColor: Colors.primary, // Gold border for avatar
         overflow: 'hidden',
     },
     avatarImage: {

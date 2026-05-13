@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import {
   AlertButton,
@@ -21,100 +21,102 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const MODAL_WIDTH = Math.min(SCREEN_WIDTH - 48, 360);
 
-// ─── Icon config per alert type ────────────────────────────────────────
-const ICON_CONFIG: Record<
-  AlertType,
-  {
-    name: keyof typeof Ionicons.glyphMap;
-    bg: string;
-    color: string;
-  }
-> = {
-  success: {
-    name: "checkmark-circle",
-    bg: "#E8F5E9",
-    color: Colors.success,
-  },
-  error: {
-    name: "close-circle",
-    bg: "#FFEBEE",
-    color: Colors.danger,
-  },
-  warning: {
-    name: "warning",
-    bg: "#FFF3E0",
-    color: Colors.warning,
-  },
-  info: {
-    name: "information-circle",
-    bg: "#E0F2F1",
-    color: Colors.primary,
-  },
-  confirm: {
-    name: "help-circle",
-    bg: "#FFF8E1",
-    color: Colors.secondary,
-  },
-};
+export default function GlobalCustomAlert() {
+  const { visible, title, message, buttons, type, hide } = useAlertStore();
+  const { Colors, isDark } = useTheme();
+  const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
-// ─── Button style helpers ──────────────────────────────────────────────
-function getButtonStyles(
-  style: AlertButtonStyle | undefined,
-  isOnly: boolean,
-  index: number,
-  total: number
-) {
-  const base: any = {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
+  // ─── Icon config per alert type ────────────────────────────────────────
+  const ICON_CONFIG: Record<
+    AlertType,
+    {
+      name: keyof typeof Ionicons.glyphMap;
+      bg: string;
+      color: string;
+    }
+  > = {
+    success: {
+      name: "checkmark-circle",
+      bg: "#E8F5E9",
+      color: Colors.success,
+    },
+    error: {
+      name: "close-circle",
+      bg: "#FFEBEE",
+      color: Colors.danger,
+    },
+    warning: {
+      name: "warning",
+      bg: "#FFF3E0",
+      color: Colors.warning,
+    },
+    info: {
+      name: "information-circle",
+      bg: "#E0F2F1",
+      color: Colors.primary,
+    },
+    confirm: {
+      name: "help-circle",
+      bg: "#FFF8E1",
+      color: Colors.secondary,
+    },
   };
 
-  if (style === "destructive") {
-    return {
-      ...base,
-      backgroundColor: Colors.danger,
+  // ─── Button style helpers ──────────────────────────────────────────────
+  function getButtonStyles(
+    style: AlertButtonStyle | undefined,
+    isOnly: boolean,
+    index: number,
+    total: number
+  ) {
+    const base: any = {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 14,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
     };
-  }
-  if (style === "cancel") {
+
+    if (style === "destructive") {
+      return {
+        ...base,
+        backgroundColor: Colors.danger,
+      };
+    }
+    if (style === "cancel") {
+      return {
+        ...base,
+        backgroundColor: Colors.background,
+        borderWidth: 1,
+        borderColor: Colors.border,
+      };
+    }
+    // default / primary
+    if (isOnly || index === total - 1) {
+      return {
+        ...base,
+        backgroundColor: Colors.primary,
+      };
+    }
     return {
       ...base,
-      backgroundColor: "#F3F4F6",
+      backgroundColor: Colors.background,
       borderWidth: 1,
       borderColor: Colors.border,
     };
   }
-  // default / primary
-  if (isOnly || index === total - 1) {
-    return {
-      ...base,
-      backgroundColor: Colors.primary,
-    };
+
+  function getButtonTextColor(
+    style: AlertButtonStyle | undefined,
+    isOnly: boolean,
+    index: number,
+    total: number
+  ): string {
+    if (style === "destructive") return "#FFF";
+    if (style === "cancel") return Colors.text;
+    if (isOnly || index === total - 1) return Colors.background;
+    return Colors.text;
   }
-  return {
-    ...base,
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: Colors.border,
-  };
-}
-
-function getButtonTextColor(
-  style: AlertButtonStyle | undefined,
-  isOnly: boolean,
-  index: number,
-  total: number
-): string {
-  if (style === "destructive") return "#FFF";
-  if (style === "cancel") return Colors.text;
-  if (isOnly || index === total - 1) return "#FFF";
-  return Colors.text;
-}
-
-export default function GlobalCustomAlert() {
-  const { visible, title, message, buttons, type, hide } = useAlertStore();
 
   // ─── Animations ────────────────────────────────────────────────────
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -243,7 +245,7 @@ export default function GlobalCustomAlert() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.55)",
@@ -253,7 +255,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     width: MODAL_WIDTH,
-    backgroundColor: "#FFF",
+    backgroundColor: Colors.surface,
     borderRadius: 24,
     paddingTop: 28,
     paddingBottom: 20,

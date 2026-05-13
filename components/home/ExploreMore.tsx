@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import React from "react";
 import {
@@ -25,6 +25,8 @@ const EXPLORE_ITEMS: ExploreItem[] = [
 ];
 
 export default function ExploreMore() {
+    const { Colors, isDark } = useTheme();
+    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     return (
         <View style={styles.container}>
             <Text style={styles.heading}>Explore More</Text>
@@ -36,7 +38,7 @@ export default function ExploreMore() {
                 {EXPLORE_ITEMS.map((item) => (
                     <TouchableOpacity
                         key={item.id}
-                        style={[styles.card, { backgroundColor: item.bgColor }]}
+                        style={[styles.card, { backgroundColor: isDark ? Colors.surface : item.bgColor }]}
                         activeOpacity={0.8}
                     >
                         <Text style={styles.emoji}>{item.emoji}</Text>
@@ -48,12 +50,12 @@ export default function ExploreMore() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         paddingVertical: 16,
         backgroundColor: Colors.background,
         borderTopWidth: 8,
-        borderTopColor: Colors.light,
+        borderTopColor: Colors.border,
     },
     heading: {
         fontFamily: Fonts.brandBold,

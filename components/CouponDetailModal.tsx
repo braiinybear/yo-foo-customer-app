@@ -8,7 +8,7 @@ import {
     TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { Fonts, FontSize } from '@/constants/typography';
 import { Coupon } from '@/types/coupons';
 
@@ -25,6 +25,8 @@ export const CouponDetailModal: React.FC<CouponDetailModalProps> = ({
     coupon,
     onApply,
 }) => {
+    const { Colors, isDark } = useTheme();
+    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     if (!coupon) return null;
 
     const formatCurrency = (amount: number) => `₹${amount.toFixed(0)}`;
@@ -104,14 +106,14 @@ export const CouponDetailModal: React.FC<CouponDetailModalProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
     },
     container: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
@@ -184,6 +186,6 @@ const styles = StyleSheet.create({
     applyButtonText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.white,
+        color: Colors.background,
     },
 });

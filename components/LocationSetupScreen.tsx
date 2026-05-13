@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { Fonts, FontSize } from '@/constants/typography';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useReverseGeocode, GeocodeAddressResult } from '@/hooks/useReverseGeocode';
@@ -39,6 +39,8 @@ type SetupStep = 'detecting' | 'geocoding' | 'found' | 'error';
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps) {
+    const { Colors, isDark } = useTheme();
+    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const [step, setStep] = useState<SetupStep>('detecting');
     const [geocodeResult, setGeocodeResult] = useState<GeocodeAddressResult | null>(null);
     const [hasAttemptedGeocode, setHasAttemptedGeocode] = useState(false);
@@ -192,7 +194,7 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
         ...StyleSheet.absoluteFillObject,
         borderRadius: 100,
         borderWidth: 1.5,
-        borderColor: Colors.primary,
+        borderColor: Colors.secondary,
         opacity: anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.5, 0.15, 0] }),
         transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] }) }],
     });
@@ -235,7 +237,7 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
             {/* Spinner status label */}
             {statusLabel && (
                 <Animated.View style={[styles.statusRow, { opacity: fadeIn }]}>
-                    <ActivityIndicator color={Colors.primary} size="small" style={{ marginRight: 8 }} />
+                    <ActivityIndicator color={Colors.secondary} size="small" style={{ marginRight: 8 }} />
                     <Text style={styles.statusText}>{statusLabel}</Text>
                 </Animated.View>
             )}
@@ -267,7 +269,7 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
                         </Text>
 
                         <View style={styles.addressCard}>
-                            <Ionicons name="location" size={22} color={Colors.primary} style={styles.addressIcon} />
+                            <Ionicons name="location" size={22} color={Colors.secondary} style={styles.addressIcon} />
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.addressLine} numberOfLines={3}>
                                     {geocodeResult.addressLine}
@@ -290,10 +292,10 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
                             activeOpacity={0.85}
                         >
                             {isSaving ? (
-                                <ActivityIndicator color="#fff" />
+                                <ActivityIndicator color={Colors.background} />
                             ) : (
                                 <>
-                                    <Ionicons name="home" size={18} color="#fff" />
+                                    <Ionicons name="home" size={18} color={Colors.background} />
                                     <Text style={styles.primaryBtnText}>Save & Continue</Text>
                                 </>
                             )}
@@ -321,7 +323,7 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
                         </Text>
 
                         <TouchableOpacity style={styles.primaryBtn} onPress={handleRetry} activeOpacity={0.85}>
-                            <Ionicons name="refresh" size={18} color="#fff" />
+                            <Ionicons name="refresh" size={18} color={Colors.background} />
                             <Text style={styles.primaryBtnText}>Try Again</Text>
                         </TouchableOpacity>
 
@@ -336,7 +338,7 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
@@ -377,7 +379,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.surface,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: Colors.primary,
+        shadowColor: Colors.secondary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.15,
         shadowRadius: 20,
@@ -405,7 +407,7 @@ const styles = StyleSheet.create({
     statusText: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.sm,
-        color: Colors.primary,
+        color: Colors.secondary,
     },
 
     // ── Content ───────────────────────────────────────────────────
@@ -453,7 +455,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         backgroundColor: Colors.surface,
         borderWidth: 1.5,
-        borderColor: Colors.primary,
+        borderColor: Colors.secondary,
         borderRadius: 16,
         padding: 16,
         marginBottom: 24,
@@ -489,12 +491,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.secondary,
         paddingVertical: 16,
         borderRadius: 14,
         width: '100%',
         marginBottom: 14,
-        shadowColor: Colors.primary,
+        shadowColor: Colors.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 10,
@@ -505,8 +507,8 @@ const styles = StyleSheet.create({
     },
     primaryBtnText: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.lg,
-        color: Colors.white,
+        fontSize: FontSize.md,
+        color: Colors.primary, // Gold
     },
     secondaryBtn: {
         paddingVertical: 12,

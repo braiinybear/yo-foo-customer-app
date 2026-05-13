@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -61,6 +61,8 @@ const SLIDES: BannerSlide[] = [
 ];
 
 export default function HeroBanner() {
+    const { Colors, isDark } = useTheme();
+    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const [activeIndex, setActiveIndex] = useState(0);
     const scrollRef = useRef<ScrollView>(null);
     const isUserScrolling = useRef(false);
@@ -177,7 +179,7 @@ export default function HeroBanner() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         marginBottom: 8,
     },

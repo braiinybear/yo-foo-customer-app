@@ -1,7 +1,7 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
     StyleSheet,
     Text,
@@ -42,6 +42,8 @@ export default function SearchBar({
     placeholder = 'Search restaurants or dishes...',
     onSearchPress,
 }: SearchBarProps) {
+    const { Colors } = useTheme();
+    const styles = useMemo(() => createStyles(Colors), [Colors]);
     const { selectedVegType, setSelectedVegType } = useVegTypeStore();
     const [showFilter, setShowFilter] = useState(false);
     const scaleAnim = React.useRef(new Animated.Value(0)).current;
@@ -81,7 +83,7 @@ export default function SearchBar({
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={placeholder}
-                    placeholderTextColor={Colors.muted}
+                    placeholderTextColor="rgba(255,255,255,0.4)"
                     onPress={onSearchPress}
                 />
             </View>
@@ -189,7 +191,7 @@ export default function SearchBar({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     wrapper: {
         flexDirection: "row",
         alignItems: "center",
@@ -201,23 +203,18 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: Colors.surface,
+        backgroundColor: "rgba(255,255,255,0.08)", // Glass effect
         borderRadius: 25,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: "rgba(255,255,255,0.15)",
         paddingHorizontal: 4,
         height: 48,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
     },
     searchIconWrap: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: `${Colors.primary}12`,
+        backgroundColor: "rgba(255,255,255,0.1)",
         alignItems: "center",
         justifyContent: "center",
         marginLeft: 4,
@@ -226,7 +223,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: Fonts.brand,
         fontSize: FontSize.sm,
-        color: Colors.text,
+        color: Colors.white,
         paddingHorizontal: 8,
     },
 
@@ -238,8 +235,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         borderRadius: 14,
         borderWidth: 1.5,
-        borderColor: Colors.border,
-        backgroundColor: Colors.surface,
+        borderColor: "rgba(255,255,255,0.15)",
+        backgroundColor: "rgba(255,255,255,0.08)",
         minWidth: 56,
         gap: 2,
         height: 48,
@@ -250,7 +247,7 @@ const styles = StyleSheet.create({
     vegLabel: {
         fontFamily: Fonts.brandBold,
         fontSize: 9,
-        color: Colors.textSecondary,
+        color: "rgba(255,255,255,0.8)",
         textAlign: "center",
     },
 
@@ -263,7 +260,7 @@ const styles = StyleSheet.create({
     },
 
     popupContainer: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.background,
         borderRadius: 20,
         width: Dimensions.get('window').width - 48,
         maxWidth: 360,
@@ -295,7 +292,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: Colors.surface,
+        backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -314,7 +311,7 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         borderWidth: 1.5,
         borderColor: Colors.border,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         gap: 12,
     },
 
@@ -347,7 +344,7 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Colors.border,
         alignItems: "center",
-        backgroundColor: Colors.surface,
+        backgroundColor: Colors.border + "15",
     },
 
     clearButtonText: {

@@ -1,8 +1,8 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { getPlaceholderBgColor, getPlaceholderImage } from "@/constants/images";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
+import React, { useMemo } from "react";
 import {
     Image,
     StyleSheet,
@@ -20,10 +20,12 @@ interface RestaurantCardProps {
 }
 
 export default function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
+    const { Colors } = useTheme();
     const imageUri = restaurant.image ?? getPlaceholderImage(restaurant.id);
     const bgColor = getPlaceholderBgColor(restaurant.id);
     const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
     const isFavorite = useFavoritesStore((state) => state.isFavorite(restaurant.id));
+    const styles = useMemo(() => createStyles(Colors), [Colors]);
 
     return (
         <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={onPress}>
@@ -42,7 +44,7 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
                     <Ionicons 
                         name={isFavorite ? "bookmark" : "bookmark-outline"} 
                         size={18} 
-                        color={isFavorite ? Colors.secondary : Colors.white} 
+                        color={isFavorite ? Colors.primary : Colors.white} 
                     />
                 </TouchableOpacity>
             </View>
@@ -73,9 +75,9 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     card: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 18,
         overflow: "hidden",
         marginHorizontal: 0,
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
     ratingBadge: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: Colors.success,
+        backgroundColor: Colors.primary, // Gold for premium feel
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 8,

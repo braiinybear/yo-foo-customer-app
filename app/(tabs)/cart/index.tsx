@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useTheme } from "@/context/ThemeContext";
 import {
     View,
     Text,
@@ -16,7 +17,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { useWalletBalance } from '@/hooks/usePayments';
 import { useAddresses } from '@/hooks/useAddresses';
-import { Colors } from '@/constants/colors';
+// import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { getPlaceholderImage } from '@/constants/images';
 import { PaymentMode } from '@/types/orders';
@@ -34,36 +35,40 @@ type PaymentOption = {
     colorLight: string;  // 15% alpha tint of the color
 };
 
-const PAYMENT_OPTIONS: PaymentOption[] = [
-    {
-        mode: 'WALLET',
-        label: 'wallet',
-        subtitle: 'Pay instantly from your wallet balance',
-        icon: 'wallet-outline',
-        color: Colors.success,         // #2ECC71 green
-        colorLight: Colors.success + '20',
-    },
-    {
-        mode: 'COD',
-        label: 'cash on delivery',
-        subtitle: 'Pay with cash when your order arrives',
-        icon: 'cash-outline',
-        color: Colors.secondary,       // #FFB800 amber
-        colorLight: Colors.secondary + '20',
-    },
-    {
-        mode: 'RAZORPAY',
-        label: 'razorpay',
-        subtitle: 'UPI, Cards, Net Banking & more',
-        icon: 'card-outline',
-        color: Colors.primary,         // #E23744 red
-        colorLight: Colors.primaryLight,
-    },
-];
+// Payment options moved inside component for theme reactivity
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function CartScreen() {
+    const { Colors, isDark } = useTheme();
+    const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const router = useRouter();
+
+    const PAYMENT_OPTIONS: PaymentOption[] = [
+        {
+            mode: 'WALLET',
+            label: 'wallet',
+            subtitle: 'Pay instantly from your wallet balance',
+            icon: 'wallet-outline',
+            color: Colors.success,
+            colorLight: Colors.success + '20',
+        },
+        {
+            mode: 'COD',
+            label: 'cash on delivery',
+            subtitle: 'Pay with cash when your order arrives',
+            icon: 'cash-outline',
+            color: Colors.secondary,
+            colorLight: Colors.secondary + '20',
+        },
+        {
+            mode: 'RAZORPAY',
+            label: 'razorpay',
+            subtitle: 'UPI, Cards, Net Banking & more',
+            icon: 'card-outline',
+            color: isDark ? Colors.primary : Colors.primary,
+            colorLight: Colors.primaryLight,
+        },
+    ];
     const { items, updateQuantity, clearCart, totalAmount, restaurantId } = useCartStore();
     const createOrderMutation = useCreateOrder();
 
@@ -145,8 +150,8 @@ export default function CartScreen() {
     if (items.length === 0) {
         return (
             <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconCircle}>
-                    <Ionicons name="cart-outline" size={52} color={Colors.primary} />
+                <View style={[styles.emptyIconCircle, { backgroundColor: Colors.secondary + '12' }]}>
+                    <Ionicons name="cart-outline" size={52} color={Colors.secondary} />
                 </View>
                 <Text style={styles.emptyTitle}>Your cart is empty</Text>
                 <Text style={styles.emptySubtitle}>Add items from a restaurant to get started</Text>
@@ -394,8 +399,8 @@ export default function CartScreen() {
                             style={[
                                 styles.checkoutBtn,
                                 {
-                                    backgroundColor: Colors.primary,
-                                    shadowColor: Colors.primary,
+                                    backgroundColor: Colors.secondary, // Midnight Navy
+                                    shadowColor: Colors.secondary,
                                 },
                                 (createOrderMutation.isPending || isWalletInsufficient) &&
                                 styles.checkoutBtnDisabled,
@@ -408,9 +413,9 @@ export default function CartScreen() {
                                 <ActivityIndicator color={Colors.white} />
                             ) : (
                                 <View style={styles.payBtnContent}>
-                                    <Ionicons name="cash-outline" size={17} color={Colors.white} style={styles.payBtnIcon} />
+                                    <Ionicons name="cash-outline" size={17} color={Colors.primary} style={styles.payBtnIcon} />
                                     <Text style={styles.checkoutBtnText}>
-                                        Pay ₹{totalAmount} (via {PAYMENT_OPTIONS.find((o) => o.mode === selectedMode)?.label})
+                                        Pay ₹{totalAmount}
                                     </Text>
                                 </View>
                             )}
@@ -423,10 +428,10 @@ export default function CartScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: Colors.surface,
+        backgroundColor: Colors.background,
     },
     scroll: {
         padding: 16,
@@ -438,7 +443,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.xs,
-        color: Colors.muted,
+        color: Colors.text,
         textTransform: 'uppercase',
         letterSpacing: 1.2,
         marginBottom: 8,
@@ -447,7 +452,7 @@ const styles = StyleSheet.create({
 
     // ── Items card ────────────────────────────────────────────────────────────
     itemsCard: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 18,
         paddingHorizontal: 16,
         overflow: 'hidden',
@@ -539,7 +544,7 @@ const styles = StyleSheet.create({
     paymentDropdownBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 14,
         padding: 14,
         borderWidth: 1.5,
@@ -597,7 +602,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         maxHeight: '85%',
@@ -627,7 +632,7 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         paddingHorizontal: 14,
         marginVertical: 8,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 14,
         borderWidth: 1.5,
         borderColor: Colors.border,
@@ -720,7 +725,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 14,
         paddingHorizontal: 14,
         paddingVertical: 12,
@@ -758,7 +763,7 @@ const styles = StyleSheet.create({
     footer: {
         padding: 16,
         paddingBottom: 28,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderTopWidth: 1,
         borderTopColor: Colors.border,
     },
@@ -789,7 +794,7 @@ const styles = StyleSheet.create({
     checkoutBtnText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.white,
+        color: Colors.primary, // Gold
         letterSpacing: 0.3,
     },
     checkoutBtnSub: {
@@ -805,7 +810,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 40,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         gap: 10,
     },
     emptyIconCircle: {

@@ -14,7 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import Constants from 'expo-constants';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { useOrderDetail } from '@/hooks/useOrders';
 import { useOrderTracking } from '@/hooks/useSocketOrders';
 import { useSocketStore } from '@/store/useSocketStore';
@@ -57,6 +57,8 @@ function decodePolyline(encoded: string): { latitude: number; longitude: number 
 }
 
 export default function TrackingScreen() {
+  const { Colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
@@ -423,10 +425,10 @@ export default function TrackingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
     left: 15,
     right: 15,
     height: 70,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -611,7 +613,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingHorizontal: 25,
@@ -781,7 +783,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   otpValueContainer: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.background,
     paddingHorizontal: 20,
     paddingVertical: 5,
     borderRadius: 8,

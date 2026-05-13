@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { getPlaceholderImage } from "@/constants/images";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,7 +14,9 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
+  StatusBar
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 import { 
   useCuisines, 
@@ -32,6 +34,9 @@ const VEG_TYPE_OPTIONS = [
 ];
 
 export default function SearchPage() {
+  const { Colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -306,9 +311,17 @@ export default function SearchPage() {
   return (
     <View style={styles.root}>
       {/* Search Header */}
-      <View style={styles.searchHeader}>
+      <View style={[styles.searchHeader, { paddingTop: insets.top + 6 }]}>
+        <StatusBar barStyle="light-content" />
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={Colors.white} />
+        </TouchableOpacity>
+        
         <View style={styles.searchInputWrapper}>
-          <Ionicons name="search" size={18} color={Colors.primary} />
+          <Ionicons name="search" size={18} color={Colors.secondary} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search dishes or restaurants..."
@@ -329,7 +342,7 @@ export default function SearchPage() {
           style={styles.filterButton}
           onPress={() => setShowFilters(true)}
         >
-          <Ionicons name="funnel" size={20} color={Colors.primary} />
+          <Ionicons name="options-outline" size={20} color={Colors.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -785,7 +798,7 @@ export default function SearchPage() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -798,6 +811,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
     zIndex: 10,
+    backgroundColor: Colors.background,
   },
 
   backButton: {
@@ -809,12 +823,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surface,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderRadius: 14,
     paddingHorizontal: 12,
     height: 48,
     gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 
   searchInput: {
@@ -825,9 +839,14 @@ const styles = StyleSheet.create({
   },
 
   filterButton: {
-    padding: 10,
+    width: 48,
+    height: 48,
     borderRadius: 14,
-    backgroundColor: `${Colors.primary}12`,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 
   // Empty State
@@ -999,7 +1018,7 @@ const styles = StyleSheet.create({
 
   restaurantCard: {
     width: 200,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
@@ -1086,7 +1105,7 @@ const styles = StyleSheet.create({
   },
 
   filterModal: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: "80%",
@@ -1136,7 +1155,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     gap: 10,
   },
 
@@ -1165,7 +1184,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: Colors.primary,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     gap: 6,
   },
 
@@ -1201,16 +1220,16 @@ const styles = StyleSheet.create({
 
   applyButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
     backgroundColor: Colors.primary,
+    height: 52,
+    borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
   },
-
   applyButtonText: {
     fontFamily: Fonts.brandBold,
-    fontSize: FontSize.sm,
-    color: Colors.white,
+    fontSize: FontSize.md,
+    color: Colors.background,
   },
 
   checkboxOption: {
@@ -1221,7 +1240,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     gap: 12,
     marginBottom: 8,
   },
@@ -1300,14 +1319,14 @@ const styles = StyleSheet.create({
 
   cardHeaderSection: {
     flexDirection: "column",
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
   },
 
   dishImageCard: {
     width: "100%",
     height: 180,
     borderRadius: 0,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
   },
 
   dishCardInfo: {
@@ -1422,9 +1441,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: Fonts.brandBold,
-    fontSize: 13,
-    color: Colors.textSecondary,
-    letterSpacing: 0.5,
+    fontSize: FontSize.xs,
+    color: Colors.text,
+    letterSpacing: 1.2,
     marginBottom: 16,
   },
   clearText: {
@@ -1449,7 +1468,7 @@ const styles = StyleSheet.create({
   },
   recentSearchText: {
     fontFamily: Fonts.brandMedium,
-    fontSize: 14,
+    fontSize: FontSize.sm,
     color: Colors.text,
   },
 
@@ -1481,9 +1500,10 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   cuisineName: {
-    fontFamily: Fonts.brandMedium,
-    fontSize: 12,
+    fontFamily: Fonts.brandBold,
+    fontSize: 13,
     color: Colors.text,
+    marginTop: 8,
     textAlign: "center",
   },
 

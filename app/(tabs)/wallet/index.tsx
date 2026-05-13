@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
+import { useTheme } from "@/context/ThemeContext";
 import {
     ActivityIndicator,
     Modal,
@@ -14,7 +15,8 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import RazorpayCheckout from "react-native-razorpay";
 
-import { Colors } from "@/constants/colors";
+// Remove static import
+// import { Colors } from "@/constants/colors";
 import { Fonts, FontSize } from "@/constants/typography";
 import { showAlert } from "@/store/useAlertStore";
 import { authClient } from "@/lib/auth-client";
@@ -75,8 +77,8 @@ function txLabel(tx: WalletTransaction): string {
     return 'Transaction';
 }
 
-// ─── Transaction Row ──────────────────────────────────────────────────────────
-const TxRow = ({ tx }: { tx: WalletTransaction }) => {
+// --- Transaction Row ---
+const TxRow = ({ tx, Colors, styles }: { tx: WalletTransaction, Colors: any, styles: any }) => {
     const credit = isCredit(tx);
     return (
         <View style={styles.txRow}>
@@ -136,6 +138,8 @@ const TxRow = ({ tx }: { tx: WalletTransaction }) => {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function WalletScreen() {
+    const { Colors, isDark } = useTheme();
+    const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const router = useRouter();
     const { orderId } = useLocalSearchParams<{ orderId: string }>();
     const { data: session } = authClient.useSession();
@@ -327,7 +331,7 @@ export default function WalletScreen() {
                             <Text style={styles.cardFooterText}>Secured Balance</Text>
                         </View>
                         <TouchableOpacity style={styles.addMoneyChip} onPress={() => setShowModal(true)} activeOpacity={0.85}>
-                            <Ionicons name="add" size={16} color={Colors.primary} />
+                            <Ionicons name="add" size={16} color="#0D1B2A" />
                             <Text style={styles.addMoneyChipText}>Add Money</Text>
                         </TouchableOpacity>
                     </View>
@@ -396,7 +400,7 @@ export default function WalletScreen() {
                                 Add money to your wallet and start ordering!
                             </Text>
                             <TouchableOpacity style={styles.emptyAddBtn} onPress={() => setShowModal(true)}>
-                                <Ionicons name="add" size={16} color={Colors.white} />
+                                <Ionicons name="add" size={16} color="#0D1B2A" />
                                 <Text style={styles.emptyAddBtnText}>Add Money</Text>
                             </TouchableOpacity>
                         </View>
@@ -412,7 +416,7 @@ export default function WalletScreen() {
                             }}
                             scrollEventThrottle={200}
                         >
-                            {txList.map((tx) => <TxRow key={tx.id} tx={tx} />)}
+                            {txList.map((tx) => <TxRow key={tx.id} tx={tx} Colors={Colors} styles={styles} />)}
 
                             {txFetchingMore && (
                                 <View style={styles.centerWrap}>
@@ -607,9 +611,9 @@ export default function WalletScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     orderPlacedCard: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 16,
         padding: 16,
         marginBottom: 16,
@@ -644,19 +648,19 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     trackOrderBtn: {
-        backgroundColor: Colors.primary,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 8,
     },
     trackOrderText: {
-        color: Colors.white,
+        color: Colors.primary, // Gold
         fontFamily: Fonts.brandBold,
         fontSize: 12,
     },
     root: {
         flex: 1,
-        backgroundColor: Colors.surface,
+        backgroundColor: Colors.background,
     },
     scroll: {
         padding: 16,
@@ -667,11 +671,11 @@ const styles = StyleSheet.create({
 
     // ── Balance Card ──────────────────────────────────────────────────────────
     balanceCard: {
-        backgroundColor: Colors.primary,
+        backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy
         borderRadius: 20,
         padding: 20,
         overflow: "hidden",
-        shadowColor: Colors.primary,
+        shadowColor: Colors.secondary,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.35,
         shadowRadius: 16,
@@ -727,7 +731,7 @@ const styles = StyleSheet.create({
     balanceAmount: {
         fontFamily: Fonts.brandBlack,
         fontSize: 40,
-        color: Colors.white,
+        color: Colors.primary, // Gold
         letterSpacing: 0.5,
         marginBottom: 16,
     },
@@ -755,7 +759,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.primary, // Gold background
         paddingHorizontal: 14,
         paddingVertical: 7,
         borderRadius: 20,
@@ -763,13 +767,13 @@ const styles = StyleSheet.create({
     addMoneyChipText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
-        color: Colors.primary,
+        color: "#0D1B2A", // Navy text
     },
 
     // ── FlatList wrappers ─────────────────────────────────────────────────────
     // ── Transaction History card ──────────────────────────────────────────────
     txCard: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 18,
         overflow: "hidden",
         shadowColor: "#000",
@@ -841,7 +845,7 @@ const styles = StyleSheet.create({
     },
     statCard: {
         flex: 1,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 14,
         padding: 12,
         alignItems: "center",
@@ -876,7 +880,7 @@ const styles = StyleSheet.create({
 
     // ── Section ───────────────────────────────────────────────────────────────
     section: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderRadius: 18,
         padding: 16,
         shadowColor: "#000",
@@ -989,7 +993,7 @@ const styles = StyleSheet.create({
         width: 72,
         height: 72,
         borderRadius: 36,
-        backgroundColor: Colors.surface,
+        backgroundColor: Colors.background,
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 4,
@@ -1024,7 +1028,7 @@ const styles = StyleSheet.create({
     emptyAddBtnText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
-        color: Colors.white,
+        color: "#0D1B2A",
     },
 
     // ── Modal ─────────────────────────────────────────────────────────────────
@@ -1034,7 +1038,7 @@ const styles = StyleSheet.create({
         justifyContent: "flex-end",
     },
     modalSheet: {
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.surface,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         paddingHorizontal: 20,
@@ -1075,7 +1079,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         borderWidth: 1.5,
         borderColor: Colors.border,
-        backgroundColor: Colors.surface,
+        backgroundColor: Colors.background,
     },
     quickChipActive: {
         borderColor: Colors.primary,
@@ -1099,7 +1103,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         paddingHorizontal: 16,
         paddingVertical: 14,
-        backgroundColor: Colors.surface,
+        backgroundColor: Colors.background,
         marginBottom: 16,
     },
     inputCurrency: {

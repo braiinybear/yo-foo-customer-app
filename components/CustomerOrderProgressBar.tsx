@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { Fonts, FontSize } from '@/constants/typography';
 
 interface CustomerOrderProgressBarProps {
@@ -26,6 +26,8 @@ const CUSTOMER_ORDER_STATUSES = [
  * - Descriptive status message
  */
 export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOrderProgressBarProps) {
+  const { Colors, isDark } = useTheme();
+  const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
   const [progressAnim] = useState(new Animated.Value(0));
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -159,7 +161,7 @@ export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   container: {
     gap: 14,
   },

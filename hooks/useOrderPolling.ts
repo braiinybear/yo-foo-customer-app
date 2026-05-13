@@ -12,7 +12,7 @@ import apiClient from '@/lib/axios';
  * When socket is UP:
  * - Stops polling (socket handles real-time updates)
  */
-export function useOrderPolling() {
+export function useOrderPolling(user: any) {
   const { 
     isConnected, 
     orderUpdates,
@@ -42,8 +42,11 @@ export function useOrderPolling() {
       }
     );
 
-    if (activeOrderIds.length === 0) {
-      console.log('[Customer OrderPolling] ℹ️  No active orders to poll');
+    // If no user or no active orders, don't poll
+    if (!user || activeOrderIds.length === 0) {
+      if (activeOrderIds.length === 0 && user) {
+        console.log('[Customer OrderPolling] ℹ️  No active orders to poll');
+      }
       return;
     }
 
@@ -94,7 +97,7 @@ export function useOrderPolling() {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isConnected, orderUpdates, handleOrderStatusUpdate, handleDriverAssigned]);
+  }, [isConnected, orderUpdates, handleOrderStatusUpdate, handleDriverAssigned, user]);
 
   return {
     isPolling: !isConnected,

@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -40,7 +40,9 @@ import { useVegTypeStore } from "@/store/useVegTypeStore";
 // The root page of the app
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function Index() {
+  const { Colors, isDark } = useTheme();
   const { data: session } = authClient.useSession();
+  const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
   // ── Infinite-scroll restaurants ──────────────────────────────────────────
   const {
@@ -202,19 +204,6 @@ export default function Index() {
             </Text>
           </View>
         )}
-        {!isLoading && !isRestaurantsError ? (
-          <Text style={styles.sectionHeading}>
-            {`${filteredRestaurants.length} ${
-              selectedVegType === "veg"
-                ? "Vegetarian"
-                : selectedVegType === "non-veg"
-                  ? "Non-Vegetarian"
-                  : selectedVegType === "vegan"
-                    ? "Vegan"
-                    : ""
-            } Restaurants`}
-          </Text>
-        ) : null}
       </View>
       
       {isLoading && !isRestaurantsError && (
@@ -239,7 +228,6 @@ export default function Index() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
       {/* FIXED Top bar: HeaderBar */}
       <View style={[styles.stickyTop, { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 110, height: FIXED_HEADER_HEIGHT }]}>
@@ -344,7 +332,7 @@ export default function Index() {
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -352,7 +340,7 @@ const styles = StyleSheet.create({
 
   // Sticky top header
   stickyTop: {
-    backgroundColor: Colors.background,
+    backgroundColor: isDark ? Colors.background : Colors.secondary,
     zIndex: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -367,11 +355,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-    backgroundColor: Colors.background,
+    backgroundColor: isDark ? Colors.background : Colors.secondary,
   },
 
   stickyHeader: {
-    backgroundColor: Colors.background,
+    backgroundColor: isDark ? Colors.background : Colors.secondary,
     gap: 0,
     zIndex: 9,
     paddingTop: 12,
@@ -385,7 +373,7 @@ const styles = StyleSheet.create({
   // Section header inside FlatList
   sectionHeader: {
     paddingHorizontal: 12,
-    paddingTop: 20,
+    paddingTop: 40,
     backgroundColor: Colors.background,
   },
   sectionHeading: {
@@ -416,7 +404,7 @@ const styles = StyleSheet.create({
 
   // Error styles
   errorContainer: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: Colors.danger + "15",
     borderLeftWidth: 4,
     borderLeftColor: Colors.danger,
     paddingHorizontal: 12,
@@ -431,7 +419,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: Fonts.brandMedium,
     fontSize: FontSize.sm,
-    color: "#91271F",
+    color: Colors.danger,
     flex: 1,
     marginRight: 12,
   },
@@ -447,7 +435,7 @@ const styles = StyleSheet.create({
   },
 
   addressErrorBanner: {
-    backgroundColor: "#FEF2F2",
+    backgroundColor: Colors.danger + "15",
     borderBottomWidth: 1,
     borderBottomColor: Colors.danger,
     paddingHorizontal: 16,
@@ -461,8 +449,9 @@ const styles = StyleSheet.create({
   addressErrorText: {
     fontFamily: Fonts.brandMedium,
     fontSize: FontSize.sm,
-    color: "#7F1D1D",
+    color: Colors.danger,
     flex: 1,
+    marginRight: 12,
   },
 
   retryLinkBanner: {

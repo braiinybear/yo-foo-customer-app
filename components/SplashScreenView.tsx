@@ -1,4 +1,4 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts } from "@/constants/typography";
 import React, { useEffect, useRef } from "react";
 import { Animated, Image, StyleSheet } from "react-native";
@@ -8,6 +8,8 @@ export default function SplashScreenView({
 }: {
     onFinish: () => void;
 }) {
+    const { Colors, isDark } = useTheme();
+    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const logoScale = useRef(new Animated.Value(0.7)).current;
     const logoOpacity = useRef(new Animated.Value(0)).current;
     const textOpacity = useRef(new Animated.Value(0)).current;
@@ -71,7 +73,7 @@ export default function SplashScreenView({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: Colors.background,
@@ -83,8 +85,8 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     logo: {
-        width: 220,
-        height: 220,
+        width: 160,
+        height: 160,
     },
     appName: {
         fontFamily: Fonts.brandBlack,

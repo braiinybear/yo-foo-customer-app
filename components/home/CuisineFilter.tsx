@@ -1,6 +1,6 @@
-import { Colors } from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
-import React from "react";
+import React, { useMemo } from "react";
 import {
     Image,
     ScrollView,
@@ -42,6 +42,8 @@ const cuisinesDummy: Cuisine[] = [
 ];
 
 export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineFilterProps) {
+    const { Colors, isDark } = useTheme();
+    const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
     
     return (
@@ -79,9 +81,9 @@ export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineF
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
-        backgroundColor: Colors.background,
+        backgroundColor: isDark ? '#0D1B2A' : Colors.secondary,
     },
     scrollContent: {
         paddingHorizontal: 12,
@@ -103,8 +105,8 @@ const styles = StyleSheet.create({
         overflow: "hidden",
         marginBottom: 6,
         borderWidth: 2,
-        borderColor: "transparent",
-        backgroundColor: Colors.surface,
+        borderColor: "rgba(255,255,255,0.1)", // Subtle border
+        backgroundColor: "rgba(255,255,255,0.05)",
     },
     emojiWrapperActive: {
         borderColor: Colors.primary,
@@ -121,7 +123,7 @@ const styles = StyleSheet.create({
     label: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.xs,
-        color: Colors.muted,
+        color: "rgba(255,255,255,0.6)", // Muted white
         textAlign: "center",
     },
     labelActive: {
