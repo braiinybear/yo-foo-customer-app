@@ -322,7 +322,7 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
                         style={styles.map}
                         initialRegion={region}
                         onRegionChangeComplete={handleRegionChangeComplete}
-                        // customMapStyle={isDark ? darkMapStyle : whiteMapStyle}
+                        customMapStyle={isDark ? darkMapStyle : whiteMapStyle}
                     >
                         {form.lat && form.lng && (
                             <Marker

@@ -1,4 +1,5 @@
 import 'dotenv/config';
+
 export default {
   expo: {
     name: "food-delivery-customer",

@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     Platform,
     Linking,
-    Animated, 
+    Animated,
     Modal,
     TextInput,
     KeyboardAvoidingView,
