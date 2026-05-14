@@ -237,7 +237,7 @@ export default function Index() {
           userInitial={userInitial}
           userImage={session?.user?.image}
           onAddressPress={() => setIsAddressModalVisible(true)}
-          onWalletPress={() => router.push("/wallet")}
+          onWalletPress={() => router.push("/notification")}
           onProfilePress={() => router.push("/profile")}
         />
       </View>

@@ -11,7 +11,7 @@ import {
     ActivityIndicator,
     Dimensions
 } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { showAlert } from '@/store/useAlertStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -317,11 +317,12 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
                 {/* Map and Search Section */}
                 <View style={styles.mapWrapper}>
                     <MapView
+                        provider={PROVIDER_GOOGLE}
                         ref={mapRef}
                         style={styles.map}
                         initialRegion={region}
                         onRegionChangeComplete={handleRegionChangeComplete}
-                        customMapStyle={isDark ? darkMapStyle : whiteMapStyle}
+                        // customMapStyle={isDark ? darkMapStyle : whiteMapStyle}
                     >
                         {form.lat && form.lng && (
                             <Marker
