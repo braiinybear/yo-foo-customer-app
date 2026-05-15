@@ -163,7 +163,7 @@ export default function ProfileScreen() {
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Profile Header */}
             <View style={styles.header}>
-                <Text style={styles.screenTitle}>PROFILE</Text>
+              
                 <View style={styles.profileImageContainer}>
                     <Image 
                         source={{ uri: user.image || "https://ui-avatars.com/api/?name=" + user.name }} 
@@ -270,34 +270,7 @@ export default function ProfileScreen() {
                             onValueChange={toggleTheme}
                         />
                     </View>
-                    <TouchableOpacity style={styles.menuItem}>
-                        <View style={styles.menuItemLeft}>
-                            <View style={[styles.iconContainer, { backgroundColor: '#E3F2FD' }]}>
-                                <Ionicons name="language-outline" size={20} color="#2196F3" />
-                            </View>
-                            <Text style={styles.menuItemText}>App Language</Text>
-                        </View>
-                        <View style={styles.menuItemRight}>
-                            <Text style={styles.menuValueText}>{user.language?.toUpperCase() || "EN"}</Text>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                        </View>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Account Section */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Account settings</Text>
-                <View style={styles.menuCard}>
-                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push("/profile/address")}>
-                        <View style={styles.menuItemLeft}>
-                            <View style={[styles.iconContainer, { backgroundColor: '#FFF3E0' }]}>
-                                <Ionicons name="location-outline" size={20} color="#FF9800" />
-                            </View>
-                            <Text style={styles.menuItemText}>Saved Addresses</Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
-                    </TouchableOpacity>
+                 
                 </View>
             </View>
 

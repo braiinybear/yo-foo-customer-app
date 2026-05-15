@@ -597,13 +597,13 @@ export default function SearchPage() {
                         name="star"
                         size={16}
                         color={
-                          minRating === rating ? Colors.white : Colors.primary
+                          minRating === rating ? (isDark ? Colors.background : Colors.white) : (isDark ? Colors.primary : Colors.secondary)
                         }
                       />
                       <Text
                         style={[
                           styles.ratingLabel,
-                          minRating === rating && { color: Colors.white },
+                          minRating === rating && { color: isDark ? Colors.background : Colors.white },
                         ]}
                       >
                         {rating}+
@@ -1153,9 +1153,14 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderRadius: 10,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    backgroundColor: isDark ? Colors.surface : Colors.white,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     gap: 10,
   },
 
@@ -1182,16 +1187,21 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 10,
     borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    backgroundColor: isDark ? Colors.surface : Colors.white,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     gap: 6,
   },
 
   ratingLabel: {
     fontFamily: Fonts.brandBold,
     fontSize: FontSize.sm,
-    color: Colors.primary,
+    color: isDark ? Colors.primary : Colors.secondary,
   },
 
   filterActions: {
@@ -1239,8 +1249,13 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    backgroundColor: isDark ? Colors.surface : Colors.white,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     gap: 12,
     marginBottom: 8,
   },

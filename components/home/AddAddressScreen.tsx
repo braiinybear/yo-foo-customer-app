@@ -286,7 +286,7 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
         // Create payload
         const payload: AddressFormState = { ...form };
 
-        console.log("Submitting Address Payload:", payload);
+      
 
         // Call the mutation
         addAddress(payload, {
@@ -295,8 +295,7 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
                 setOpenAdressAddform(false);
             },
             onError: (error) => {
-                showAlert("Error", "Failed to save address. Please try again.");
-                console.error("Save Address Error:", error);
+                showAlert("Error", "Failed to save address. Please try again.")
             }
         });
     };
@@ -346,7 +345,6 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
                             minLength={2}
                             debounce={400}
                             onFail={(error) => {
-                                console.error("Places Autocomplete Error:", error);
                                 showAlert("Search Error", `Google Maps Search failed: ${error}`);
                             }}
                             query={{
