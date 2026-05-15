@@ -1,6 +1,6 @@
 export const Palette = {
   gold: "#D4AF37",
-  cream: "#FAF3E0",
+  cream: "#FFFFFF",
   navy: "#0D1B2A",
   navyLight: "#1B263B",
   navyLighter: "#415A77",
@@ -11,8 +11,8 @@ export const Palette = {
 };
 
 export const LightTheme = {
-  background: "#FAF9F6",
-  surface: "#F5F2E9",
+  background: "#FFFFFF",
+  surface: "#FFFFFF",
   primary: Palette.gold,
   primaryLight: Palette.cream,
   secondary: Palette.navy,

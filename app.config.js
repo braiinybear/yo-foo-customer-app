@@ -30,7 +30,7 @@ export default {
         googleMaps: {
           // This pulls the key from your .env file locally
           // or from EAS Secrets during a cloud build.
-          apiKey: process.env.GOOGLE_MAPS_API_KEY 
+          apiKey:process.env.GOOGLE_MAPS_API_KEY
         }
       }
     },

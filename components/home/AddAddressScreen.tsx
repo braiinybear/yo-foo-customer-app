@@ -728,6 +728,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginTop: 8,
+        marginBottom: 24,
     },
     typeButton: {
         flex: 1,
@@ -761,9 +762,9 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         left: 0,
         right: 0,
         backgroundColor: Colors.background,
-        padding: 20,
-        borderTopWidth: 1.5,
-        borderTopColor: Colors.secondary, // Midnight Navy footer divider
+        paddingHorizontal: 20,
+        paddingTop: 12,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     },
     submitButton: {
         backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy main action button

@@ -36,8 +36,8 @@ import LocationSetupScreen, {
   shouldShowLocationSetup,
 } from "@/components/LocationSetupScreen";
 
-import { User } from "@/types/user";
 import SplashScreenView from "@/components/SplashScreenView";
+import { useUser } from "@/hooks/useUser";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -65,22 +65,24 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <ThemedRoot />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <ThemedRoot />
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
 function ThemedRoot() {
   const { Colors, isDark } = useTheme();
   const { data: session, isPending } = authClient.useSession();
+  const { isLoading: isUserLoading } = useUser({ enabled: !!session });
   const segments = useSegments();
   const router = useRouter();
 
   const [showLocationSetup, setShowLocationSetup] = useState(false);
   const [splashFinished, setSplashFinished] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
-  const [wasLoggedIn, setWasLoggedIn] = useState(false);
 
   // Load fonts
   const [fontsLoaded] = useFonts({
@@ -118,21 +120,12 @@ function ThemedRoot() {
     return () => subscription.remove();
   }, [isDark, Colors.background]);
 
-  // Track if we've ever had a session in this lifecycle
-  useEffect(() => {
-    if (session) {
-      setWasLoggedIn(true);
-    } else if (!isPending && !isResuming) {
-      // Only clear if we are sure it's a real logout
-      setWasLoggedIn(false);
-    }
-  }, [session, isPending, isResuming]);
+
+  const inAuthGroup = segments[0] === "(auth)";
 
   // Auth Guard: Redirect based on session state
   useEffect(() => {
     if (isPending || !splashFinished || isResuming) return;
-
-    const inAuthGroup = segments[0] === "(auth)";
 
     if (!session && !inAuthGroup) {
       // Not logged in -> go to login
@@ -141,7 +134,7 @@ function ThemedRoot() {
       // Logged in but on auth page -> go home
       router.replace("/");
     }
-  }, [session, isPending, segments, splashFinished, isResuming]);
+  }, [session, isPending, segments, splashFinished, isResuming, inAuthGroup]);
 
   // Location setup logic
   useEffect(() => {
@@ -162,8 +155,13 @@ function ThemedRoot() {
   }
 
   // BLOCK UI while auth session restores, splash animation is running, or app is resuming/re-validating
-  // We stay on splash if we WERE logged in but don't have a session yet
-  if (isPending || !splashFinished || (wasLoggedIn && !session) || (isResuming && !session)) {
+  // We stay on splash if:
+  // 1. Session is still being fetched (isPending)
+  // 2. Splash animation is still running (!splashFinished)
+  // 3. We have no session and are not in auth group yet (waiting for redirect)
+  // 4. App is resuming and session is not yet re-validated
+  // 5. We have a session but it's currently being verified with the server (isUserLoading)
+  if (isPending || !splashFinished || (!session && !inAuthGroup) || (isResuming && !session) || (session && isUserLoading)) {
     return (
       <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <SplashScreenView onFinish={() => setSplashFinished(true)} />
@@ -172,62 +170,60 @@ function ThemedRoot() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        <StatusBar style={isDark ? "light" : "dark"} />
-        {showLocationSetup ? (
-          <LocationSetupScreen onDone={() => setShowLocationSetup(false)} />
-        ) : (
-          <SocketProvider user={session?.user}>
-            <NotificationProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: Colors.background },
+    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+      {showLocationSetup ? (
+        <LocationSetupScreen onDone={() => setShowLocationSetup(false)} />
+      ) : (
+        <SocketProvider user={session?.user}>
+          <NotificationProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Colors.background },
+              }}
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="profile"
+                options={{
+                  headerShown: true,
+                  headerTitle: "Profile",
+                  headerTintColor: Colors.white,
+                  headerStyle: {
+                    backgroundColor: isDark ? Colors.background : Colors.secondary,
+                  },
+                  headerTitleAlign: "center",
+                  headerTitleStyle: {
+                    color: Colors.primary,
+                  },
                 }}
-              >
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="profile"
-                  options={{
-                    headerShown: true,
-                    headerTitle: "Profile",
-                    headerTintColor: Colors.white,
-                    headerStyle: {
-                      backgroundColor: isDark ? Colors.background : Colors.secondary,
-                    },
-                    headerTitleAlign: "center",
-                    headerTitleStyle: {
-                      color: Colors.primary,
-                    },
-                  }}
-                />
+              />
 
 
 
-                <Stack.Screen
-                  name="checkout"
-                  options={{
-                    headerShown: true,
-                    headerTitle: "Checkout",
-                    headerTintColor: Colors.white,
-                    headerStyle: {
-                      backgroundColor: isDark ? Colors.background : Colors.secondary,
-                    },
-                    headerTitleAlign: "center",
-                    headerTitleStyle: {
-                      color: Colors.primary,
-                    },
-                  }}
-                />
-              </Stack>
-              <GlobalCustomAlert />
-            </NotificationProvider>
-          </SocketProvider>
-        )}
-      </View>
-    </QueryClientProvider>
+              <Stack.Screen
+                name="checkout"
+                options={{
+                  headerShown: true,
+                  headerTitle: "Checkout",
+                  headerTintColor: Colors.white,
+                  headerStyle: {
+                    backgroundColor: isDark ? Colors.background : Colors.secondary,
+                  },
+                  headerTitleAlign: "center",
+                  headerTitleStyle: {
+                    color: Colors.primary,
+                  },
+                }}
+              />
+            </Stack>
+            <GlobalCustomAlert />
+          </NotificationProvider>
+        </SocketProvider>
+      )}
+    </View>
   );
 }

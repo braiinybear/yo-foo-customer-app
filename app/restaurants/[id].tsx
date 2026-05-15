@@ -177,24 +177,11 @@ export default function RestaurantDetailScreen() {
                                     )}
                                     <Text style={styles.restaurantName}>{restaurant.name}</Text>
                                 </View>
-                                <View style={styles.ratingBadge}>
-                                    <Ionicons name="star" size={14} color="#FFB800" />
-                                    <Text style={styles.ratingText}>4.5</Text>
-                                </View>
+                               
                             </View>
                         </View>
                         <Text style={styles.cuisineText}>{restaurant.cuisineTypes?.join(", ")}</Text>
-                        <View style={styles.deliveryInfoContainer}>
-                            <View style={styles.deliveryInfoItem}>
-                                <Ionicons name="time" size={14} color={Colors.primary} />
-                                <Text style={styles.deliveryInfoText}>30-40 mins</Text>
-                            </View>
-                            <View style={styles.deliveryDivider} />
-                            <View style={styles.deliveryInfoItem}>
-                                <Ionicons name="location" size={14} color={Colors.primary} />
-                                <Text style={styles.deliveryInfoText}>2.5 km away</Text>
-                            </View>
-                        </View>
+    
                     </View>
                 </View>
 

@@ -132,7 +132,7 @@ export default function Register() {
                     >
                         {isLoading ? (
                             <>
-                                <ActivityIndicator color="#fff" />
+                                <ActivityIndicator color={isDark ? Colors.background : "#fff"} />
                                 <Text style={styles.primaryButtonText}>Creating Account...</Text>
                             </>
                         ) : (
@@ -218,7 +218,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
 
     // ── Buttons ──────────────────────────────────────────────
     primaryButton: {
-        backgroundColor: isDark ? Colors.surface : Colors.secondary,
+        backgroundColor: isDark ? Colors.primary : Colors.secondary,
         padding: 16,
         borderRadius: 12,
         flexDirection: "row",
@@ -227,7 +227,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         gap: 8,
     },
     primaryButtonText: {
-        color: Colors.white,
+        color: isDark ? Colors.background : Colors.white,
         fontSize: FontSize.md,
         fontFamily: Fonts.brandBold,
     },

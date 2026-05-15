@@ -312,12 +312,12 @@ export default function SearchPage() {
     <View style={styles.root}>
       {/* Search Header */}
       <View style={[styles.searchHeader, { paddingTop: insets.top + 6 }]}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          <Ionicons name="arrow-back" size={24} color={Colors.secondary} />
         </TouchableOpacity>
         
         <View style={styles.searchInputWrapper}>

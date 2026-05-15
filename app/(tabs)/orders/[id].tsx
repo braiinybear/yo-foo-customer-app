@@ -221,7 +221,7 @@ export default function OrderDetailScreen() {
     const [userLocLatLng, setUserLocLatLng] = useState<{ lat: number, lng: number } | null>(null);
     const [isMapReady, setIsMapReady] = useState(false);
 
-    const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GEOCODING_API_KEY || '';
+    const GOOGLE_MAPS_APIKEY = process.env.GOOGLE_MAPS_API_KEY || '';
     const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
     const displayDriverLocation = useMemo(() => {
@@ -457,8 +457,7 @@ export default function OrderDetailScreen() {
                         showsMyLocationButton={false}
                         showsBuildings={true}
                         pitchEnabled={true}
-                        userInterfaceStyle={isDark ? 'dark' : 'light'}
-                        customMapStyle={isDark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT}
+                        userInterfaceStyle="light"
                         region={{
                             latitude: displayDriverLocation?.lat || order.restaurant.lat || 0,
                             longitude: displayDriverLocation?.lng || order.restaurant.lng || 0,

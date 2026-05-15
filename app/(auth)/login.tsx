@@ -97,9 +97,9 @@ export default function Login() {
         await authClient.signIn.email(
             { email, password },
             {
-                onSuccess: async () => {
-                    setEmailLoading(false);
-                },
+                    onSuccess: async () => {
+                        setEmailLoading(false);
+                    },
                 onError: (ctx: any) => {
                     setEmailLoading(false);
                     showAlert("Login Failed", ctx.error.message);
@@ -185,7 +185,7 @@ export default function Login() {
                                 >
                                     {otpLoading ? (
                                         <>
-                                            <ActivityIndicator color="#fff" />
+                                            <ActivityIndicator color={isDark ? Colors.background : "#fff"} />
                                             <Text style={styles.primaryButtonText}>Sending OTP...</Text>
                                         </>
                                     ) : (
@@ -245,7 +245,7 @@ export default function Login() {
                                 >
                                     {verifyLoading ? (
                                         <>
-                                            <ActivityIndicator color="#fff" />
+                                            <ActivityIndicator color={isDark ? Colors.background : "#fff"} />
                                             <Text style={styles.primaryButtonText}>Verifying...</Text>
                                         </>
                                     ) : (
@@ -298,7 +298,7 @@ export default function Login() {
                         >
                             {emailLoading ? (
                                 <>
-                                    <ActivityIndicator color="#fff" />
+                                    <ActivityIndicator color={isDark ? Colors.background : "#fff"} />
                                     <Text style={styles.secondaryButtonText}>Logging in...</Text>
                                 </>
                             ) : (
@@ -500,40 +500,40 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
 
     // ── Buttons ──────────────────────────────────────────────
     primaryButton: {
-        backgroundColor: isDark ? Colors.surface : Colors.secondary,
+        backgroundColor: isDark ? Colors.primary : Colors.secondary,
         height: 56,
         borderRadius: 12,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        shadowColor: Colors.secondary,
+        shadowColor: isDark ? Colors.primary : Colors.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
         elevation: 5,
     },
     primaryButtonText: {
-        color: Colors.white,
+        color: isDark ? Colors.background : Colors.white,
         fontSize: FontSize.md,
         fontFamily: Fonts.brandBold,
     },
     secondaryButton: {
-        backgroundColor: isDark ? Colors.surface : Colors.secondary,
+        backgroundColor: isDark ? Colors.primary : Colors.secondary,
         height: 56,
         borderRadius: 12,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        shadowColor: Colors.secondary,
+        shadowColor: isDark ? Colors.primary : Colors.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
         elevation: 5,
     },
     secondaryButtonText: {
-        color: Colors.white,
+        color: isDark ? Colors.background : Colors.white,
         fontSize: FontSize.md,
         fontFamily: Fonts.brandBold,
     },

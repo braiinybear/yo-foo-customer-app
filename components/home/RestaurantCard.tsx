@@ -53,10 +53,6 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
             <View style={styles.info}>
                 <View style={styles.nameRow}>
                     <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
-                    <View style={styles.ratingBadge}>
-                        <Ionicons name="star" size={11} color={Colors.white} />
-                        <Text style={styles.ratingText}>4.5</Text>
-                    </View>
                 </View>
 
                 <Text style={styles.cuisine} numberOfLines={1}>

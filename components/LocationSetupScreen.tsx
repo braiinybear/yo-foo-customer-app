@@ -292,10 +292,10 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
                             activeOpacity={0.85}
                         >
                             {isSaving ? (
-                                <ActivityIndicator color={Colors.background} />
+                                <ActivityIndicator color={isDark ? Colors.background : Colors.white} />
                             ) : (
                                 <>
-                                    <Ionicons name="home" size={18} color={Colors.background} />
+                                    <Ionicons name="home" size={18} color={isDark ? Colors.background : Colors.white} />
                                     <Text style={styles.primaryBtnText}>Save & Continue</Text>
                                 </>
                             )}
@@ -323,7 +323,7 @@ export default function LocationSetupScreen({ onDone }: LocationSetupScreenProps
                         </Text>
 
                         <TouchableOpacity style={styles.primaryBtn} onPress={handleRetry} activeOpacity={0.85}>
-                            <Ionicons name="refresh" size={18} color={Colors.background} />
+                            <Ionicons name="refresh" size={18} color={isDark ? Colors.background : Colors.white} />
                             <Text style={styles.primaryBtnText}>Try Again</Text>
                         </TouchableOpacity>
 
@@ -491,12 +491,12 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: Colors.secondary,
+        backgroundColor: isDark ? Colors.primary : Colors.secondary,
         paddingVertical: 16,
         borderRadius: 14,
         width: '100%',
         marginBottom: 14,
-        shadowColor: Colors.secondary,
+        shadowColor: isDark ? Colors.primary : Colors.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 10,
@@ -508,7 +508,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     primaryBtnText: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
-        color: Colors.primary, // Gold
+        color: isDark ? Colors.background : Colors.white,
     },
     secondaryBtn: {
         paddingVertical: 12,
