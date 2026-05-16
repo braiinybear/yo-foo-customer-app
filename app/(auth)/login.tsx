@@ -16,6 +16,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
 
 type Step = "phone" | "otp";
 import { showAlert } from "@/store/useAlertStore";
@@ -130,7 +132,7 @@ export default function Login() {
                 keyboardShouldPersistTaps="handled"
             >
                 {session?.user ? (
-                    <View style={styles.profileContainer}>
+                    <Animated.View entering={FadeInDown.duration(600)} style={styles.profileContainer}>
                         <View style={styles.avatarWrapper}>
                             {session.user.image ? (
                                 <Image source={{ uri: session.user.image }} style={styles.profileImage} />
@@ -145,19 +147,21 @@ export default function Login() {
                         <Text style={styles.welcomeText}>Welcome back,</Text>
                         <Text style={styles.profileName}>{session.user.name}</Text>
                         <ActivityIndicator color={Colors.primary} style={{ marginTop: 10 }} />
-                    </View>
+                    </Animated.View>
                 ) : (
-                    <Image
-                        source={require("@/assets/images/app-logo.png")}
-                        style={styles.logo}
-                        resizeMode="contain"
-                    />
+                    <Animated.View entering={FadeInDown.springify().damping(15)}>
+                        <Image
+                            source={require("@/assets/images/app-logo.png")}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                    </Animated.View>
                 )}
 
 
                 {/* ── PHONE OTP (default) ── */}
                 {!toggleEmailPhoneLogin && (
-                    <View style={styles.section}>
+                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section}>
                         <Text style={styles.sectionLabel}>
                             {step === "phone" ? "Sign in with Phone" : "Enter OTP"}
                         </Text>
@@ -178,7 +182,7 @@ export default function Login() {
                                         style={styles.phoneInput}
                                     />
                                 </View>
-                                <TouchableOpacity
+                                <AnimatedPressable
                                     style={[styles.primaryButton, otpLoading && styles.buttonDisabled]}
                                     onPress={handleSendOtp}
                                     disabled={otpLoading}
@@ -191,15 +195,16 @@ export default function Login() {
                                     ) : (
                                         <Text style={styles.primaryButtonText}>Send OTP</Text>
                                     )}
-                                </TouchableOpacity>
+                                </AnimatedPressable>
 
                                 {/* Toggle to email */}
-                                <TouchableOpacity
+                                <AnimatedPressable
                                     style={styles.toggleRow}
                                     onPress={() => settoggleEmailPhoneLogin(true)}
+                                    scaleIn={0.95}
                                 >
                                     <Text style={styles.toggleText}>Login with Email instead</Text>
-                                </TouchableOpacity>
+                                </AnimatedPressable>
                             </>
                         ) : (
                             <>
@@ -235,10 +240,12 @@ export default function Login() {
                                 }
                                 {
                                     !haveReferralCode && (
-                                        <Text onPress={() => setHaveReferralCode(true)} style={styles.referralCodeText}>Have a referral code?</Text>
+                                        <AnimatedPressable onPress={() => setHaveReferralCode(true)} style={styles.referralCodeText} scaleIn={0.98}>
+                                            <Text style={styles.referralCodeText}>Have a referral code?</Text>
+                                        </AnimatedPressable>
                                     )
                                 }
-                                <TouchableOpacity
+                                <AnimatedPressable
                                     style={[styles.primaryButton, verifyLoading && styles.buttonDisabled]}
                                     onPress={handleVerifyOtp}
                                     disabled={verifyLoading}
@@ -251,25 +258,26 @@ export default function Login() {
                                     ) : (
                                         <Text style={styles.primaryButtonText}>Verify & Login</Text>
                                     )}
-                                </TouchableOpacity>
+                                </AnimatedPressable>
 
-                                <TouchableOpacity
+                                <AnimatedPressable
                                     style={styles.resendRow}
                                     onPress={handleSendOtp}
                                     disabled={otpLoading}
+                                    scaleIn={0.95}
                                 >
                                     <Text style={styles.resendText}>
                                         {otpLoading ? "Resending..." : "Resend OTP"}
                                     </Text>
-                                </TouchableOpacity>
+                                </AnimatedPressable>
                             </>
                         )}
-                    </View>
+                    </Animated.View>
                 )}
 
                 {/* ── EMAIL / PASSWORD (shown when toggled) ── */}
                 {toggleEmailPhoneLogin && (
-                    <View style={styles.section}>
+                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section}>
                         <Text style={styles.sectionLabel}>Email & Password</Text>
 
                         <TextInput
@@ -291,7 +299,7 @@ export default function Login() {
                             style={styles.input}
                         />
 
-                        <TouchableOpacity
+                        <AnimatedPressable
                             style={[styles.secondaryButton, emailLoading && styles.buttonDisabled]}
                             onPress={handleEmailLogin}
                             disabled={emailLoading}
@@ -304,45 +312,51 @@ export default function Login() {
                             ) : (
                                 <Text style={styles.secondaryButtonText}>Login with Email</Text>
                             )}
-                        </TouchableOpacity>
+                        </AnimatedPressable>
 
                         {/* Back to phone */}
-                        <TouchableOpacity
+                        <AnimatedPressable
                             style={styles.toggleRow}
                             onPress={() => settoggleEmailPhoneLogin(false)}
+                            scaleIn={0.95}
                         >
                             <Text style={styles.toggleText}>Back to phone login</Text>
-                        </TouchableOpacity>
-                    </View>
+                        </AnimatedPressable>
+                    </Animated.View>
                 )}
 
                 {/* ── DIVIDER ── */}
-                <View style={styles.dividerContainer}>
+                <Animated.View entering={FadeInDown.delay(400)} style={styles.dividerContainer}>
                     <View style={styles.divider} />
                     <Text style={styles.dividerText}>or continue with</Text>
                     <View style={styles.divider} />
-                </View>
+                </Animated.View>
 
                 {/* ── Google ── */}
-                <TouchableOpacity
-                    style={styles.googleButton}
-                    onPress={handleGoogleLogin}
-                >
-                    <Image
-                        source={require("@/assets/images/google-logo.png")}
-                        style={styles.googleIcon}
-                        resizeMode="contain"
-                    />
-                    <Text style={styles.googleButtonText}>Continue with Google</Text>
-                </TouchableOpacity>
+                <Animated.View entering={FadeInDown.delay(500).springify()}>
+                    <AnimatedPressable
+                        style={styles.googleButton}
+                        onPress={handleGoogleLogin}
+                    >
+                        <Image
+                            source={require("@/assets/images/google-logo.png")}
+                            style={styles.googleIcon}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                    </AnimatedPressable>
+                </Animated.View>
 
                 {/* ── Register link ── */}
-                <TouchableOpacity
-                    onPress={() => router.push("/(auth)/register")}
-                    style={styles.switchContainer}
-                >
-                    <Text style={styles.switchText}>New here? <Text style={{ color: Colors.primary }}>Create an account</Text></Text>
-                </TouchableOpacity>
+                <Animated.View entering={FadeInDown.delay(600)}>
+                    <AnimatedPressable
+                        onPress={() => router.push("/(auth)/register")}
+                        style={styles.switchContainer}
+                        scaleIn={0.98}
+                    >
+                        <Text style={styles.switchText}>New here? <Text style={{ color: Colors.primary }}>Create an account</Text></Text>
+                    </AnimatedPressable>
+                </Animated.View>
             </ScrollView>
         </KeyboardAvoidingView>
     );

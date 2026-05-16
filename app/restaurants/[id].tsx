@@ -20,6 +20,18 @@ import {
 } from "react-native";
 import { showAlert } from "@/store/useAlertStore";
 import { MenuCategory, MenuItem } from "@/types/restaurants";
+import Animated, { 
+    SlideInDown, 
+    SlideOutDown, 
+    useAnimatedScrollHandler, 
+    useAnimatedStyle, 
+    useSharedValue, 
+    interpolate, 
+    Extrapolate 
+} from "react-native-reanimated";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
+import { useToastStore } from "@/store/useToastStore";
+import LoadingLottie from "@/components/LoadingLottie";
 
 export default function RestaurantDetailScreen() {
     const { Colors, isDark } = useTheme();
@@ -29,6 +41,7 @@ export default function RestaurantDetailScreen() {
     const { data: restaurant, isPending, error, refetch } = useRestaurantDetail(id);
     const { addItem, items, updateQuantity, totalAmount } = useCartStore();
     const { selectedVegType } = useVegTypeStore();
+    const showToast = useToastStore((state) => state.showToast);
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -117,10 +130,38 @@ export default function RestaurantDetailScreen() {
 
     const reorderedCategories = getReorderedCategories();
 
+    const scrollY = useSharedValue(0);
+    const scrollHandler = useAnimatedScrollHandler((event) => {
+        scrollY.value = event.contentOffset.y;
+    });
+
+    const bannerAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [
+                {
+                    translateY: interpolate(
+                        scrollY.value,
+                        [-260, 0, 260],
+                        [-260 / 2, 0, 260 * 0.75],
+                        Extrapolate.CLAMP
+                    ),
+                },
+                {
+                    scale: interpolate(
+                        scrollY.value,
+                        [-260, 0],
+                        [2, 1],
+                        Extrapolate.CLAMP
+                    ),
+                },
+            ],
+        };
+    });
+
     if (isPending) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+                <LoadingLottie message="Preparing the menu..." />
             </View>
         );
     }
@@ -138,8 +179,11 @@ export default function RestaurantDetailScreen() {
 
     return (
         <View style={styles.container}>
-            <ScrollView
+            <Animated.ScrollView
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
+                decelerationRate="normal"
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -150,21 +194,21 @@ export default function RestaurantDetailScreen() {
                 }
             >
                 <View>
-                    <View style={styles.imageHeader}>
+                    <Animated.View style={[styles.imageHeader, bannerAnimatedStyle]}>
                         <Image
                             source={{ uri: restaurant.image ?? getPlaceholderImage(restaurant.id) }}
                             style={styles.bannerImage}
                         />
-                        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                        <AnimatedPressable style={styles.backButton} onPress={() => router.back()} scaleIn={0.85}>
                             <Ionicons name="arrow-back" size={24} color={Colors.white} />
-                        </TouchableOpacity>
+                        </AnimatedPressable>
                         {restaurant.logo && (
                             <Image
                                 source={{ uri: restaurant.logo }}
                                 style={styles.logoOverlay}
                             />
                         )}
-                    </View>
+                    </Animated.View>
 
                     <View style={styles.infoSection}>
                         <View style={styles.headerInfoTop}>
@@ -245,30 +289,33 @@ export default function RestaurantDetailScreen() {
                                         <View style={styles.actionButtonWrapper}>
                                             {cartItem ? (
                                                 <View style={styles.quantityControls}>
-                                                    <TouchableOpacity
+                                                    <AnimatedPressable
                                                         onPress={() => updateQuantity(searchedItem.id, cartItem.quantity - 1)}
                                                         style={styles.qtyBtn}
-                                                        activeOpacity={0.6}
+                                                        scaleIn={0.8}
                                                     >
                                                         <Ionicons name="remove" size={18} color={Colors.primary} />
-                                                    </TouchableOpacity>
+                                                    </AnimatedPressable>
                                                     <Text style={styles.qtyText}>{cartItem.quantity}</Text>
-                                                    <TouchableOpacity
+                                                    <AnimatedPressable
                                                         onPress={() => updateQuantity(searchedItem.id, cartItem.quantity + 1)}
                                                         style={styles.qtyBtn}
-                                                        activeOpacity={0.6}
+                                                        scaleIn={0.8}
                                                     >
                                                         <Ionicons name="add" size={18} color={Colors.primary} />
-                                                    </TouchableOpacity>
+                                                    </AnimatedPressable>
                                                 </View>
                                             ) : (
-                                                <TouchableOpacity
+                                                <AnimatedPressable
                                                     style={styles.addButton}
-                                                    onPress={() => addItem(searchedItem, restaurant.id)}
-                                                    activeOpacity={0.8}
+                                                    onPress={() => {
+                                                        addItem(searchedItem, restaurant.id);
+                                                        showToast(`${searchedItem.name} added to cart`, 'success');
+                                                    }}
+                                                    scaleIn={0.9}
                                                 >
                                                     <Text style={styles.addButtonText}>ADD</Text>
-                                                </TouchableOpacity>
+                                                </AnimatedPressable>
                                             )}
                                         </View>
                                     </View>
@@ -341,30 +388,33 @@ export default function RestaurantDetailScreen() {
                                             <View style={styles.actionButtonWrapper}>
                                                 {cartItem ? (
                                                     <View style={styles.quantityControls}>
-                                                        <TouchableOpacity
+                                                        <AnimatedPressable
                                                             onPress={() => updateQuantity(item.id, cartItem.quantity - 1)}
                                                             style={styles.qtyBtn}
-                                                            activeOpacity={0.6}
+                                                            scaleIn={0.8}
                                                         >
                                                             <Ionicons name="remove" size={18} color={Colors.primary} />
-                                                        </TouchableOpacity>
+                                                        </AnimatedPressable>
                                                         <Text style={styles.qtyText}>{cartItem.quantity}</Text>
-                                                        <TouchableOpacity
+                                                        <AnimatedPressable
                                                             onPress={() => updateQuantity(item.id, cartItem.quantity + 1)}
                                                             style={styles.qtyBtn}
-                                                            activeOpacity={0.6}
+                                                            scaleIn={0.8}
                                                         >
                                                             <Ionicons name="add" size={18} color={Colors.primary} />
-                                                        </TouchableOpacity>
+                                                        </AnimatedPressable>
                                                     </View>
                                                 ) : (
-                                                    <TouchableOpacity
+                                                    <AnimatedPressable
                                                         style={styles.addButton}
-                                                        onPress={() => addItem(item, restaurant.id)}
-                                                        activeOpacity={0.8}
+                                                        onPress={() => {
+                                                            addItem(item, restaurant.id);
+                                                            showToast(`${item.name} added to cart`, 'success');
+                                                        }}
+                                                        scaleIn={0.9}
                                                     >
                                                         <Text style={styles.addButtonText}>ADD</Text>
-                                                    </TouchableOpacity>
+                                                    </AnimatedPressable>
                                                 )}
                                             </View>
                                         </View>
@@ -376,11 +426,19 @@ export default function RestaurantDetailScreen() {
                     })}
                 </View>
                 <View style={{ height: 120 }} />
-            </ScrollView>
+            </Animated.ScrollView>
 
            {cartCount > 0 && (
-                <View style={[styles.cartBannerWrapper, { bottom: cartBannerBottom }]}>
-                    <View style={styles.cartBanner}>
+                <Animated.View 
+                    entering={SlideInDown.springify().damping(26).stiffness(80).mass(1)}
+                    exiting={SlideOutDown.duration(300)}
+                    style={[styles.cartBannerWrapper, { bottom: cartBannerBottom }]}
+                >
+                    <AnimatedPressable 
+                        style={styles.cartBanner}
+                        onPress={() => router.push('/(tabs)/cart')}
+                        scaleIn={0.98}
+                    >
                         <View style={styles.cartContentLeft}>
                             <View style={styles.cartItemImagesContainer}>
                                 {items.slice(0, 3).map((item, index) => (
@@ -397,24 +455,21 @@ export default function RestaurantDetailScreen() {
                             </View>
                         </View>
                         <View style={styles.cartActions}>
-                            <TouchableOpacity 
+                            <AnimatedPressable 
                                 style={styles.clearCartBtn}
                                 onPress={handleClearCart}
-                                activeOpacity={0.7}
+                                scaleIn={0.8}
                             >
                                 <Ionicons name="trash-outline" size={18} color={Colors.white} />
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={styles.viewCartAction}
-                                onPress={() => router.push('/(tabs)/cart')}
-                                activeOpacity={0.7}
-                            >
+                            </AnimatedPressable>
+                            <View style={styles.viewCartAction}>
                                 <Ionicons name="arrow-forward" size={20} color={Colors.white} />
-                            </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
-                </View>
+                    </AnimatedPressable>
+                </Animated.View>
             )}
+
         </View>
     );
 }
@@ -873,14 +928,19 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     },
     searchedItemSection: {
         paddingHorizontal: 16,
-        paddingVertical: 14,
-        marginBottom: 16,
+        paddingTop: 0,
+        paddingBottom: 4,
+        marginBottom: 8,
     },
     searchedItemHeader: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
         marginBottom: 10,
+        backgroundColor: Colors.primary + '12',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        marginHorizontal: -16,
     },
     searchedItemLabel: {
         fontFamily: Fonts.brandMedium,

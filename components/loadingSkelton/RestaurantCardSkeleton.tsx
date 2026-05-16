@@ -1,21 +1,25 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { useTheme } from "@/context/ThemeContext";
+import Animated, { FadeOut } from "react-native-reanimated";
+import { useShimmer } from "@/hooks/useShimmer";
 
 export default function RestaurantCardSkeleton() {
   const { Colors, isDark } = useTheme();
   const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
+  const { pulseStyle } = useShimmer();
+
   return (
-    <View style={styles.card}>
-      <View style={styles.image} />
+    <Animated.View exiting={FadeOut.duration(300)} style={styles.card}>
+      <Animated.View style={[styles.image, pulseStyle]} />
 
       <View style={styles.content}>
         <View style={styles.row}>
-          <View style={styles.small} />
-          <View style={styles.small} />
+          <Animated.View style={[styles.small, pulseStyle]} />
+          <Animated.View style={[styles.small, pulseStyle]} />
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

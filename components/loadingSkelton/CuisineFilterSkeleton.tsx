@@ -1,10 +1,14 @@
 import { useTheme } from "@/context/ThemeContext";
 import React from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
+import Animated from "react-native-reanimated";
+import { useShimmer } from "@/hooks/useShimmer";
 
 export default function CuisineFilterSkeleton() {
   const { Colors, isDark } = useTheme();
   const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
+  const { pulseStyle } = useShimmer();
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -14,8 +18,8 @@ export default function CuisineFilterSkeleton() {
       >
         {Array.from({ length: 8 }).map((_, i) => (
           <View key={i} style={styles.chip}>
-            <View style={styles.circle} />
-            <View style={styles.label} />
+            <Animated.View style={[styles.circle, pulseStyle]} />
+            <Animated.View style={[styles.label, pulseStyle]} />
           </View>
         ))}
       </ScrollView>

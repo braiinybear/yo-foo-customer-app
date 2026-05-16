@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPlaceholderImage } from '@/constants/images';
 import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { UserOrder, OrderStatus, CurrentOrder } from '@/types/orders';
+import LoadingLottie from '@/components/LoadingLottie';
 
 const StatusBadge = ({ status, isDark, uiStyles }: { status: OrderStatus, isDark: boolean, uiStyles: any }) => {
     const getStatusStyles = () => {
@@ -289,11 +290,10 @@ export default function OrderHistoryScreen() {
     }, [ordersData, page]);
 
     const isLoading = currentLoading || (historyLoading && page === 1);
-
     if (isLoading) {
         return (
             <View style={uiStyles.centerContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+                <LoadingLottie message="Fetching your orders..." />
             </View>
         );
     }

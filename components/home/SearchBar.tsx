@@ -9,11 +9,20 @@ import {
     TouchableOpacity,
     View,
     Modal,
-    Animated,
-    Dimensions
+    Dimensions,
+    Pressable
 } from "react-native";
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withSpring, 
+    withTiming, 
+    interpolate, 
+    Extrapolate 
+} from "react-native-reanimated";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 import { useUpdateUser } from "@/hooks/useUpdateUser";
+import { AnimatedPressable } from "../AnimatedPressable";
 
 interface SearchBarProps {
     value: string;
@@ -46,15 +55,13 @@ export default function SearchBar({
     const styles = useMemo(() => createStyles(Colors), [Colors]);
     const { selectedVegType, setSelectedVegType } = useVegTypeStore();
     const [showFilter, setShowFilter] = useState(false);
-    const scaleAnim = React.useRef(new Animated.Value(0)).current;
+    
+    const focusAnim = useSharedValue(0);
+    const filterScale = useSharedValue(0);
 
     React.useEffect(() => {
-        Animated.timing(scaleAnim, {
-            toValue: showFilter ? 1 : 0,
-            duration: 250,
-            useNativeDriver: true,
-        }).start();
-    }, [showFilter, scaleAnim]);
+        filterScale.value = withSpring(showFilter ? 1 : 0, { damping: 15, stiffness: 150 });
+    }, [showFilter]);
 
     const { mutate: updateUser } = useUpdateUser();
 
@@ -62,48 +69,66 @@ export default function SearchBar({
         setSelectedVegType(type as any);
         setShowFilter(false);
 
-        // Update backend with veg preference
         if (type) {
             const isVeg = type !== "non-veg";
             updateUser({ isVeg });
         }
     };
+
     const selectedOption = VEG_OPTIONS.find(opt => opt.id === selectedVegType);
+
+    const rInputWrapperStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: interpolate(focusAnim.value, [0, 1], [1, 1.02]) }],
+        borderColor: interpolate(focusAnim.value, [0, 1], [0, 1]) === 1 ? Colors.primary : "rgba(255,255,255,0.15)",
+    }));
+
+    const rPopupStyle = useAnimatedStyle(() => ({
+        opacity: filterScale.value,
+        transform: [{ scale: interpolate(filterScale.value, [0, 1], [0.8, 1]) }],
+    }));
 
     return (
         <View style={styles.wrapper}>
-
-            {/* Search input */}
-            <View style={styles.inputWrapper}>
+            {/* Search input with elastic focus */}
+            <Animated.View style={[styles.inputWrapper, rInputWrapperStyle]}>
                 <View style={styles.searchIconWrap}>
                     <Ionicons name="search" size={16} color={Colors.primary} />
                 </View>
-                <TextInput
-                    style={styles.input}
-                    value={value}
-                    onChangeText={onChangeText}
-                    placeholder={placeholder}
-                    placeholderTextColor="rgba(255,255,255,0.4)"
-                    onPress={onSearchPress}
-                />
-            </View>
+                {onSearchPress ? (
+                    <Pressable style={styles.inputPressable} onPress={onSearchPress}>
+                        <Text style={[styles.inputPlaceholder, { color: "rgba(255,255,255,0.4)" }]}>
+                            {value || placeholder}
+                        </Text>
+                    </Pressable>
+                ) : (
+                    <TextInput
+                        style={styles.input}
+                        value={value}
+                        onChangeText={onChangeText}
+                        placeholder={placeholder}
+                        placeholderTextColor="rgba(255,255,255,0.4)"
+                        onFocus={() => { focusAnim.value = withSpring(1); }}
+                        onBlur={() => { focusAnim.value = withSpring(0); }}
+                    />
+                )}
+            </Animated.View>
 
             {/* Veg Type Filter Button */}
-            <TouchableOpacity
+            <AnimatedPressable
                 style={[
                     styles.vegToggle,
                     selectedOption && { backgroundColor: `${selectedOption.color}15`, borderColor: selectedOption.color }
                 ]}
                 onPress={() => setShowFilter(true)}
-                activeOpacity={0.8}
+                scaleIn={0.9}
             >
                 <Text style={styles.vegEmoji}>{selectedOption?.emoji || "🥦"}</Text>
                 <Text style={[styles.vegLabel, selectedOption && { color: selectedOption.color }]}>
                     {selectedOption?.label.split(" ")[0] || "VEG"}
                 </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
 
-            {/* Enhanced Popup Filter */}
+            {/* Reanimated Filter Modal */}
             <Modal
                 visible={showFilter}
                 transparent
@@ -115,22 +140,7 @@ export default function SearchBar({
                     activeOpacity={1}
                     onPressOut={() => setShowFilter(false)}
                 >
-                    <Animated.View 
-                        style={[
-                            styles.popupContainer,
-                            {
-                                opacity: scaleAnim,
-                                transform: [
-                                    {
-                                        scale: scaleAnim.interpolate({
-                                            inputRange: [0, 1],
-                                            outputRange: [0.8, 1],
-                                        }),
-                                    },
-                                ],
-                            },
-                        ]}
-                    >
+                    <Animated.View style={[styles.popupContainer, rPopupStyle]}>
                         <View style={styles.popupHeader}>
                             <Text style={styles.popupTitle}>Filter by Type</Text>
                             <TouchableOpacity onPress={() => setShowFilter(false)} style={styles.closeBtn}>
@@ -186,7 +196,6 @@ export default function SearchBar({
                     </Animated.View>
                 </TouchableOpacity>
             </Modal>
-
         </View>
     );
 }
@@ -203,12 +212,22 @@ const createStyles = (Colors: any) => StyleSheet.create({
         flex: 1,
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.08)", // Glass effect
+        backgroundColor: "rgba(255,255,255,0.08)",
         borderRadius: 25,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.15)",
         paddingHorizontal: 4,
         height: 48,
+    },
+    inputPressable: {
+        flex: 1,
+        height: '100%',
+        justifyContent: 'center',
+        paddingHorizontal: 8,
+    },
+    inputPlaceholder: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.sm,
     },
     searchIconWrap: {
         width: 36,
@@ -226,8 +245,6 @@ const createStyles = (Colors: any) => StyleSheet.create({
         color: Colors.white,
         paddingHorizontal: 8,
     },
-
-    // Enhanced Veg Toggle Button
     vegToggle: {
         alignItems: "center",
         justifyContent: "center",
@@ -250,15 +267,12 @@ const createStyles = (Colors: any) => StyleSheet.create({
         color: "rgba(255,255,255,0.8)",
         textAlign: "center",
     },
-
-    // Enhanced Modal Styles
     modalOverlay: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "rgba(0, 0, 0, 0.45)"
     },
-
     popupContainer: {
         backgroundColor: Colors.background,
         borderRadius: 20,
@@ -271,7 +285,6 @@ const createStyles = (Colors: any) => StyleSheet.create({
         shadowRadius: 24,
         elevation: 12,
     },
-
     popupHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -281,13 +294,11 @@ const createStyles = (Colors: any) => StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
     },
-
     popupTitle: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.lg,
         color: Colors.text,
     },
-
     closeBtn: {
         width: 32,
         height: 32,
@@ -296,13 +307,11 @@ const createStyles = (Colors: any) => StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-
     optionsContainer: {
         paddingHorizontal: 16,
         paddingVertical: 14,
         gap: 10,
     },
-
     popupOption: {
         flexDirection: "row",
         alignItems: "center",
@@ -314,28 +323,23 @@ const createStyles = (Colors: any) => StyleSheet.create({
         backgroundColor: Colors.surface,
         gap: 12,
     },
-
     optionEmoji: {
         fontSize: 26,
     },
-
     optionTextContainer: {
         flex: 1,
         gap: 2,
     },
-
     optionLabel: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
         color: Colors.text,
     },
-
     optionDescription: {
         fontFamily: Fonts.brand,
         fontSize: 11,
         color: Colors.muted,
     },
-
     clearButton: {
         marginHorizontal: 16,
         marginBottom: 16,
@@ -346,7 +350,6 @@ const createStyles = (Colors: any) => StyleSheet.create({
         alignItems: "center",
         backgroundColor: Colors.border + "15",
     },
-
     clearButtonText: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.sm,

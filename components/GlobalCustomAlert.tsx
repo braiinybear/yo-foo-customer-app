@@ -1,11 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
-  Animated,
   Dimensions,
   Modal,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +15,16 @@ import {
   AlertType,
   useAlertStore,
 } from "@/store/useAlertStore";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  Extrapolate,
+} from "react-native-reanimated";
+import { AnimatedPressable } from "./AnimatedPressable";
+import { ANIMATION } from "@/animations/constants";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const MODAL_WIDTH = Math.min(SCREEN_WIDTH - 48, 360);
@@ -26,216 +34,76 @@ export default function GlobalCustomAlert() {
   const { Colors, isDark } = useTheme();
   const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
-  // ─── Icon config per alert type ────────────────────────────────────────
-  const ICON_CONFIG: Record<
-    AlertType,
-    {
-      name: keyof typeof Ionicons.glyphMap;
-      bg: string;
-      color: string;
-    }
-  > = {
-    success: {
-      name: "checkmark-circle",
-      bg: "#E8F5E9",
-      color: Colors.success,
-    },
-    error: {
-      name: "close-circle",
-      bg: "#FFEBEE",
-      color: Colors.danger,
-    },
-    warning: {
-      name: "warning",
-      bg: "#FFF3E0",
-      color: Colors.warning,
-    },
-    info: {
-      name: "information-circle",
-      bg: "#E0F2F1",
-      color: Colors.primary,
-    },
-    confirm: {
-      name: "help-circle",
-      bg: "#FFF8E1",
-      color: Colors.secondary,
-    },
-  };
-
-  // ─── Button style helpers ──────────────────────────────────────────────
-  function getButtonStyles(
-    style: AlertButtonStyle | undefined,
-    isOnly: boolean,
-    index: number,
-    total: number
-  ) {
-    const base: any = {
-      flex: 1,
-      paddingVertical: 14,
-      borderRadius: 14,
-      alignItems: "center" as const,
-      justifyContent: "center" as const,
-    };
-
-    if (style === "destructive") {
-      return {
-        ...base,
-        backgroundColor: Colors.danger,
-      };
-    }
-    if (style === "cancel") {
-      return {
-        ...base,
-        backgroundColor: Colors.background,
-        borderWidth: 1,
-        borderColor: Colors.border,
-      };
-    }
-    // default / primary
-    if (isOnly || index === total - 1) {
-      return {
-        ...base,
-        backgroundColor: Colors.primary,
-      };
-    }
-    return {
-      ...base,
-      backgroundColor: Colors.background,
-      borderWidth: 1,
-      borderColor: Colors.border,
-    };
-  }
-
-  function getButtonTextColor(
-    style: AlertButtonStyle | undefined,
-    isOnly: boolean,
-    index: number,
-    total: number
-  ): string {
-    if (style === "destructive") return "#FFF";
-    if (style === "cancel") return Colors.text;
-    if (isOnly || index === total - 1) return Colors.background;
-    return Colors.text;
-  }
-
-  // ─── Animations ────────────────────────────────────────────────────
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const modalScale = useRef(new Animated.Value(0.85)).current;
-  const modalOpacity = useRef(new Animated.Value(0)).current;
+  const progress = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(modalScale, {
-          toValue: 1,
-          damping: 18,
-          stiffness: 200,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(modalOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      progress.value = withSpring(1, ANIMATION.spring.heavy);
     } else {
-      backdropOpacity.setValue(0);
-      modalScale.setValue(0.85);
-      modalOpacity.setValue(0);
+      progress.value = withTiming(0, { duration: 200 });
     }
   }, [visible]);
 
+  const rBackdropStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+  }));
+
+  const rModalStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [
+      { scale: interpolate(progress.value, [0, 1], [0.85, 1]) },
+      { translateY: interpolate(progress.value, [0, 1], [20, 0]) },
+    ],
+  }));
+
+  const ICON_CONFIG: Record<AlertType, { name: keyof typeof Ionicons.glyphMap; bg: string; color: string }> = {
+    success: { name: "checkmark-circle", bg: Colors.success + "15", color: Colors.success },
+    error: { name: "close-circle", bg: Colors.danger + "15", color: Colors.danger },
+    warning: { name: "warning", bg: Colors.warning + "15", color: Colors.warning },
+    info: { name: "information-circle", bg: Colors.primary + "15", color: Colors.primary },
+    confirm: { name: "help-circle", bg: Colors.secondary + "15", color: Colors.secondary },
+  };
+
   const handlePress = (btn: AlertButton) => {
     hide();
-    // Small delay so hide animation fires before callback
-    setTimeout(() => btn.onPress?.(), 80);
+    setTimeout(() => btn.onPress?.(), 100);
   };
 
   const icon = ICON_CONFIG[type] ?? ICON_CONFIG.info;
-
-  // Sort buttons: cancel first, destructive/default last
-  const sortedButtons = [...buttons].sort((a, b) => {
-    if (a.style === "cancel") return -1;
-    if (b.style === "cancel") return 1;
-    return 0;
-  });
+  const sortedButtons = [...buttons].sort((a) => (a.style === "cancel" ? -1 : 1));
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      onRequestClose={() => {
-        // If there's a cancel button, press it; otherwise just hide
-        const cancelBtn = buttons.find((b) => b.style === "cancel");
-        if (cancelBtn) {
-          handlePress(cancelBtn);
-        } else {
-          hide();
-        }
-      }}
-    >
-      <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
-        <Animated.View
-          style={[
-            styles.modal,
-            {
-              transform: [{ scale: modalScale }],
-              opacity: modalOpacity,
-            },
-          ]}
-        >
-          {/* Icon */}
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      <Animated.View style={[styles.backdrop, rBackdropStyle]}>
+        <Animated.View style={[styles.modal, rModalStyle]}>
           <View style={[styles.iconCircle, { backgroundColor: icon.bg }]}>
             <Ionicons name={icon.name} size={36} color={icon.color} />
           </View>
 
-          {/* Title */}
           <Text style={styles.title}>{title}</Text>
-
-          {/* Message */}
           {message ? <Text style={styles.message}>{message}</Text> : null}
 
-          {/* Buttons */}
-          <View
-            style={[
-              styles.buttonRow,
-              sortedButtons.length === 1 && { justifyContent: "center" },
-            ]}
-          >
+          <View style={[styles.buttonRow, sortedButtons.length === 1 && { justifyContent: "center" }]}>
             {sortedButtons.map((btn, i) => {
-              const isOnly = sortedButtons.length === 1;
-              const btnStyle = getButtonStyles(
-                btn.style,
-                isOnly,
-                i,
-                sortedButtons.length
-              );
-              const textColor = getButtonTextColor(
-                btn.style,
-                isOnly,
-                i,
-                sortedButtons.length
-              );
-
+              const isPrimary = btn.style !== "cancel";
               return (
-                <TouchableOpacity
+                <AnimatedPressable
                   key={`${btn.text}-${i}`}
-                  style={btnStyle}
-                  activeOpacity={0.8}
+                  style={[
+                    styles.button,
+                    isPrimary ? styles.buttonPrimary : styles.buttonCancel,
+                    btn.style === "destructive" && { backgroundColor: Colors.danger },
+                  ]}
                   onPress={() => handlePress(btn)}
+                  scaleIn={0.95}
                 >
-                  <Text style={[styles.buttonText, { color: textColor }]}>
+                  <Text style={[
+                    styles.buttonText, 
+                    { color: isPrimary ? (isDark ? Colors.background : Colors.primary) : Colors.textSecondary }
+                  ]}>
                     {btn.text}
                   </Text>
-                </TouchableOpacity>
+                </AnimatedPressable>
               );
             })}
           </View>
@@ -261,11 +129,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     paddingBottom: 20,
     paddingHorizontal: 24,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 30,
-    elevation: 20,
   },
   iconCircle: {
     width: 64,
@@ -289,16 +152,29 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 24,
-    paddingHorizontal: 4,
   },
   buttonRow: {
     flexDirection: "row",
     gap: 12,
     width: "100%",
   },
+  button: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonPrimary: {
+    backgroundColor: isDark ? Colors.primary : Colors.secondary,
+  },
+  buttonCancel: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   buttonText: {
     fontFamily: Fonts.brandBold,
     fontSize: FontSize.sm,
-    letterSpacing: 0.3,
   },
 });

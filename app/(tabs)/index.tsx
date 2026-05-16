@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -19,7 +20,8 @@ import Animated, {
   withTiming,
   Extrapolation,
   useDerivedValue,
-  Easing
+  Easing,
+  LinearTransition
 } from 'react-native-reanimated';
 
 // ── Home components ───────────────────────────────────────────────────────────
@@ -81,7 +83,7 @@ export default function Index() {
   
   // ── Header Animations (Reanimated) ──────────────────────────────────────
   const FIXED_HEADER_HEIGHT = 100;
-  const HIDEABLE_HEIGHT = 180;
+  const HIDEABLE_HEIGHT = 75; // Only hide SearchBar (approx 75px)
   
   const scrollY = useSharedValue(0);
   const lastScrollY = useSharedValue(0);
@@ -146,11 +148,12 @@ export default function Index() {
       let matchesVegType = true;
       if (selectedVegType && restaurant.type) {
         if (selectedVegType === "veg") {
-          matchesVegType = restaurant.type === "VEG";
+          matchesVegType = restaurant.type === "VEG" || restaurant.type === "VEGAN";
         } else if (selectedVegType === "non-veg") {
-          matchesVegType = restaurant.type === "NON_VEG";
+          // If non-veg is selected, show everything (Veg, Vegan, and Non-Veg)
+          matchesVegType = true;
         } else if (selectedVegType === "vegan") {
-          matchesVegType = restaurant.type === "VEGAN";
+          matchesVegType = restaurant.type === "VEGAN" || restaurant.type === "VEG";
         }
       }
 
@@ -190,8 +193,8 @@ export default function Index() {
   // ── Header (rendered inside FlatList as ListHeaderComponent) ─────────────
   const ListHeader = (
     <View>
-      {/* Spacer for floating headers (Fixed(100) + Hideable(180)) */}
-      <View style={{ height: FIXED_HEADER_HEIGHT + HIDEABLE_HEIGHT - 20 }} />
+      {/* Spacer for floating headers (Fixed(100) + Floating(160)) */}
+      <View style={{ height: FIXED_HEADER_HEIGHT + 160 }} />
 
       <View style={styles.sectionHeader}>
         {isRestaurantsError && (
@@ -292,9 +295,16 @@ export default function Index() {
         keyExtractor={(r) => r.id}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        renderItem={({ item }) => (
+        decelerationRate="normal"
+        removeClippedSubviews={Platform.OS === 'android'}
+        initialNumToRender={4}
+        maxToRenderPerBatch={6}
+        windowSize={11}
+        itemLayoutAnimation={LinearTransition.springify().damping(28).stiffness(80).mass(1.2)}
+        renderItem={({ item, index }) => (
           <RestaurantCard
             restaurant={item}
+            index={index}
             onPress={() =>
               router.push({
                 pathname: "/restaurants/[id]",
@@ -315,7 +325,7 @@ export default function Index() {
             onRefresh={onRefresh}
             colors={[Colors.primary]}
             tintColor={Colors.primary}
-            progressViewOffset={FIXED_HEADER_HEIGHT + 60}
+            progressViewOffset={FIXED_HEADER_HEIGHT + HIDEABLE_HEIGHT + 20}
           />
         }
       />

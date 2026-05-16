@@ -9,6 +9,8 @@ import {
     RefreshControl,
     Image
 } from 'react-native';
+import Animated, { FadeInRight } from 'react-native-reanimated';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useTheme } from '@/context/ThemeContext';
 import { Fonts, FontSize } from '@/constants/typography';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -82,42 +84,44 @@ export default function NotificationScreen() {
         }
     };
 
-    const renderItem = ({ item }: { item: Notification }) => {
+    const renderItem = ({ item, index }: { item: Notification, index: number }) => {
         const isOrderUpdate = item.type === 'ORDER_UPDATE';
         
         return (
-            <TouchableOpacity 
-                style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
-                onPress={() => handleNotificationPress(item)}
-                activeOpacity={0.7}
-            >
-                <View style={[styles.iconContainer, { backgroundColor: isOrderUpdate ? Colors.primary + '15' : Colors.border + '30' }]}>
-                    <MaterialCommunityIcons 
-                        name={isOrderUpdate ? "package-variant-closed" : "bell-outline"} 
-                        size={24} 
-                        color={isOrderUpdate ? Colors.primary : Colors.muted} 
-                    />
-                </View>
-
-                <View style={styles.contentContainer}>
-                    <View style={styles.titleRow}>
-                        <Text style={[styles.title, !item.isRead && styles.unreadText]} numberOfLines={1}>
-                            {item.title}
-                        </Text>
-                        {!item.isRead && <View style={styles.unreadDot} />}
+            <Animated.View entering={FadeInRight.delay(index * 50).springify().damping(20)}>
+                <AnimatedPressable 
+                    style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
+                    onPress={() => handleNotificationPress(item)}
+                    scaleIn={0.98}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: isOrderUpdate ? Colors.primary + '15' : Colors.border + '30' }]}>
+                        <MaterialCommunityIcons 
+                            name={isOrderUpdate ? "package-variant-closed" : "bell-outline"} 
+                            size={24} 
+                            color={isOrderUpdate ? Colors.primary : Colors.muted} 
+                        />
                     </View>
-                    
-                    <Text style={styles.body} numberOfLines={2}>
-                        {item.body}
-                    </Text>
-                    
-                    <Text style={styles.timeAgo}>
-                        {getTimeAgo(item.createdAt)}
-                    </Text>
-                </View>
 
-                <Ionicons name="chevron-forward" size={16} color={Colors.border} />
-            </TouchableOpacity>
+                    <View style={styles.contentContainer}>
+                        <View style={styles.titleRow}>
+                            <Text style={[styles.title, !item.isRead && styles.unreadText]} numberOfLines={1}>
+                                {item.title}
+                            </Text>
+                            {!item.isRead && <View style={styles.unreadDot} />}
+                        </View>
+                        
+                        <Text style={styles.body} numberOfLines={2}>
+                            {item.body}
+                        </Text>
+                        
+                        <Text style={styles.timeAgo}>
+                            {getTimeAgo(item.createdAt)}
+                        </Text>
+                    </View>
+
+                    <Ionicons name="chevron-forward" size={16} color={Colors.border} />
+                </AnimatedPressable>
+            </Animated.View>
         );
     };
 

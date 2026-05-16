@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { AnimatedPressable } from "../AnimatedPressable";
 
 
 interface CuisineFilterProps {
@@ -52,15 +53,16 @@ export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineF
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                decelerationRate="fast"
             >
                 {cuisines.map((item) => {
                     const isActive = selected === item;
                     return (
-                        <TouchableOpacity
+                        <AnimatedPressable
                             key={item}
                             style={[styles.chip, isActive && styles.chipActive]}
                             onPress={() => onSelect(item)}
-                            activeOpacity={0.75}
+                            scaleIn={0.94}
                         >
                         <View style={[styles.emojiWrapper, isActive && styles.emojiWrapperActive]}>
                             <Image 
@@ -73,7 +75,7 @@ export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineF
                             <Text style={[styles.label, isActive && styles.labelActive]}>
                                 {item}
                             </Text>
-                        </TouchableOpacity>
+                        </AnimatedPressable>
                     );
                 })}
             </ScrollView>

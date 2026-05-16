@@ -11,6 +11,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import RazorpayCheckout from "react-native-razorpay";
+import Animated, { FadeInDown, ZoomIn, useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming, interpolate } from "react-native-reanimated";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
 
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
@@ -115,14 +117,14 @@ export default function CheckoutScreen() {
                 currency: razorpayOrder.currency ?? "INR",
                 key: RAZORPAY_KEY_ID,
                 amount: String(razorpayOrder.amount), // in paise, must be string
-                name: "Yo Foo",
+                name: "Braiiny Food",
                 order_id: razorpayOrder.id,
                 prefill: {
                     email: session?.user?.email ?? "",
                     contact: session?.user?.phoneNumber ?? "",
                     name: session?.user?.name ?? "",
                 },
-                theme: { color: Colors.primary },
+                theme: { color: Colors.secondary },
             };
 
             const razorpayResponse = await RazorpayCheckout.open(options);
@@ -158,28 +160,70 @@ export default function CheckoutScreen() {
     };
 
     // ── Success view ──────────────────────────────────────────────────────────
+    const successScale = useSharedValue(0);
+    const successOpacity = useSharedValue(0);
+    const successRingScale = useSharedValue(0);
+    const successRingOpacity = useSharedValue(0);
+
+    React.useEffect(() => {
+        if (step === "success") {
+            // Sequence: Pop -> Ring -> Content
+            successScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+            
+            successRingScale.value = withDelay(200, withSpring(1.5, { damping: 20, stiffness: 100 }));
+            successRingOpacity.value = withDelay(200, withTiming(0, { duration: 1000 }));
+            
+            successOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
+        }
+    }, [step]);
+
+    const rSuccessIconStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: successScale.value }],
+    }));
+
+    const rSuccessRingStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: successRingScale.value }],
+        opacity: successRingOpacity.value,
+    }));
+
+    const rContentStyle = useAnimatedStyle(() => ({
+        opacity: successOpacity.value,
+        alignItems: 'center',
+        transform: [{ translateY: interpolate(successOpacity.value, [0, 1], [20, 0]) }],
+    }));
+
     if (step === "success") {
         return (
             <View style={[styles.fullCenter, { paddingTop: insets.top }]}>
-                <View style={styles.successIcon}>
-                    <Ionicons name="checkmark-circle" size={90} color={Colors.success} />
+                <View style={styles.successIconWrapper}>
+                    <Animated.View style={[styles.successRing, rSuccessRingStyle]} />
+                    <Animated.View style={[styles.successIcon, rSuccessIconStyle]}>
+                        <Ionicons name="checkmark-circle" size={100} color={Colors.success} />
+                    </Animated.View>
                 </View>
-                <Text style={styles.successTitle}>Payment Successful!</Text>
-                <Text style={styles.successSubtitle}>
-                    Your order has been confirmed and is being prepared.
-                </Text>
-                <TouchableOpacity
-                    style={styles.primaryButton}
-                    onPress={() => router.replace("/(tabs)/orders")}
-                >
-                    <Text style={styles.primaryButtonText}>Track My Order</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.ghostButton}
-                    onPress={() => router.replace("/(tabs)")}
-                >
-                    <Text style={styles.ghostButtonText}>Back to Home</Text>
-                </TouchableOpacity>
+                
+                <Animated.View style={[rContentStyle, { width: '100%' }]}>
+                    <Text style={styles.successTitle}>Payment Successful!</Text>
+                    <Text style={styles.successSubtitle}>
+                        Your order has been confirmed and is being prepared.
+                    </Text>
+
+                    <View style={{ width: '100%', paddingHorizontal: 20 }}>
+                        <AnimatedPressable
+                            style={styles.primaryButton}
+                            onPress={() => router.replace("/(tabs)/orders")}
+                        >
+                            <Text style={styles.primaryButtonText}>Track My Order</Text>
+                        </AnimatedPressable>
+                        <AnimatedPressable
+                            style={styles.ghostButton}
+                            onPress={() => router.replace("/(tabs)")}
+                            scaleIn={0.98}
+                        >
+                            <Text style={styles.ghostButtonText}>Back to Home</Text>
+                        </AnimatedPressable>
+                    </View>
+                </Animated.View>
             </View>
         );
     }
@@ -191,7 +235,7 @@ export default function CheckoutScreen() {
         step === "verifying";
 
     return (
-        <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.root}>
             <CouponDetailModal
                 visible={isCouponModalVisible}
                 coupon={selectedCoupon}
@@ -252,16 +296,17 @@ export default function CheckoutScreen() {
                             <Text style={styles.availableTitle}>Available for you:</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                                 {availableCoupons.map(c => (
-                                    <TouchableOpacity
+                                    <AnimatedPressable
                                         key={c.id}
                                         style={styles.availableItem}
                                         onPress={() => {
                                             setSelectedCoupon(c);
                                             setIsCouponModalVisible(true);
                                         }}
+                                        scaleIn={0.9}
                                     >
                                         <Text style={styles.availableItemText}>{c.code}</Text>
-                                    </TouchableOpacity>
+                                    </AnimatedPressable>
                                 ))}
                             </ScrollView>
                         </View>
@@ -348,16 +393,16 @@ export default function CheckoutScreen() {
                 )}
 
                 {step === "failed" ? (
-                    <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+                    <AnimatedPressable style={styles.retryButton} onPress={handleRetry} scaleIn={0.95}>
                         <Ionicons name="refresh" size={18} color={Colors.white} />
                         <Text style={styles.payButtonText}>Retry Payment</Text>
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                 ) : (
-                    <TouchableOpacity
+                    <AnimatedPressable
                         style={[styles.payButton, isProcessing && styles.payButtonDisabled]}
                         onPress={handlePayNow}
                         disabled={isProcessing}
-                        activeOpacity={0.85}
+                        scaleIn={0.96}
                     >
                         {isProcessing ? (
                             <ActivityIndicator color={Colors.white} />
@@ -369,7 +414,7 @@ export default function CheckoutScreen() {
                                 </Text>
                             </>
                         )}
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                 )}
 
                 <Text style={styles.secureNote}>
@@ -416,6 +461,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     scroll: { flex: 1 },
     scrollContent: {
         padding: 16,
+        paddingTop: 8,
         gap: 14,
     },
 
@@ -634,8 +680,23 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         padding: 32,
         backgroundColor: Colors.background,
     },
-    successIcon: {
+    successIconWrapper: {
+        width: 140,
+        height: 140,
+        alignItems: "center",
+        justifyContent: "center",
         marginBottom: 24,
+    },
+    successRing: {
+        position: 'absolute',
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 4,
+        borderColor: Colors.success,
+    },
+    successIcon: {
+        zIndex: 1,
     },
 
     // ── Coupons Styles ──────────────────────────────────────────────────────

@@ -762,7 +762,9 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         backgroundColor: Colors.background,
         paddingHorizontal: 20,
         paddingTop: 12,
-        paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+        paddingBottom: Platform.OS === 'ios' ? 60 : 40,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border,
     },
     submitButton: {
         backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy main action button

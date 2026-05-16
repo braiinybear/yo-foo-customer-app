@@ -13,6 +13,7 @@ import {
     Modal,
     TextInput,
     KeyboardAvoidingView,
+    RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +31,7 @@ import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar'
 // import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { OrderStatus } from '@/types/orders';
+import LoadingLottie from '@/components/LoadingLottie';
 
 // ─── Premium Google Maps Styles ──────────────────────────────────────────────
 const MAP_STYLE_LIGHT = [
@@ -204,6 +206,13 @@ export default function OrderDetailScreen() {
     const [reviewComment, setReviewComment] = useState('');
     const { mutate: submitReview, isPending: isSubmittingReview } = useSubmitReview();
     const reviewModalRef = useRef<View>(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await refetch();
+        setRefreshing(false);
+    }, [refetch]);
 
     // ─── Auto-open review modal from deep link ─────────────────────────────────
     useEffect(() => {
@@ -243,7 +252,7 @@ export default function OrderDetailScreen() {
     }));
 
     useEffect(() => {
-        if (displayDriverLocation) {
+        if (displayDriverLocation?.lat != null && displayDriverLocation?.lng != null) {
             const newCoordinate = {
                 latitude: displayDriverLocation.lat,
                 longitude: displayDriverLocation.lng,
@@ -418,8 +427,7 @@ export default function OrderDetailScreen() {
     if (isLoading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={styles.loadingText}>Loading order details…</Text>
+                <LoadingLottie message="Fetching order details..." />
             </View>
         );
     }
@@ -536,6 +544,15 @@ export default function OrderDetailScreen() {
                 style={styles.scrollViewContainer}
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
+                decelerationRate="normal"
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[Colors.primary]}
+                        tintColor={Colors.primary}
+                    />
+                }
             >
                 {/* ── Status Banner ────────────────────────────────────── */}
                 <View style={[styles.statusBanner, { backgroundColor: sc.bg }]}>

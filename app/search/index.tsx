@@ -14,7 +14,8 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
-  StatusBar
+  StatusBar,
+  RefreshControl
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
@@ -65,9 +66,8 @@ export default function SearchPage() {
 
   // Map store vegType ("veg" | "non-veg" | "vegan") to API type ("VEG" | "NON_VEG" | "VEGAN")
   const vegTypeForAPI = useMemo(() => {
-    if (!selectedVegType) return null;
     if (selectedVegType === "veg") return "VEG";
-    if (selectedVegType === "non-veg") return "NON_VEG";
+    if (selectedVegType === "non-veg") return null; // Show all when non-veg selected
     if (selectedVegType === "vegan") return "VEGAN";
     return null;
   }, [selectedVegType]);
@@ -505,6 +505,14 @@ export default function SearchPage() {
                 keyExtractor={(item) => item.menuItemId}
                 renderItem={renderRestaurantCard}
                 contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isPending}
+                    onRefresh={refetch}
+                    colors={[Colors.primary]}
+                    tintColor={Colors.primary}
+                  />
+                }
                 scrollEventThrottle={16}
                 ListEmptyComponent={
                   <View style={styles.emptyState}>

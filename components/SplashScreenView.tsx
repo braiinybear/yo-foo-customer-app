@@ -1,7 +1,16 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts } from "@/constants/typography";
-import React, { useEffect, useRef } from "react";
-import { Animated, Image, StyleSheet } from "react-native";
+import React, { useEffect } from "react";
+import { StyleSheet, Image } from "react-native";
+import Animated, { 
+    useSharedValue, 
+    useAnimatedStyle, 
+    withTiming, 
+    withSpring, 
+    withDelay, 
+    runOnJS,
+    withSequence
+} from "react-native-reanimated";
 
 export default function SplashScreenView({
     onFinish,
@@ -10,59 +19,41 @@ export default function SplashScreenView({
 }) {
     const { Colors, isDark } = useTheme();
     const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
-    const logoScale = useRef(new Animated.Value(0.7)).current;
-    const logoOpacity = useRef(new Animated.Value(0)).current;
-    const textOpacity = useRef(new Animated.Value(0)).current;
-    const taglineOpacity = useRef(new Animated.Value(0)).current;
-    const screenOpacity = useRef(new Animated.Value(1)).current;
+    
+    const logoScale = useSharedValue(0.3);
+    const logoOpacity = useSharedValue(0);
+    const screenOpacity = useSharedValue(1);
+
+    const logoStyle = useAnimatedStyle(() => ({
+        opacity: logoOpacity.value,
+        transform: [{ scale: logoScale.value }],
+    }));
+
+    const containerStyle = useAnimatedStyle(() => ({
+        opacity: screenOpacity.value,
+    }));
 
     useEffect(() => {
-        Animated.sequence([
-            // 1. Logo pops in
-            Animated.parallel([
-                Animated.spring(logoScale, {
-                    toValue: 1,
-                    friction: 5,
-                    tension: 80,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(logoOpacity, {
-                    toValue: 1,
-                    duration: 400,
-                    useNativeDriver: true,
-                }),
-            ]),
-            // 2. App name fades in
-            Animated.timing(textOpacity, {
-                toValue: 1,
-                duration: 350,
-                useNativeDriver: true,
-            }),
-            // 3. Tagline fades in
-            Animated.timing(taglineOpacity, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-            }),
-            // 4. Hold for a moment
-            Animated.delay(600),
-            // 5. Entire screen fades out
-            Animated.timing(screenOpacity, {
-                toValue: 0,
-                duration: 450,
-                useNativeDriver: true,
-            }),
-        ]).start(() => onFinish());
+        // Entrance Sequence
+        logoOpacity.value = withTiming(1, { duration: 600 });
+        logoScale.value = withSpring(1, { damping: 20, stiffness: 80, mass: 1 });
+
+        // Exit Sequence
+        const finish = () => {
+            screenOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
+                if (finished) {
+                    runOnJS(onFinish)();
+                }
+            });
+        };
+
+        const timer = setTimeout(finish, 1800);
+        return () => clearTimeout(timer);
     }, []);
 
     return (
-        <Animated.View style={[styles.container, { opacity: screenOpacity }]}>
-            <Animated.View
-                style={[
-                    styles.logoWrapper,
-                    { opacity: logoOpacity, transform: [{ scale: logoScale }] },
-                ]}
-            >
+        <Animated.View style={[styles.container, containerStyle]}>
+            <Animated.View style={[styles.logoWrapper, logoStyle]}>
                 <Image
                     source={require("@/assets/images/app-logo.png")}
                     style={styles.logo}

@@ -16,6 +16,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { showAlert } from "@/store/useAlertStore";
 
 export default function Register() {
@@ -73,14 +75,16 @@ export default function Register() {
                 keyboardShouldPersistTaps="handled"
             >
                 {/* Logo */}
-                <Image
-                    source={require("@/assets/images/app-logo.png")}
-                    style={styles.logo}
-                    resizeMode="contain"
-                />
+                <Animated.View entering={FadeInDown.springify()}>
+                    <Image
+                        source={require("@/assets/images/app-logo.png")}
+                        style={styles.logo}
+                        resizeMode="contain"
+                    />
+                </Animated.View>
 
                 {/* ── Email Sign-up Section ── */}
-                <View style={styles.section}>
+                <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section}>
                     <Text style={styles.sectionLabel}>Create Account</Text>
 
                     <TextInput
@@ -122,10 +126,12 @@ export default function Register() {
                     }
                     {
                         !haveReferralCode && (
-                            <Text onPress={() => setHaveReferralCode(true)} style={styles.referralCodeText}>Have a referral code?</Text>
+                            <AnimatedPressable onPress={() => setHaveReferralCode(true)} style={styles.referralCodeText} scaleIn={0.98}>
+                                <Text style={styles.referralCodeText}>Have a referral code?</Text>
+                            </AnimatedPressable>
                         )
                     }
-                    <TouchableOpacity
+                    <AnimatedPressable
                         style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
                         onPress={handleRegister}
                         disabled={isLoading}
@@ -138,37 +144,43 @@ export default function Register() {
                         ) : (
                             <Text style={styles.primaryButtonText}>Create Account</Text>
                         )}
-                    </TouchableOpacity>
-                </View>
+                    </AnimatedPressable>
+                </Animated.View>
 
                 {/* ── Divider ── */}
-                <View style={styles.dividerContainer}>
+                <Animated.View entering={FadeInDown.delay(400)} style={styles.dividerContainer}>
                     <View style={styles.divider} />
                     <Text style={styles.dividerText}>or continue with</Text>
                     <View style={styles.divider} />
-                </View>
+                </Animated.View>
 
                 {/* ── Google ── */}
-                <TouchableOpacity
-                    style={styles.googleButton}
-                    onPress={handleGoogleRegister}
-                    disabled={isLoading}
-                >
-                    <Image
-                        source={require("@/assets/images/google-logo.png")}
-                        style={styles.googleIcon}
-                        resizeMode="contain"
-                    />
-                    <Text style={styles.googleButtonText}>Continue with Google</Text>
-                </TouchableOpacity>
+                <Animated.View entering={FadeInDown.delay(500).springify()}>
+                    <AnimatedPressable
+                        style={styles.googleButton}
+                        onPress={handleGoogleRegister}
+                        disabled={isLoading}
+                    >
+                        <Image
+                            source={require("@/assets/images/google-logo.png")}
+                            style={styles.googleIcon}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                    </AnimatedPressable>
+                </Animated.View>
 
                 {/* ── Sign in link ── */}
-                <TouchableOpacity
-                    onPress={() => router.push("/(auth)/login")}
-                    style={styles.switchContainer}
-                >
-                    <Text style={styles.switchText}>Already have an account? <Text style={{ color: Colors.primary }}>Sign In</Text></Text>
-                </TouchableOpacity>
+                <Animated.View entering={FadeInDown.delay(600)}>
+                    <AnimatedPressable
+                        onPress={() => router.push("/(auth)/login")}
+                        style={styles.switchContainer}
+                        scaleIn={0.98}
+                    >
+                        <Text style={styles.switchText}>Already have an account? <Text style={{ color: Colors.primary }}>Sign In</Text></Text>
+                    </AnimatedPressable>
+                </Animated.View>
+
             </ScrollView>
         </KeyboardAvoidingView>
     );

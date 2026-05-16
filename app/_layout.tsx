@@ -1,5 +1,6 @@
 
 import { authClient } from "@/lib/auth-client";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import {
   Nunito_400Regular,
@@ -25,6 +26,7 @@ import {
 } from "react-native";
 
 import GlobalCustomAlert from "@/components/GlobalCustomAlert";
+import { AnimatedToast } from "@/components/AnimatedToast";
 
 import { NotificationProvider } from "@/context/NotificationContext";
 import * as Notifications from "expo-notifications";
@@ -113,7 +115,7 @@ function ThemedRoot() {
       if (nextAppState === "active") {
         setIsResuming(true);
         // Delay to allow auth session to settle on resume
-        setTimeout(() => setIsResuming(false), 3000);
+        setTimeout(() => setIsResuming(false), 3500);
       }
     });
 
@@ -163,14 +165,14 @@ function ThemedRoot() {
   // 5. We have a session but it's currently being verified with the server (isUserLoading)
   if (isPending || !splashFinished || (!session && !inAuthGroup) || (isResuming && !session) || (session && isUserLoading)) {
     return (
-      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+      <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <SplashScreenView onFinish={() => setSplashFinished(true)} />
-      </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <StatusBar style={isDark ? "light" : "dark"} />
       {showLocationSetup ? (
         <LocationSetupScreen onDone={() => setShowLocationSetup(false)} />
@@ -221,9 +223,10 @@ function ThemedRoot() {
               />
             </Stack>
             <GlobalCustomAlert />
+            <AnimatedToast />
           </NotificationProvider>
         </SocketProvider>
       )}
-    </View>
+    </GestureHandlerRootView>
   );
 }

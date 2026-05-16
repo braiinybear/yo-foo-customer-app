@@ -24,6 +24,8 @@ import { PaymentMode } from '@/types/orders';
 import { UserAddress } from '@/types/user';
 import AddressModal from '@/components/home/AddressModal';
 import { showAlert } from '@/store/useAlertStore';
+import Animated, { FadeInDown, LinearTransition, SlideOutDown } from 'react-native-reanimated';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 
 // ─── Payment option config ────────────────────────────────────────────────────
 type PaymentOption = {
@@ -46,7 +48,7 @@ export default function CartScreen() {
     const PAYMENT_OPTIONS: PaymentOption[] = [
         {
             mode: 'WALLET',
-            label: 'wallet',
+            label: 'Wallet',
             subtitle: 'Pay instantly from your wallet balance',
             icon: 'wallet-outline',
             color: Colors.success,
@@ -54,7 +56,7 @@ export default function CartScreen() {
         },
         {
             mode: 'COD',
-            label: 'cash on delivery',
+            label: 'Cash on Delivery',
             subtitle: 'Pay with cash when your order arrives',
             icon: 'cash-outline',
             color: Colors.secondary,
@@ -62,7 +64,7 @@ export default function CartScreen() {
         },
         {
             mode: 'RAZORPAY',
-            label: 'razorpay',
+            label: 'Online',
             subtitle: 'UPI, Cards, Net Banking & more',
             icon: 'card-outline',
             color: isDark ? Colors.primary : Colors.primary,
@@ -149,103 +151,111 @@ export default function CartScreen() {
     // ── Empty state ───────────────────────────────────────────────────────────
     if (items.length === 0) {
         return (
-            <View style={styles.emptyContainer}>
+            <Animated.View entering={FadeInDown.duration(600)} style={styles.emptyContainer}>
                 <View style={[styles.emptyIconCircle, { backgroundColor: Colors.secondary + '12' }]}>
                     <Ionicons name="cart-outline" size={52} color={Colors.secondary} />
                 </View>
                 <Text style={styles.emptyTitle}>Your cart is empty</Text>
                 <Text style={styles.emptySubtitle}>Add items from a restaurant to get started</Text>
-                <TouchableOpacity
+                <AnimatedPressable
                     style={styles.browseBtn}
                     onPress={() => router.push('/(tabs)')}
-                    activeOpacity={0.85}
                 >
                     <Text style={styles.browseBtnText}>Browse Restaurants</Text>
-                </TouchableOpacity>
-            </View>
+                </AnimatedPressable>
+            </Animated.View>
         );
     }
+
 
     return (
         <View style={styles.root}>
             <ScrollView
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
+                decelerationRate="normal"
             >
-                {/* ── Order Items ─────────────────────────────────────── */}
-                <Text style={styles.sectionTitle}>Order Summary</Text>
-                <View style={styles.itemsCard}>
-                    {items.map((item, index) => (
-                        <View
-                            key={item.id}
-                            style={[
-                                styles.itemRow,
-                                index < items.length - 1 && styles.itemRowBorder,
-                            ]}
-                        >
-                            <Image
-                                source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
-                                style={styles.cartItemImage}
-                            />
-                            <View style={styles.itemInfo}>
-                                <Text style={styles.itemName} numberOfLines={1}>
-                                    {item.name}
-                                </Text>
-                                <Text style={styles.itemPrice}>
-                                    ₹{(item.price * item.quantity).toFixed(0)}
-                                </Text>
-                            </View>
+                <Animated.View entering={FadeInDown.delay(100).springify()}>
+                    <Text style={styles.sectionTitle}>Order Summary</Text>
+                    <View style={styles.itemsCard}>
+                        {items.map((item, index) => (
+                            <Animated.View
+                                key={item.id}
+                                layout={LinearTransition.springify()}
+                                exiting={SlideOutDown.duration(200)}
+                                style={[
+                                    styles.itemRow,
+                                    index < items.length - 1 && styles.itemRowBorder,
+                                ]}
+                            >
+                                <Image
+                                    source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
+                                    style={styles.cartItemImage}
+                                />
+                                <View style={styles.itemInfo}>
+                                    <Text style={styles.itemName} numberOfLines={1}>
+                                        {item.name}
+                                    </Text>
+                                    <Text style={styles.itemPrice}>
+                                        ₹{(item.price * item.quantity).toFixed(0)}
+                                    </Text>
+                                </View>
 
-                            <View style={styles.qtyRow}>
-                                <TouchableOpacity
-                                    style={styles.qtyBtn}
-                                    onPress={() => updateQuantity(item.id, item.quantity - 1)}
-                                >
-                                    <Ionicons name="remove" size={16} color={Colors.primary} />
-                                </TouchableOpacity>
-                                <Text style={styles.qtyText}>{item.quantity}</Text>
-                                <TouchableOpacity
-                                    style={styles.qtyBtn}
-                                    onPress={() => updateQuantity(item.id, item.quantity + 1)}
-                                >
-                                    <Ionicons name="add" size={16} color={Colors.primary} />
-                                </TouchableOpacity>
-                            </View>
+                                <View style={styles.qtyRow}>
+                                    <AnimatedPressable
+                                        style={styles.qtyBtn}
+                                        onPress={() => updateQuantity(item.id, item.quantity - 1)}
+                                        scaleIn={0.8}
+                                    >
+                                        <Ionicons name="remove" size={16} color={Colors.primary} />
+                                    </AnimatedPressable>
+                                    <Text style={styles.qtyText}>{item.quantity}</Text>
+                                    <AnimatedPressable
+                                        style={styles.qtyBtn}
+                                        onPress={() => updateQuantity(item.id, item.quantity + 1)}
+                                        scaleIn={0.8}
+                                        >
+                                        <Ionicons name="add" size={16} color={Colors.primary} />
+                                    </AnimatedPressable>
+                                </View>
+                            </Animated.View>
+                        ))}
+
+                        {/* Total row inside the card */}
+                        <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>Total</Text>
+                            <Text style={styles.totalValue}>₹{totalAmount}</Text>
                         </View>
-                    ))}
-
-                    {/* Total row inside the card */}
-                    <View style={styles.totalRow}>
-                        <Text style={styles.totalLabel}>Total</Text>
-                        <Text style={styles.totalValue}>₹{totalAmount}</Text>
                     </View>
-                </View>
+                </Animated.View>
 
 
                 {/* ── Payment Method ──────────────────────────────────── */}
-                <Text style={styles.sectionTitle}>Payment Method</Text>
-                <TouchableOpacity
-                    style={styles.paymentDropdownBtn}
-                    onPress={() => setPaymentModalVisible(true)}
-                    activeOpacity={0.75}
-                >
-                    {(() => {
-                        const selected = PAYMENT_OPTIONS.find(o => o.mode === selectedMode);
-                        return (
-                            <>
-                                <View style={styles.paymentDropdownContent}>
-                                    <Text style={styles.paymentDropdownLabel}>{selected?.label}</Text>
-                                    <Text style={styles.paymentDropdownSub}>{selected?.subtitle}</Text>
-                                </View>
-                                <Ionicons
-                                    name="chevron-forward"
-                                    size={18}
-                                    color={Colors.muted}
-                                />
-                            </>
-                        );
-                    })()}
-                </TouchableOpacity>
+                <Animated.View entering={FadeInDown.delay(200).springify()}>
+                    <Text style={styles.sectionTitle}>Payment Method</Text>
+                    <AnimatedPressable
+                        style={styles.paymentDropdownBtn}
+                        onPress={() => setPaymentModalVisible(true)}
+                        scaleIn={0.98}
+                    >
+                        {(() => {
+                            const selected = PAYMENT_OPTIONS.find(o => o.mode === selectedMode);
+                            return (
+                                <>
+                                    <View style={styles.paymentDropdownContent}>
+                                        <Text style={styles.paymentDropdownLabel}>{selected?.label}</Text>
+                                        <Text style={styles.paymentDropdownSub}>{selected?.subtitle}</Text>
+                                    </View>
+                                    <Ionicons
+                                        name="chevron-forward"
+                                        size={18}
+                                        color={Colors.muted}
+                                    />
+                                </>
+                            );
+                        })()}
+                    </AnimatedPressable>
+                </Animated.View>
 
                 {/* Payment Method Modal */}
                 <Modal
@@ -271,7 +281,7 @@ export default function CartScreen() {
                                 showsVerticalScrollIndicator={true}
                             >
                                 {PAYMENT_OPTIONS.map((option) => (
-                                    <TouchableOpacity
+                                    <AnimatedPressable
                                         key={option.mode}
                                         style={[
                                             styles.paymentModalOption,
@@ -281,7 +291,7 @@ export default function CartScreen() {
                                             setSelectedMode(option.mode);
                                             setPaymentModalVisible(false);
                                         }}
-                                        activeOpacity={0.7}
+                                        scaleIn={0.97}
                                     >
                                         <View
                                             style={[
@@ -304,7 +314,7 @@ export default function CartScreen() {
                                                 <Ionicons name="checkmark" size={18} color={Colors.white} />
                                             </View>
                                         )}
-                                    </TouchableOpacity>
+                                    </AnimatedPressable>
                                 ))}
                             </ScrollView>
                         </View>
@@ -313,7 +323,7 @@ export default function CartScreen() {
 
                 {/* ── Wallet Balance Indicator ───────────────────────── */}
                 {selectedMode === 'WALLET' && (
-                    <View style={styles.walletIndicator}>
+                    <Animated.View entering={FadeInDown} style={styles.walletIndicator}>
                         {walletLoading ? (
                             <ActivityIndicator size="small" color={Colors.success} />
                         ) : (
@@ -322,16 +332,17 @@ export default function CartScreen() {
                                     Balance: ₹{walletBalance.toFixed(2)}
                                 </Text>
                                 {isWalletInsufficient && (
-                                    <TouchableOpacity
+                                    <AnimatedPressable
                                         style={styles.addMoneyBtnSmall}
                                         onPress={() => router.push('/wallet')}
+                                        scaleIn={0.9}
                                     >
                                         <Text style={styles.addMoneyBtnSmallText}>Add Money</Text>
-                                    </TouchableOpacity>
+                                    </AnimatedPressable>
                                 )}
                             </>
                         )}
-                    </View>
+                    </Animated.View>
                 )}
             </ScrollView>
 
@@ -348,13 +359,13 @@ export default function CartScreen() {
             />
 
             {/* ── Sticky Footer ───────────────────────────────────────── */}
-            <View style={styles.footer}>
+            <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.footer}>
                 {!selectedAddress ? (
                     /* ── Step 1: No address yet ── */
-                    <TouchableOpacity
+                    <AnimatedPressable
                         style={styles.selectAddressBtn}
                         onPress={() => setAddressModalVisible(true)}
-                        activeOpacity={0.85}
+                        scaleIn={0.98}
                     >
                         <View style={styles.selectAddrLeft}>
                             <View style={styles.selectAddrIconWrap}>
@@ -368,15 +379,15 @@ export default function CartScreen() {
                         <View style={styles.selectAddrChevron}>
                             <Ionicons name="chevron-forward" size={18} color={Colors.text} />
                         </View>
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                 ) : (
                     /* ── Step 2: Address confirmed ── */
                     <>
                         {/* Address card */}
-                        <TouchableOpacity
+                        <AnimatedPressable
                             style={styles.confirmedAddressChip}
                             onPress={() => setAddressModalVisible(true)}
-                            activeOpacity={0.8}
+                            scaleIn={0.98}
                         >
                             <View style={styles.addressContent}>
                                 <Text style={styles.confirmedAddrType}>
@@ -386,16 +397,17 @@ export default function CartScreen() {
                                     {selectedAddress.addressLine}
                                 </Text>
                             </View>
-                            <TouchableOpacity
+                            <AnimatedPressable
                                 style={styles.changeBtn}
                                 onPress={() => setAddressModalVisible(true)}
+                                scaleIn={0.85}
                             >
                                 <Text style={styles.changeAddressText}>Change</Text>
-                            </TouchableOpacity>
-                        </TouchableOpacity>
+                            </AnimatedPressable>
+                        </AnimatedPressable>
 
                         {/* Pay button */}
-                        <TouchableOpacity
+                        <AnimatedPressable
                             style={[
                                 styles.checkoutBtn,
                                 {
@@ -407,7 +419,6 @@ export default function CartScreen() {
                             ]}
                             onPress={handleCheckout}
                             disabled={createOrderMutation.isPending || isWalletInsufficient}
-                            activeOpacity={0.85}
                         >
                             {createOrderMutation.isPending ? (
                                 <ActivityIndicator color={Colors.white} />
@@ -419,10 +430,11 @@ export default function CartScreen() {
                                     </Text>
                                 </View>
                             )}
-                        </TouchableOpacity>
+                        </AnimatedPressable>
                     </>
                 )}
-            </View>
+            </Animated.View>
+
         </View>
     );
 }

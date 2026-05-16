@@ -24,6 +24,8 @@ import {
     FlatList
 } from "react-native";
 import { showAlert } from "@/store/useAlertStore";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { Fonts, FontSize } from "@/constants/typography";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -162,35 +164,35 @@ export default function ProfileScreen() {
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Profile Header */}
-            <View style={styles.header}>
+            <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
               
                 <View style={styles.profileImageContainer}>
                     <Image 
                         source={{ uri: user.image || "https://ui-avatars.com/api/?name=" + user.name }} 
                         style={styles.profileImage} 
                     />
-                    <TouchableOpacity style={styles.cameraIcon} onPress={handleImagePicker} disabled={isUploading}>
+                    <AnimatedPressable style={styles.cameraIcon} onPress={handleImagePicker} disabled={isUploading}>
                         {isUploading ? <ActivityIndicator size="small" color={isDark ? Colors.secondary : Colors.white} /> : <Ionicons name="camera" size={16} color={isDark ? Colors.secondary : Colors.white} />}
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                 </View>
                 <Text style={styles.userName}>{user.name}</Text>
                 <Text style={styles.userSubInfo}>{user.email || user.phoneNumber}</Text>
                 
-                <TouchableOpacity style={styles.editProfileButton} onPress={() => setIsEditModalVisible(true)}>
+                <AnimatedPressable style={styles.editProfileButton} onPress={() => setIsEditModalVisible(true)}>
                     <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-                </TouchableOpacity>
-            </View>
+                </AnimatedPressable>
+            </Animated.View>
 
             {/* Referral Card */}
-            <View style={styles.referralCard}>
+            <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.referralCard}>
                 <View style={styles.referralCardTop}>
                     <View style={styles.referralBadge}>
                         <MaterialCommunityIcons name="star" size={12} color={isDark ? Colors.secondary : Colors.white} />
                         <Text style={styles.referralBadgeText}>EXCLUSIVE REWARDS</Text>
                     </View>
-                    <TouchableOpacity style={styles.shareIconBtn} onPress={handleShare}>
+                    <AnimatedPressable style={styles.shareIconBtn} onPress={handleShare}>
                         <Ionicons name="share-social" size={20} color={Colors.primary} />
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                 </View>
                 
                 <Text style={styles.referralHeader}>Refer & Earn Rewards</Text>
@@ -201,9 +203,9 @@ export default function ProfileScreen() {
                         <Text style={styles.referralCodeLabel}>YOUR CODE</Text>
                         <View style={styles.codeRow}>
                             <Text style={styles.referralCode}>{user.referralCode}</Text>
-                            <TouchableOpacity onPress={handleShare} style={styles.copyIcon}>
+                            <AnimatedPressable onPress={handleShare} style={styles.copyIcon} scaleIn={0.8}>
                                 <Ionicons name="copy-outline" size={18} color={Colors.primary} />
-                            </TouchableOpacity>
+                            </AnimatedPressable>
                         </View>
                     </View>
                     <View style={styles.referralStats}>
@@ -211,10 +213,10 @@ export default function ProfileScreen() {
                         <Text style={styles.statsLabel}>REFERRALS</Text>
                     </View>
                 </View>
-            </View>
+            </Animated.View>
 
             {/* Personal Information Summary */}
-            <View style={styles.section}>
+            <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.section}>
                 <Text style={styles.sectionTitle}>Personal Details</Text>
                 <View style={styles.menuCard}>
                     <View style={styles.menuItem}>
@@ -236,10 +238,10 @@ export default function ProfileScreen() {
                         <Text style={styles.menuValueText}>{user.dob ? new Date(user.dob).toLocaleDateString() : "Not specified"}</Text>
                     </View>
                 </View>
-            </View>
+            </Animated.View>
 
             {/* Preference Section */}
-            <View style={styles.section}>
+            <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.section}>
                 <Text style={styles.sectionTitle}>Preferences</Text>
                 <View style={styles.menuCard}>
                     <View style={styles.menuItem}>
@@ -272,15 +274,18 @@ export default function ProfileScreen() {
                     </View>
                  
                 </View>
-            </View>
+            </Animated.View>
 
-            <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-                <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
-                <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
+            <Animated.View entering={FadeInDown.delay(500).springify()}>
+                <AnimatedPressable style={styles.signOutButton} onPress={handleSignOut}>
+                    <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+                    <Text style={styles.signOutText}>Sign Out</Text>
+                </AnimatedPressable>
+            </Animated.View>
 
             <Text style={styles.versionText}>Version 1.0.0 (2026)</Text>
             <View style={{ height: 40 }} />
+
 
             {/* Edit Profile Modal */}
             <Modal
@@ -296,9 +301,9 @@ export default function ProfileScreen() {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Edit Profile</Text>
-                            <TouchableOpacity onPress={() => setIsEditModalVisible(false)} style={styles.closeBtn}>
+                            <AnimatedPressable onPress={() => setIsEditModalVisible(false)} style={styles.closeBtn} scaleIn={0.8}>
                                 <Ionicons name="close" size={24} color={Colors.text} />
-                            </TouchableOpacity>
+                            </AnimatedPressable>
                         </View>
 
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
@@ -326,19 +331,20 @@ export default function ProfileScreen() {
                                 <Text style={styles.inputLabel}>Gender</Text>
                                 <View style={styles.genderRow}>
                                     {["Male", "Female", "Other"].map((g) => (
-                                        <TouchableOpacity
+                                        <AnimatedPressable
                                             key={g}
                                             style={[
                                                 styles.genderChip,
                                                 editForm.gender === g && styles.genderChipSelected
                                             ]}
                                             onPress={() => setEditForm({ ...editForm, gender: g })}
+                                            scaleIn={0.9}
                                         >
                                             <Text style={[
                                                 styles.genderChipText,
                                                 editForm.gender === g && styles.genderChipTextSelected
                                             ]}>{g}</Text>
-                                        </TouchableOpacity>
+                                        </AnimatedPressable>
                                     ))}
                                 </View>
                             </View>
@@ -356,7 +362,7 @@ export default function ProfileScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            <TouchableOpacity
+                            <AnimatedPressable
                                 style={[styles.saveBtn, updateUser.isPending && { opacity: 0.7 }]}
                                 onPress={handleSaveProfile}
                                 disabled={updateUser.isPending}
@@ -366,7 +372,7 @@ export default function ProfileScreen() {
                                 ) : (
                                     <Text style={styles.saveBtnText}>Save Changes</Text>
                                 )}
-                            </TouchableOpacity>
+                            </AnimatedPressable>
                         </ScrollView>
                     </View>
                 </KeyboardAvoidingView>
@@ -404,12 +410,12 @@ export default function ProfileScreen() {
                                 keyboardType="numeric"
                                 maxLength={10}
                              />
-                             <TouchableOpacity 
+                             <AnimatedPressable 
                                 style={styles.calendarDoneBtn}
                                 onPress={() => setIsCalendarVisible(false)}
                              >
                                 <Text style={styles.calendarDoneBtnText}>Confirm</Text>
-                             </TouchableOpacity>
+                             </AnimatedPressable>
                         </View>
                     </View>
                 </View>
