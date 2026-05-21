@@ -402,9 +402,9 @@ export default function CartScreen() {
                             disabled={isWalletInsufficient}
                         >
                             <View style={styles.payBtnContent}>
-                                <Ionicons name="arrow-forward" size={17} color={Colors.primary} style={styles.payBtnIcon} />
+                    
                                 <Text style={styles.checkoutBtnText}>
-                                    Proceed to Checkout · ₹{totalAmount}
+                                    Proceed to Checkout 
                                 </Text>
                             </View>
                         </AnimatedPressable>

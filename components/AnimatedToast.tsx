@@ -71,7 +71,7 @@ export const AnimatedToast = () => {
       ]}
       pointerEvents="box-none"
     >
-      <Animated.View style={animatedStyle} pointerEvents="box-none">
+      <Animated.View style={animatedStyle} pointerEvents={visible ? 'auto' : 'none'}>
         <View style={[styles.toast, { backgroundColor: Colors.surface, borderColor: Colors.border }]}>
           <Ionicons name={getIcon()} size={20} color={getColor()} />
           <Text style={[styles.text, { color: Colors.text }]}>{message}</Text>

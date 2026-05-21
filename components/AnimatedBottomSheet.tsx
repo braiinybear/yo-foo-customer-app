@@ -100,22 +100,22 @@ export const AnimatedBottomSheet: React.FC<AnimatedBottomSheetProps> = ({
   });
 
   const rBackdropStyle = useAnimatedStyle(() => {
-    const opacityValue = interpolate(
-      translateY.value,
-      [-height, 0],
-      [1, 0],
-      Extrapolate.CLAMP
-    );
-
     return {
-      opacity: opacityValue,
-      pointerEvents: opacityValue < 0.01 ? 'none' : 'auto',
-    } as any;
+      opacity: interpolate(
+        translateY.value,
+        [-height, 0],
+        [1, 0],
+        Extrapolate.CLAMP
+      ),
+    };
   });
 
   return (
     <>
-      <Animated.View style={[styles.backdrop, rBackdropStyle]}>
+      <Animated.View
+        style={[styles.backdrop, rBackdropStyle]}
+        pointerEvents={visible ? 'auto' : 'none'}
+      >
         <Pressable style={styles.flex} onPress={onClose} />
       </Animated.View>
       <GestureDetector gesture={gesture}>
@@ -125,6 +125,7 @@ export const AnimatedBottomSheet: React.FC<AnimatedBottomSheetProps> = ({
             { height: SCREEN_HEIGHT, top: SCREEN_HEIGHT, backgroundColor: Colors.surface },
             rBottomSheetStyle,
           ]}
+          pointerEvents={visible ? 'auto' : 'none'}
         >
           <View style={styles.line} />
           {children}
