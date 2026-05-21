@@ -553,8 +553,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         backgroundColor: Colors.surface,
         borderRadius: 24,
         marginBottom: 24,
-        borderWidth: 1,
-        borderColor: Colors.primary + '20',
         overflow: 'hidden',
         shadowColor: Colors.primary,
         shadowOffset: { width: 0, height: 8 },

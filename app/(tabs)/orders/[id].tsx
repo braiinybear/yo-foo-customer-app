@@ -14,7 +14,18 @@ import {
     TextInput,
     KeyboardAvoidingView,
     RefreshControl,
+    Dimensions,
 } from 'react-native';
+
+import Reanimated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -399,6 +410,96 @@ export default function OrderDetailScreen() {
     const displayStatus: OrderStatus | undefined = (realTimeStatus as OrderStatus) || order?.status;
     const showMap = displayStatus ? ['ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].includes(displayStatus) : false;
 
+    // Draggable bottom sheet snap points & physics configuration
+    const SNAP_EXPANDED = SCREEN_HEIGHT * 0.25; // Sheet covers exactly 75% of screen!
+    const SNAP_COLLAPSED = SCREEN_HEIGHT * 0.40; // Leaves exactly 40% map visible!
+
+    const translateY = useSharedValue(SNAP_COLLAPSED);
+    const contextY = useSharedValue(0);
+
+    const handleSheetSnap = useCallback((snapPoint: number) => {
+        if (!mapRef.current) return;
+        if (snapPoint === SNAP_EXPANDED) {
+            // Zoom in on driver/rider
+            if (displayDriverLocation) {
+                mapRef.current.animateToRegion({
+                    latitude: displayDriverLocation.lat,
+                    longitude: displayDriverLocation.lng,
+                    latitudeDelta: 0.012,
+                    longitudeDelta: 0.012,
+                }, 800);
+            }
+        } else {
+            // Zoom out to fit all coordinates (Restaurant, Driver, Destination)
+            const coords: { latitude: number; longitude: number }[] = [];
+            if (order?.restaurant) coords.push({ latitude: order.restaurant.lat, longitude: order.restaurant.lng });
+            if (displayDriverLocation) coords.push({ latitude: displayDriverLocation.lat, longitude: displayDriverLocation.lng });
+            if (destination) coords.push({ latitude: destination.lat, longitude: destination.lng });
+
+            if (coords.length > 1) {
+                mapRef.current.fitToCoordinates(coords, {
+                    edgePadding: { top: 60, right: 50, bottom: 60, left: 50 },
+                    animated: true,
+                });
+            }
+        }
+    }, [displayDriverLocation, order?.restaurant, destination]);
+
+    const panGesture = Gesture.Pan()
+        .onStart(() => {
+            contextY.value = translateY.value;
+        })
+        .onUpdate((event) => {
+            translateY.value = Math.max(
+                SNAP_EXPANDED - 20,
+                Math.min(SCREEN_HEIGHT * 0.85, contextY.value + event.translationY)
+            );
+        })
+        .onEnd((event) => {
+            const dragThreshold = (SNAP_COLLAPSED + SNAP_EXPANDED) / 2;
+            const isMovingDown = event.velocityY > 500;
+            const isMovingUp = event.velocityY < -500;
+
+            let dest = SNAP_COLLAPSED;
+            if (isMovingUp) {
+                dest = SNAP_EXPANDED;
+            } else if (isMovingDown) {
+                dest = SNAP_COLLAPSED;
+            } else {
+                if (translateY.value < dragThreshold) {
+                    dest = SNAP_EXPANDED;
+                } else {
+                    dest = SNAP_COLLAPSED;
+                }
+            }
+
+            translateY.value = withSpring(dest, {
+                damping: 22,
+                stiffness: 180,
+                mass: 0.8,
+            });
+
+            scheduleOnRN(handleSheetSnap, dest);
+        });
+
+    const rSheetStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateY: translateY.value }],
+        };
+    });
+
+    const handleScroll = useCallback((event: any) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+        if (offsetY > 10 && translateY.value !== SNAP_EXPANDED) {
+            translateY.value = withSpring(SNAP_EXPANDED, {
+                damping: 22,
+                stiffness: 180,
+                mass: 0.8,
+            });
+            handleSheetSnap(SNAP_EXPANDED);
+        }
+    }, [handleSheetSnap, SNAP_EXPANDED]);
+
     // Map auto-fit coordinates logic
     useEffect(() => {
         if (showMap && mapRef.current) {
@@ -411,7 +512,7 @@ export default function OrderDetailScreen() {
                 // Short timeout to ensure Android has completed layout
                 setTimeout(() => {
                     mapRef.current?.fitToCoordinates(coords, {
-                        edgePadding: { top: 120, right: 60, bottom: 450, left: 60 },
+                        edgePadding: { top: 50, right: 40, bottom: 50, left: 40 },
                         animated: true,
                     });
 
@@ -453,7 +554,7 @@ export default function OrderDetailScreen() {
     });
 
     return (
-        <View style={styles.root}>
+        <GestureHandlerRootView style={styles.root}>
             {showMap && order.restaurant && (
                 <View style={styles.mapContainer}>
                     <MapView
@@ -540,20 +641,30 @@ export default function OrderDetailScreen() {
                 </View>
             )}
 
-            <ScrollView
-                style={styles.scrollViewContainer}
-                contentContainerStyle={styles.scroll}
-                showsVerticalScrollIndicator={false}
-                decelerationRate="normal"
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={[Colors.primary]}
-                        tintColor={Colors.primary}
-                    />
-                }
-            >
+            <Reanimated.View style={showMap ? [styles.sheetContainer80, rSheetStyle] : styles.normalContainerFull}>
+                {showMap && (
+                    <GestureDetector gesture={panGesture}>
+                        <View style={styles.handleArea}>
+                            <View style={styles.handleBar} />
+                        </View>
+                    </GestureDetector>
+                )}
+                <ScrollView
+                    style={showMap ? styles.innerScrollViewInsideSheet : styles.scrollViewContainer}
+                    contentContainerStyle={showMap ? styles.innerScrollContentInsideSheet : styles.scroll}
+                    showsVerticalScrollIndicator={false}
+                    decelerationRate="normal"
+                    scrollEventThrottle={16}
+                    onScroll={showMap ? handleScroll : undefined}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[Colors.primary]}
+                            tintColor={Colors.primary}
+                        />
+                    }
+                >
                 {/* ── Status Banner ────────────────────────────────────── */}
                 <View style={[styles.statusBanner, { backgroundColor: sc.bg }]}>
                     <View style={[styles.statusIconCircle, { backgroundColor: sc.color + '22' }]}>
@@ -879,6 +990,7 @@ export default function OrderDetailScreen() {
                 )}
 
             </ScrollView>
+        </Reanimated.View>
 
             {/* ── Review Modal (Bottom Sheet) ── */}
             <Modal
@@ -995,7 +1107,7 @@ export default function OrderDetailScreen() {
                     </KeyboardAvoidingView>
                 </View>
             </Modal>
-        </View>
+        </GestureHandlerRootView>
     );
 }
 
@@ -1006,9 +1118,12 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         backgroundColor: Colors.background,
     },
     mapContainer: {
-        height: '35%',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: SCREEN_HEIGHT * 0.45,
         width: '100%',
-        overflow: 'hidden',
     },
     map: {
         flex: 1,
@@ -1017,6 +1132,51 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     },
     scrollViewContainer: {
         flex: 1,
+    },
+    sheetContainer80: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: SCREEN_HEIGHT * 0.75,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        backgroundColor: Colors.background,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        // Gold standard: iOS gets native rounded shadows, Android gets a clean premium border with 0 elevation bug!
+        elevation: Platform.OS === 'ios' ? 8 : 0,
+        borderTopWidth: Platform.OS === 'android' ? 1.5 : 0,
+        borderLeftWidth: Platform.OS === 'android' ? 1.5 : 0,
+        borderRightWidth: Platform.OS === 'android' ? 1.5 : 0,
+        borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.06)',
+        overflow: 'hidden',
+    },
+    normalContainerFull: {
+        flex: 1,
+    },
+    innerScrollViewInsideSheet: {
+        flex: 1,
+    },
+    innerScrollContentInsideSheet: {
+        paddingHorizontal: 16,
+        paddingBottom: 240, // Generous padding to prevent any text clipping or hidden items
+        gap: 12,
+    },
+    handleArea: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        width: '100%',
+        backgroundColor: Colors.background, // Keeps handle background solid
+    },
+    handleBar: {
+        width: 48,
+        height: 5,
+        borderRadius: 2.5,
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)',
     },
     markerCircleRest: {
         width: 32,

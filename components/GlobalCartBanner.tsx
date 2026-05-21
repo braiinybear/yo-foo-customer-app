@@ -128,8 +128,6 @@ const createStyles = (Colors: any, isDark: boolean, cartBannerBottom: number) =>
       shadowOpacity: isDark ? 0.15 : 0.25,
       shadowRadius: 16,
       elevation: 8,
-      borderWidth: 1,
-      borderColor: Colors.primary + '30', // Subtle gold border
     },
     cartContentLeft: {
       flexDirection: 'row',
