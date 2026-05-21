@@ -1,12 +1,11 @@
-import { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedStyle, withSpring, runOnUI } from 'react-native-reanimated';
 import { ANIMATION } from '../animations/constants';
-import * as Haptics from 'expo-haptics';
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 
 /**
  * useAnimatedPress
  * Hook to provide physics-based scale feedback for any touchable element.
- * Includes optional haptic feedback for a premium feel.
+ * All animations run on the UI thread for 60fps performance.
  */
 export function useAnimatedPress(
   scaleIn: number = ANIMATION.scale.pressIn,
@@ -18,21 +17,21 @@ export function useAnimatedPress(
     transform: [{ scale: scale.value }],
   }));
 
-  const onPressIn = useCallback(() => {
-    // Trigger subtle haptic on press
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSpring(scaleIn, springConfig);
-  }, [scaleIn, springConfig]);
-
-  const onPressOut = useCallback(() => {
-    scale.value = withSpring(1, springConfig);
-  }, [springConfig]);
+  // Stable press handlers — animations dispatched to UI thread for zero-bridge-latency
+  const pressHandlers = useMemo(() => ({
+    onPressIn: () => {
+      'worklet';
+      scale.value = withSpring(scaleIn, springConfig);
+    },
+    onPressOut: () => {
+      'worklet';
+      scale.value = withSpring(1, springConfig);
+    },
+  }), [scaleIn, springConfig]);
 
   return {
     animatedStyle,
-    pressHandlers: {
-      onPressIn,
-      onPressOut,
-    },
+    pressHandlers,
   };
 }
+

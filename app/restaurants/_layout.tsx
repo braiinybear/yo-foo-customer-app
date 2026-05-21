@@ -4,7 +4,10 @@ export default function RestaurantRootLayout() {
     return <Stack
         screenOptions={{
             headerTitleAlign: "center",
-            headerShown: false
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 250,
+            freezeOnBlur: true,
         }}
     >
         <Stack.Screen

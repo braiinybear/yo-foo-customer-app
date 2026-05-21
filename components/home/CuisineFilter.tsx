@@ -1,8 +1,8 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
+import { Image } from "expo-image";
 import React, { useMemo } from "react";
 import {
-    Image,
     ScrollView,
     StyleSheet,
     Text,
@@ -46,7 +46,12 @@ export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineF
     const { Colors, isDark } = useTheme();
     const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
-    
+    // Pre-build a O(1) lookup map instead of O(n) .find() per chip
+    const cuisineImageMap = useMemo(() => {
+        const map = new Map<string, string>();
+        cuisinesDummy.forEach(c => map.set(c.id, c.imageUrl));
+        return map;
+    }, []);
     return (
         <View style={styles.container}>
             <ScrollView
@@ -67,9 +72,13 @@ export default function CuisineFilter({ cuisines, selected, onSelect }: CuisineF
                         <View style={[styles.emojiWrapper, isActive && styles.emojiWrapperActive]}>
                             <Image 
                                 source={{ 
-                                    uri: cuisinesDummy.find(c => c.id === item.toLowerCase())?.imageUrl 
+                                    uri: cuisineImageMap.get(item.toLowerCase()) 
                                 }} 
-                                style={styles.emoji} 
+                                style={styles.emoji}
+                                contentFit="cover"
+                                cachePolicy="memory-disk"
+                                recyclingKey={item}
+                                transition={0}
                             />
                         </View>
                             <Text style={[styles.label, isActive && styles.labelActive]}>

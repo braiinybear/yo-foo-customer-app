@@ -14,30 +14,30 @@ export const ANIMATION = {
     emphasis: 600,
   },
 
-  // Spring Configurations (The "Premium" feel)
+  // Spring Configurations (Tuned for smoothness over bounce)
   spring: {
     // For general UI shifts (fluid but professional)
     standard: {
-      damping: 22,
-      stiffness: 100,
+      damping: 24,
+      stiffness: 90,
       mass: 1,
     },
-    // For interactive feedback (buttons, cards)
+    // For interactive feedback (buttons, cards) — higher damping = less oscillation
     snappy: {
-      damping: 18,
-      stiffness: 150,
+      damping: 22,
+      stiffness: 140,
       mass: 0.8,
     },
     // For high-energy moments (success checkmarks, etc.)
     bouncy: {
-      damping: 12,
+      damping: 14,
       stiffness: 100,
       mass: 0.8,
     },
-    // For heavy elements (bottom sheets, large modals)
+    // For heavy elements (bottom sheets, large modals) — smooth, no overshoot
     heavy: {
-      damping: 28,
-      stiffness: 80,
+      damping: 30,
+      stiffness: 70,
       mass: 1.2,
     },
   },

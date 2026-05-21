@@ -1,26 +1,29 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { useTheme } from "@/context/ThemeContext";
+import { Image } from "expo-image";
 import {
     View,
     Text,
     StyleSheet,
     FlatList,
-    Image,
     TouchableOpacity,
     ActivityIndicator,
     RefreshControl,
+    Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCurrentOrder, useOrders } from '@/hooks/useOrders';
 import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
 import { useSocketStore } from '@/store/useSocketStore';
 // import { Colors } from '@/constants/colors';
-import { Fonts, FontSize } from '@/constants/typography';   
+import { Fonts, FontSize } from '@/constants/typography';
 import { Ionicons } from '@expo/vector-icons';
 import { getPlaceholderImage } from '@/constants/images';
 import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { UserOrder, OrderStatus, CurrentOrder } from '@/types/orders';
 import LoadingLottie from '@/components/LoadingLottie';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 
 const StatusBadge = ({ status, isDark, uiStyles }: { status: OrderStatus, isDark: boolean, uiStyles: any }) => {
     const getStatusStyles = () => {
@@ -83,7 +86,7 @@ const StatusBadge = ({ status, isDark, uiStyles }: { status: OrderStatus, isDark
     );
 };
 
-const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallbackPolling, connectionStatus, Colors, uiStyles, isDark }: { order: CurrentOrder | undefined; onPress: () => void; realtimeStatus?: string | null; isUpdating?: boolean; isFallbackPolling?: boolean; connectionStatus?: string, Colors: any, uiStyles: any, isDark: boolean }) => {
+const CurrentOrderCard = memo(({ order, onPress, realtimeStatus, isUpdating, isFallbackPolling, connectionStatus, Colors, uiStyles, isDark }: { order: CurrentOrder | undefined; onPress: () => void; realtimeStatus?: string | null; isUpdating?: boolean; isFallbackPolling?: boolean; connectionStatus?: string, Colors: any, uiStyles: any, isDark: boolean }) => {
     if (!order) return null;
 
     const displayStatus: OrderStatus = (realtimeStatus as OrderStatus) || order.status;
@@ -97,7 +100,12 @@ const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallba
     });
 
     return (
-        <TouchableOpacity style={uiStyles.currentOrderCard} onPress={onPress} activeOpacity={0.7}>
+        <AnimatedPressable
+            style={uiStyles.currentOrderCard}
+            onPress={onPress}
+            scaleIn={0.98}
+            entering={FadeInUp.springify().damping(22).stiffness(100)}
+        >
             <View style={uiStyles.currentOrderHeader}>
                 <View style={uiStyles.currentOrderBadge}>
                     <Ionicons name="flash" size={16} color={isDark ? Colors.secondary : Colors.white} />
@@ -126,6 +134,7 @@ const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallba
                         <Image
                             source={{ uri: order.restaurant.image ?? getPlaceholderImage(order.restaurantId) }}
                             style={uiStyles.currentOrderImg}
+                            contentFit="cover"
                         />
                     </View>
                     <View style={uiStyles.currentOrderDetails}>
@@ -186,11 +195,11 @@ const CurrentOrderCard = ({ order, onPress, realtimeStatus, isUpdating, isFallba
                     <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
-        </TouchableOpacity>
+        </AnimatedPressable>
     );
-};
+});
 
-const PastOrderItem = ({ item, onPress, uiStyles, isDark }: { item: UserOrder; onPress: () => void, uiStyles: any, isDark: boolean }) => {
+const PastOrderItem = memo(({ item, onPress, uiStyles, isDark, entering }: { item: UserOrder; onPress: () => void, uiStyles: any, isDark: boolean, entering?: any }) => {
     const date = new Date(item.placedAt).toLocaleDateString('en-IN', {
         day: 'numeric',
         month: 'short',
@@ -198,10 +207,11 @@ const PastOrderItem = ({ item, onPress, uiStyles, isDark }: { item: UserOrder; o
     });
 
     return (
-        <TouchableOpacity
+        <AnimatedPressable
             style={uiStyles.card}
-            activeOpacity={0.7}
             onPress={onPress}
+            scaleIn={0.97}
+            entering={entering}
         >
             <View style={uiStyles.cardHeader}>
                 <View style={uiStyles.restaurantInfo}>
@@ -209,6 +219,7 @@ const PastOrderItem = ({ item, onPress, uiStyles, isDark }: { item: UserOrder; o
                         <Image
                             source={{ uri: item.restaurant.image ?? getPlaceholderImage(item.restaurantId) }}
                             style={uiStyles.resImage}
+                            contentFit="cover"
                         />
                     </View>
                     <View>
@@ -236,9 +247,9 @@ const PastOrderItem = ({ item, onPress, uiStyles, isDark }: { item: UserOrder; o
                 <Text style={uiStyles.totalLabel}>Total Paid</Text>
                 <Text style={uiStyles.totalAmount}>₹{item.totalAmount}</Text>
             </View>
-        </TouchableOpacity>
+        </AnimatedPressable>
     );
-};
+});
 
 export default function OrderHistoryScreen() {
     const { Colors, isDark } = useTheme();
@@ -250,24 +261,24 @@ export default function OrderHistoryScreen() {
 
     const { data: currentOrder, isLoading: currentLoading } = useCurrentOrder();
     const { data: ordersData, isLoading: historyLoading, refetch } = useOrders(page, limit);
-    
+
     // Get real-time status from socket store AND fallback polling support
     const socketStore = useSocketStore();
     const realtimeStatus = currentOrder ? socketStore.orderUpdates[currentOrder.id]?.status : null;
     const isUpdating = !!realtimeStatus && realtimeStatus !== currentOrder?.status;
-    
+
     // Get fallback polling and connection status
     // Note: For orders list, we indicate if CURRENT order is being polled
     const { isFallbackPolling, connectionStatus } = useOrderRealTimeUpdate(currentOrder?.id ?? null);
 
     const meta = ordersData?.meta;
-    
+
     // Categorize orders from history
-    const activeOrdersFromHistory = allOrders.filter(order => 
+    const activeOrdersFromHistory = allOrders.filter(order =>
         !['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status)
     );
-    
-    const pastOrders = allOrders.filter(order => 
+
+    const pastOrders = allOrders.filter(order =>
         ['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status)
     );
 
@@ -304,7 +315,7 @@ export default function OrderHistoryScreen() {
                 <Ionicons name="receipt-outline" size={80} color={isDark ? 'rgba(255,255,255,0.1)' : Colors.light} />
                 <Text style={uiStyles.emptyTitle}>No orders yet</Text>
                 <Text style={uiStyles.emptySubtitle}>When you place an order, it will appear here.</Text>
-                
+
                 {/* Pagination visible even when no orders */}
                 {meta && meta.totalPages > 1 && (
                     <View style={uiStyles.paginationBubbles}>
@@ -314,10 +325,10 @@ export default function OrderHistoryScreen() {
                             disabled={page === 1 || historyLoading}
                             style={[uiStyles.arrowButton, { opacity: page === 1 ? 0.3 : 1 }]}
                         >
-                            <Ionicons 
-                                name="chevron-back" 
-                                size={18} 
-                                color={page === 1 ? Colors.muted : Colors.primary} 
+                            <Ionicons
+                                name="chevron-back"
+                                size={18}
+                                color={page === 1 ? Colors.muted : Colors.primary}
                             />
                         </TouchableOpacity>
 
@@ -358,10 +369,10 @@ export default function OrderHistoryScreen() {
                             disabled={page >= meta.totalPages || historyLoading}
                             style={[uiStyles.arrowButton, { opacity: page >= meta.totalPages ? 0.3 : 1 }]}
                         >
-                            <Ionicons 
-                                name="chevron-forward" 
-                                size={18} 
-                                color={page >= meta.totalPages ? Colors.muted : Colors.primary} 
+                            <Ionicons
+                                name="chevron-forward"
+                                size={18}
+                                color={page >= meta.totalPages ? Colors.muted : Colors.primary}
                             />
                         </TouchableOpacity>
                     </View>
@@ -385,7 +396,7 @@ export default function OrderHistoryScreen() {
                                     const isMainOrder = order.id === currentOrder?.id;
                                     const detailedOrder = isMainOrder ? currentOrder : order;
                                     const orderRealtimeStatus = socketStore.orderUpdates[order.id]?.status;
-                                    
+
                                     return (
                                         <CurrentOrderCard
                                             key={order.id}
@@ -412,18 +423,33 @@ export default function OrderHistoryScreen() {
                     </>
                 }
                 data={pastOrders}
-                keyExtractor={(item, index) => `${item.id}-${item.placedAt}-${index}`}
-                renderItem={({ item }) => <PastOrderItem item={item} onPress={() => router.push(`/(tabs)/orders/${item.id}`)} uiStyles={uiStyles} isDark={isDark} />}
+                keyExtractor={(item) => item.id}
+                getItemLayout={(_, index) => ({ length: 220, offset: 220 * index, index })}
+                renderItem={({ item, index }) => (
+                    <PastOrderItem
+                        item={item}
+                        onPress={() => router.push(`/(tabs)/orders/${item.id}`)}
+                        uiStyles={uiStyles}
+                        isDark={isDark}
+                        entering={FadeInDown.delay(index * 50).springify().damping(22).stiffness(100).mass(0.9)}
+                    />
+                )}
                 contentContainerStyle={uiStyles.listContent}
+                scrollEventThrottle={16}
+                decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.985}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={4}
+                maxToRenderPerBatch={6}
+                windowSize={11}
                 refreshControl={
-                    <RefreshControl 
-                        refreshing={currentLoading || (historyLoading && page === 1)} 
+                    <RefreshControl
+                        refreshing={currentLoading || (historyLoading && page === 1)}
                         onRefresh={() => {
                             setPage(1);
                             setAllOrders([]);
                             refetch();
                         }}
-                        tintColor={Colors.primary} 
+                        tintColor={Colors.primary}
                     />
                 }
                 ListFooterComponent={
@@ -435,10 +461,10 @@ export default function OrderHistoryScreen() {
                                 disabled={page === 1 || historyLoading}
                                 style={[uiStyles.arrowButton, { opacity: page === 1 ? 0.3 : 1 }]}
                             >
-                                <Ionicons 
-                                    name="chevron-back" 
-                                    size={18} 
-                                    color={page === 1 ? Colors.muted : Colors.primary} 
+                                <Ionicons
+                                    name="chevron-back"
+                                    size={18}
+                                    color={page === 1 ? Colors.muted : Colors.primary}
                                 />
                             </TouchableOpacity>
 
@@ -449,6 +475,11 @@ export default function OrderHistoryScreen() {
                                 return (
                                     <TouchableOpacity
                                         key={`pagination-bubble-empty-${pageNum}`}
+                                        onPress={() => {
+                                            setPage(pageNum);
+                                            setAllOrders([]);
+                                        }}
+                                        disabled={historyLoading}
                                         style={[
                                             uiStyles.bubbleButton,
                                             {
@@ -460,7 +491,7 @@ export default function OrderHistoryScreen() {
                                     >
                                         <Text style={[
                                             uiStyles.bubbleText,
-                                            { color: isActive ? Colors.white : Colors.text }
+                                            { color: isActive ? (isDark ? Colors.secondary : Colors.white) : Colors.text }
                                         ]}>
                                             {pageNum}
                                         </Text>
@@ -474,10 +505,10 @@ export default function OrderHistoryScreen() {
                                 disabled={page >= meta.totalPages || historyLoading}
                                 style={[uiStyles.arrowButton, { opacity: page >= meta.totalPages ? 0.3 : 1 }]}
                             >
-                                <Ionicons 
-                                    name="chevron-forward" 
-                                    size={18} 
-                                    color={page >= meta.totalPages ? Colors.muted : Colors.primary} 
+                                <Ionicons
+                                    name="chevron-forward"
+                                    size={18}
+                                    color={page >= meta.totalPages ? Colors.muted : Colors.primary}
                                 />
                             </TouchableOpacity>
                         </View>
@@ -502,7 +533,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     },
     listContent: {
         padding: 16,
-        paddingBottom: 24,
+        paddingBottom: 110, // Ensure page pagination bubbles sit comfortably above the floating global cart banner
     },
     sectionHeader: {
         flexDirection: 'row',

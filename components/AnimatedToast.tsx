@@ -64,18 +64,20 @@ export const AnimatedToast = () => {
   };
 
   return (
-    <Animated.View 
+    <View 
       style={[
         styles.container, 
-        { bottom: insets.bottom + 100 },
-        animatedStyle
+        { bottom: insets.bottom + 100 }
       ]}
+      pointerEvents="box-none"
     >
-      <View style={[styles.toast, { backgroundColor: Colors.surface, borderColor: Colors.border }]}>
-        <Ionicons name={getIcon()} size={20} color={getColor()} />
-        <Text style={[styles.text, { color: Colors.text }]}>{message}</Text>
-      </View>
-    </Animated.View>
+      <Animated.View style={animatedStyle} pointerEvents="box-none">
+        <View style={[styles.toast, { backgroundColor: Colors.surface, borderColor: Colors.border }]}>
+          <Ionicons name={getIcon()} size={20} color={getColor()} />
+          <Text style={[styles.text, { color: Colors.text }]}>{message}</Text>
+        </View>
+      </Animated.View>
+    </View>
   );
 };
 

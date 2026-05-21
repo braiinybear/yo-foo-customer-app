@@ -1,5 +1,13 @@
-import React, { useMemo, useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { Fonts, FontSize } from '@/constants/typography';
@@ -20,16 +28,15 @@ const CUSTOMER_ORDER_STATUSES = [
 
 /**
  * CustomerOrderProgressBar: Zomato/Swiggy-style visual progress indicator
- * - Animated pulsing for the current active step
- * - Step-connected line indicator
- * - Color-coded stages
- * - Descriptive status message
+ * Uses Reanimated (UI thread) for smooth 60fps animations.
  */
 export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOrderProgressBarProps) {
   const { Colors, isDark } = useTheme();
   const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
-  const [progressAnim] = useState(new Animated.Value(0));
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Reanimated shared values — all animations run on UI thread
+  const progressWidth = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
 
   const currentStageIndex = useMemo(() => {
     return CUSTOMER_ORDER_STATUSES.findIndex(s => s.key === status);
@@ -40,26 +47,36 @@ export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOr
     return (currentStageIndex) / (CUSTOMER_ORDER_STATUSES.length - 1);
   }, [currentStageIndex]);
 
-  // Animate progress bar fill
+  // Animate progress bar fill on UI thread
   useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: progress,
+    progressWidth.value = withTiming(progress * 100, {
       duration: 600,
-      useNativeDriver: false,
-    }).start();
-  }, [progress, progressAnim]);
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [progress]);
 
-  // Pulse animation for current step
+  // Pulse animation for current step on UI thread
   useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ])
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.15, { duration: 800 }),
+        withTiming(1, { duration: 800 }),
+      ),
+      -1,
+      false
     );
-    pulse.start();
-    return () => pulse.stop();
-  }, [pulseAnim]);
+    return () => {
+      pulseScale.value = 1;
+    };
+  }, []);
+
+  const rProgressStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value}%` as any,
+  }));
+
+  const rPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
 
   const sizeConfig = {
     small: { iconSize: 14, labelSize: 9, lineH: 3, circleSize: 24 },
@@ -69,11 +86,6 @@ export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOr
 
   const config = sizeConfig[size];
   const currentStage = CUSTOMER_ORDER_STATUSES[currentStageIndex];
-
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
 
   return (
     <View style={styles.container}>
@@ -95,10 +107,10 @@ export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOr
             style={[
               styles.progressLineFill,
               {
-                width: progressWidth,
                 backgroundColor: currentStage?.color ?? Colors.muted,
                 height: '100%',
               },
+              rProgressStyle,
             ]}
           />
         </View>
@@ -107,7 +119,6 @@ export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOr
         {CUSTOMER_ORDER_STATUSES.map((stage, index) => {
           const isCompleted = index < currentStageIndex;
           const isCurrent = index === currentStageIndex;
-          const isFuture = index > currentStageIndex;
           const stageColor = isCompleted ? '#2E7D32' : isCurrent ? stage.color : '#E0E0E0';
           const iconColor = (isCompleted || isCurrent) ? '#FFF' : '#BDBDBD';
 
@@ -132,7 +143,7 @@ export function CustomerOrderProgressBar({ status, size = 'medium' }: CustomerOr
           return (
             <View key={stage.key} style={styles.stepWrapper}>
               {isCurrent ? (
-                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                <Animated.View style={rPulseStyle}>
                   {circleContent}
                 </Animated.View>
               ) : (
@@ -220,3 +231,4 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     textAlign: 'center',
   },
 });
+

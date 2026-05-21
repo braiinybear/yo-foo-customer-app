@@ -16,12 +16,8 @@ import Animated, {
   useSharedValue, 
   useAnimatedScrollHandler, 
   useAnimatedStyle, 
-  interpolate, 
   withTiming,
-  Extrapolation,
-  useDerivedValue,
   Easing,
-  LinearTransition
 } from 'react-native-reanimated';
 
 // ── Home components ───────────────────────────────────────────────────────────
@@ -39,7 +35,15 @@ import RestaurantCardSkeleton from "@/components/loadingSkelton/RestaurantCardSk
 import CuisineFilterSkeleton from "@/components/loadingSkelton/CuisineFilterSkeleton";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 
-// The root page of the app
+// Stable FlatList helpers — defined outside component to prevent re-creation
+const ITEM_HEIGHT = 306; // 200px image + ~90px info + 16px marginBottom
+const keyExtractor = (r: Restaurant) => r.id;
+const getItemLayout = (_: any, index: number) => ({
+  length: ITEM_HEIGHT,
+  offset: ITEM_HEIGHT * index,
+  index,
+});
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function Index() {
   const { Colors, isDark } = useTheme();
@@ -81,47 +85,64 @@ export default function Index() {
   const [refreshing, setRefreshing] = useState(false);
   const { selectedVegType, setSelectedVegType } = useVegTypeStore();
   
-  // ── Header Animations (Reanimated) ──────────────────────────────────────
+  // ── Header Animations (Reanimated — Swiggy/Zomato style) ─────────────────
   const FIXED_HEADER_HEIGHT = 100;
-  const HIDEABLE_HEIGHT = 75; // Only hide SearchBar (approx 75px)
+  const HIDEABLE_HEIGHT = 190; // SearchBar(~68) + CuisineFilter(~96) + padding(12) + safety margin
   
   const scrollY = useSharedValue(0);
   const lastScrollY = useSharedValue(0);
   const headerTranslateY = useSharedValue(0);
+  const accumulatedDiff = useSharedValue(0);
+  const isHeaderHidden = useSharedValue(false);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       const currentY = event.contentOffset.y;
       const diff = currentY - lastScrollY.value;
-      
-      // Update translation based on scroll diff, clamped to HIDEABLE_HEIGHT
-      const newTranslateY = headerTranslateY.value - diff;
-      headerTranslateY.value = Math.min(0, Math.max(-HIDEABLE_HEIGHT, newTranslateY));
-      
       lastScrollY.value = currentY;
       scrollY.value = currentY;
+      
+      // Near the top of the list → always show header
+      if (currentY <= 10) {
+        if (isHeaderHidden.value) {
+          headerTranslateY.value = withTiming(0, { duration: 200 });
+          isHeaderHidden.value = false;
+        }
+        accumulatedDiff.value = 0;
+        return;
+      }
+
+      // Accumulate scroll in the same direction; reset on direction change
+      if ((diff > 0 && accumulatedDiff.value < 0) || (diff < 0 && accumulatedDiff.value > 0)) {
+        accumulatedDiff.value = 0;
+      }
+      accumulatedDiff.value += diff;
+
+      // Scrolled down 15px consecutively → hide
+      if (accumulatedDiff.value > 15 && !isHeaderHidden.value) {
+        headerTranslateY.value = withTiming(-HIDEABLE_HEIGHT, { 
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+        });
+        isHeaderHidden.value = true;
+        accumulatedDiff.value = 0;
+      }
+      
+      // Scrolled up 15px consecutively → show
+      if (accumulatedDiff.value < -15 && isHeaderHidden.value) {
+        headerTranslateY.value = withTiming(0, { 
+          duration: 250,
+          easing: Easing.out(Easing.cubic),
+        });
+        isHeaderHidden.value = false;
+        accumulatedDiff.value = 0;
+      }
     },
   });
 
-  const animatedHeaderStyle = useAnimatedStyle(() => {
-    const config = {
-      duration: 400,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1), // Custom smooth curve
-    };
-
-    return {
-      transform: [{ translateY: withTiming(headerTranslateY.value, config) }],
-      opacity: withTiming(
-        interpolate(
-          headerTranslateY.value,
-          [-HIDEABLE_HEIGHT, -HIDEABLE_HEIGHT * 0.4, 0],
-          [0, 1, 1],
-          Extrapolation.CLAMP
-        ),
-        config
-      ),
-    };
-  });
+  const animatedHeaderStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
 
   // Derive unique cuisine types from all fetched restaurants, always with "all" first
   const cuisines = useMemo(() => {
@@ -190,11 +211,25 @@ export default function Index() {
 
   const userInitial = session?.user?.name?.[0]?.toUpperCase() ?? "U";
 
-  // ── Header (rendered inside FlatList as ListHeaderComponent) ─────────────
-  const ListHeader = (
+  // ── STABLE renderItem (prevents RestaurantCard re-mount on every parent render) ──
+  const renderRestaurantCard = useCallback(({ item, index }: { item: Restaurant; index: number }) => (
+    <RestaurantCard
+      restaurant={item}
+      index={index}
+      onPress={() =>
+        router.push({
+          pathname: "/restaurants/[id]",
+          params: { id: item.id },
+        })
+      }
+    />
+  ), []);
+
+  // ── Header (memoized to prevent FlatList re-layout on every state change) ──
+  const ListHeader = useMemo(() => (
     <View>
-      {/* Spacer for floating headers (Fixed(100) + Floating(160)) */}
-      <View style={{ height: FIXED_HEADER_HEIGHT + 160 }} />
+      {/* Spacer for floating headers (Fixed(100) + Floating(190)) */}
+      <View style={{ height: FIXED_HEADER_HEIGHT + 190 }} />
 
       <View style={styles.sectionHeader}>
         {isRestaurantsError && (
@@ -217,7 +252,7 @@ export default function Index() {
         </View>
       )}
     </View>
-  );
+  ), [isRestaurantsError, isLoading, styles, refetchRestaurants]);
 
   // ── Footer spinner ───────────────────────────────────────────────────────
 
@@ -292,31 +327,22 @@ export default function Index() {
       {/* Scrollable restaurant list */}
       <Animated.FlatList<Restaurant>
         data={filteredRestaurants}
-        keyExtractor={(r) => r.id}
+        keyExtractor={keyExtractor}
         onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        decelerationRate="normal"
-        removeClippedSubviews={Platform.OS === 'android'}
+        scrollEventThrottle={8}
+        decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.985}
+        removeClippedSubviews={true}
         initialNumToRender={4}
-        maxToRenderPerBatch={6}
-        windowSize={11}
-        itemLayoutAnimation={LinearTransition.springify().damping(28).stiffness(80).mass(1.2)}
-        renderItem={({ item, index }) => (
-          <RestaurantCard
-            restaurant={item}
-            index={index}
-            onPress={() =>
-              router.push({
-                pathname: "/restaurants/[id]",
-                params: { id: item.id },
-              })
-            }
-          />
-        )}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={30}
+        windowSize={5}
+        getItemLayout={getItemLayout}
+        renderItem={renderRestaurantCard}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}
         refreshControl={
@@ -366,6 +392,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     right: 0,
     zIndex: 100,
     backgroundColor: isDark ? Colors.background : Colors.secondary,
+    overflow: 'hidden',
   },
 
   stickyHeader: {
@@ -377,7 +404,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 12,
-    paddingBottom: 32,
+    paddingBottom: 120, // Keep plenty of spacing for the floating global cart banner
   },
 
   // Section header inside FlatList

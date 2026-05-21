@@ -2,9 +2,9 @@ import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { UserAddress } from "@/types/user";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import React, { useMemo } from "react";
 import {
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -62,7 +62,7 @@ export default function HeaderBar({
                 {/* Profile avatar */}
                 <TouchableOpacity style={styles.avatar} onPress={onProfilePress} activeOpacity={0.8}>
                     {userImage ? (
-                        <Image source={{ uri: userImage }} style={styles.avatarImage} />
+                        <Image source={{ uri: userImage }} style={styles.avatarImage} contentFit="cover" />
                     ) : (
                         <Text style={styles.avatarText}>{userInitial}</Text>
                     )}

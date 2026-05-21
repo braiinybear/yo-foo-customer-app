@@ -6,17 +6,18 @@ import { useCartStore } from "@/store/useCartStore";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useState, useMemo } from "react";
+import React, { useCallback, useState, useMemo, memo } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import {
     ActivityIndicator,
-    Image,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
+    Platform,
 } from "react-native";
 import { showAlert } from "@/store/useAlertStore";
 import { MenuCategory, MenuItem } from "@/types/restaurants";
@@ -27,7 +28,7 @@ import Animated, {
     useAnimatedStyle, 
     useSharedValue, 
     interpolate, 
-    Extrapolate 
+    Extrapolate,
 } from "react-native-reanimated";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { useToastStore } from "@/store/useToastStore";
@@ -98,14 +99,14 @@ export default function RestaurantDetailScreen() {
     const cartTotal = totalAmount;
     const cartBannerBottom = Math.max(insets.bottom + 8, 24);
 
-    // Reorder menu categories to show searched item's category at the top
-    const getReorderedCategories = () => {
+    // Memoize category reordering — this does O(n*m) search, so cache the result
+    const reorderedCategories = useMemo(() => {
         if ((!menuItemName && !menuItemId) || !restaurant?.menuCategories) {
             return restaurant?.menuCategories || [];
         }
 
         // Find the category containing the searched dish
-        let categoryWithSearchedItem : MenuCategory | null = null;
+        let categoryWithSearchedItem: MenuCategory | null = null;
         for (const category of restaurant.menuCategories) {
             const item = category.items.find((i: MenuItem) => 
                 (menuItemId && i.id === menuItemId) || 
@@ -121,14 +122,12 @@ export default function RestaurantDetailScreen() {
         if (categoryWithSearchedItem) {
             return [
                 categoryWithSearchedItem,
-                ...restaurant.menuCategories.filter((cat) => cat.id !== categoryWithSearchedItem.id),
+                ...restaurant.menuCategories.filter((cat) => cat.id !== categoryWithSearchedItem!.id),
             ];
         }
 
         return restaurant.menuCategories;
-    };
-
-    const reorderedCategories = getReorderedCategories();
+    }, [restaurant?.menuCategories, menuItemName, menuItemId]);
 
     const scrollY = useSharedValue(0);
     const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -143,14 +142,6 @@ export default function RestaurantDetailScreen() {
                         scrollY.value,
                         [-260, 0, 260],
                         [-260 / 2, 0, 260 * 0.75],
-                        Extrapolate.CLAMP
-                    ),
-                },
-                {
-                    scale: interpolate(
-                        scrollY.value,
-                        [-260, 0],
-                        [2, 1],
                         Extrapolate.CLAMP
                     ),
                 },
@@ -170,7 +161,16 @@ export default function RestaurantDetailScreen() {
         return (
             <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>Failed to load restaurant details.</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
+                <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => {
+                        if (router.canGoBack()) {
+                            router.back();
+                        } else {
+                            router.push("/(tabs)");
+                        }
+                    }}
+                >
                     <Text style={styles.retryText}>Go Back</Text>
                 </TouchableOpacity>
             </View>
@@ -181,9 +181,11 @@ export default function RestaurantDetailScreen() {
         <View style={styles.container}>
             <Animated.ScrollView
                 onScroll={scrollHandler}
-                scrollEventThrottle={16}
+                scrollEventThrottle={8}
                 showsVerticalScrollIndicator={false}
-                decelerationRate="normal"
+                decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.985}
+                removeClippedSubviews={Platform.OS === 'android'}
+                overScrollMode="never"
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -198,14 +200,26 @@ export default function RestaurantDetailScreen() {
                         <Image
                             source={{ uri: restaurant.image ?? getPlaceholderImage(restaurant.id) }}
                             style={styles.bannerImage}
+                            contentFit="cover"
                         />
-                        <AnimatedPressable style={styles.backButton} onPress={() => router.back()} scaleIn={0.85}>
+                        <AnimatedPressable
+                            style={styles.backButton}
+                            onPress={() => {
+                                if (router.canGoBack()) {
+                                    router.back();
+                                } else {
+                                    router.push("/(tabs)");
+                                }
+                            }}
+                            scaleIn={0.85}
+                        >
                             <Ionicons name="arrow-back" size={24} color={Colors.white} />
                         </AnimatedPressable>
                         {restaurant.logo && (
                             <Image
                                 source={{ uri: restaurant.logo }}
                                 style={styles.logoOverlay}
+                                contentFit="contain"
                             />
                         )}
                     </Animated.View>
@@ -279,11 +293,12 @@ export default function RestaurantDetailScreen() {
 
                                     <View style={styles.imageActionContainer}>
                                         {searchedItem.image ? (
-                                            <Image source={{ uri: searchedItem.image }} style={styles.itemImage} />
+                                            <Image source={{ uri: searchedItem.image }} style={styles.itemImage} contentFit="cover" />
                                         ) : (
                                             <Image
                                                 source={{ uri: getPlaceholderImage(searchedItem.id) }}
                                                 style={styles.itemImage}
+                                                contentFit="cover"
                                             />
                                         )}
                                         <View style={styles.actionButtonWrapper}>
@@ -351,71 +366,74 @@ export default function RestaurantDetailScreen() {
                                 {category.name} ({sortedItems.length})
                             </Text>
 
-                            {sortedItems.map((item: MenuItem) => {
+                            {sortedItems.map((item: MenuItem, itemIndex: number) => {
                                 const cartItem = items.find((i) => i.id === item.id);
                                 return (
-                                    <View key={item.id} style={styles.menuItem}>
-                                        <View style={styles.itemInfo}>
-                                            <View style={styles.typeIconContainer}>
-                                                <Ionicons
-                                                    name="caret-up-circle"
-                                                    size={16}
-                                                    color={item.type === 'VEG' ? '#27ae60' : '#e74c3c'}
-                                                />
-                                                {item.isBestseller && (
-                                                    <View style={styles.bestsellerBadge}>
-                                                        <Ionicons name="star" size={10} color="#FFB800" />
-                                                        <Text style={styles.bestsellerText}>Bestseller</Text>
-                                                    </View>
-                                                )}
+                                    <View key={item.id}>
+                                        <View style={styles.menuItem}>
+                                            <View style={styles.itemInfo}>
+                                                <View style={styles.typeIconContainer}>
+                                                    <Ionicons
+                                                        name="caret-up-circle"
+                                                        size={16}
+                                                        color={item.type === 'VEG' ? '#27ae60' : '#e74c3c'}
+                                                    />
+                                                    {item.isBestseller && (
+                                                        <View style={styles.bestsellerBadge}>
+                                                            <Ionicons name="star" size={10} color="#FFB800" />
+                                                            <Text style={styles.bestsellerText}>Bestseller</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <Text style={styles.itemName}>{item.name}</Text>
+                                                <Text style={styles.itemPrice}>₹{item.price}</Text>
+                                                <Text style={styles.itemDesc} numberOfLines={3}>
+                                                    {item.description}
+                                                </Text>
                                             </View>
-                                            <Text style={styles.itemName}>{item.name}</Text>
-                                            <Text style={styles.itemPrice}>₹{item.price}</Text>
-                                            <Text style={styles.itemDesc} numberOfLines={3}>
-                                                {item.description}
-                                            </Text>
-                                        </View>
 
-                                        <View style={styles.imageActionContainer}>
-                                            {item.image ? (
-                                                <Image source={{ uri: item.image }} style={styles.itemImage} />
-                                            ) : (
-                                                <Image
-                                                    source={{ uri: getPlaceholderImage(item.id) }}
-                                                    style={styles.itemImage}
-                                                />
-                                            )}
-                                            <View style={styles.actionButtonWrapper}>
-                                                {cartItem ? (
-                                                    <View style={styles.quantityControls}>
-                                                        <AnimatedPressable
-                                                            onPress={() => updateQuantity(item.id, cartItem.quantity - 1)}
-                                                            style={styles.qtyBtn}
-                                                            scaleIn={0.8}
-                                                        >
-                                                            <Ionicons name="remove" size={18} color={Colors.primary} />
-                                                        </AnimatedPressable>
-                                                        <Text style={styles.qtyText}>{cartItem.quantity}</Text>
-                                                        <AnimatedPressable
-                                                            onPress={() => updateQuantity(item.id, cartItem.quantity + 1)}
-                                                            style={styles.qtyBtn}
-                                                            scaleIn={0.8}
-                                                        >
-                                                            <Ionicons name="add" size={18} color={Colors.primary} />
-                                                        </AnimatedPressable>
-                                                    </View>
+                                            <View style={styles.imageActionContainer}>
+                                                {item.image ? (
+                                                    <Image source={{ uri: item.image }} style={styles.itemImage} contentFit="cover" />
                                                 ) : (
-                                                    <AnimatedPressable
-                                                        style={styles.addButton}
-                                                        onPress={() => {
-                                                            addItem(item, restaurant.id);
-                                                            showToast(`${item.name} added to cart`, 'success');
-                                                        }}
-                                                        scaleIn={0.9}
-                                                    >
-                                                        <Text style={styles.addButtonText}>ADD</Text>
-                                                    </AnimatedPressable>
+                                                    <Image
+                                                        source={{ uri: getPlaceholderImage(item.id) }}
+                                                        style={styles.itemImage}
+                                                        contentFit="cover"
+                                                    />
                                                 )}
+                                                <View style={styles.actionButtonWrapper}>
+                                                    {cartItem ? (
+                                                        <View style={styles.quantityControls}>
+                                                            <AnimatedPressable
+                                                                onPress={() => updateQuantity(item.id, cartItem.quantity - 1)}
+                                                                style={styles.qtyBtn}
+                                                                scaleIn={0.8}
+                                                            >
+                                                                <Ionicons name="remove" size={18} color={Colors.primary} />
+                                                            </AnimatedPressable>
+                                                            <Text style={styles.qtyText}>{cartItem.quantity}</Text>
+                                                            <AnimatedPressable
+                                                                onPress={() => updateQuantity(item.id, cartItem.quantity + 1)}
+                                                                style={styles.qtyBtn}
+                                                                scaleIn={0.8}
+                                                            >
+                                                                <Ionicons name="add" size={18} color={Colors.primary} />
+                                                            </AnimatedPressable>
+                                                        </View>
+                                                    ) : (
+                                                        <AnimatedPressable
+                                                            style={styles.addButton}
+                                                            onPress={() => {
+                                                                addItem(item, restaurant.id);
+                                                                showToast(`${item.name} added to cart`, 'success');
+                                                            }}
+                                                            scaleIn={0.9}
+                                                        >
+                                                            <Text style={styles.addButtonText}>ADD</Text>
+                                                        </AnimatedPressable>
+                                                    )}
+                                                </View>
                                             </View>
                                         </View>
                                     </View>
@@ -425,49 +443,56 @@ export default function RestaurantDetailScreen() {
                         );
                     })}
                 </View>
-                <View style={{ height: 120 }} />
+                <View style={{ height: 160 }} />
             </Animated.ScrollView>
 
-           {cartCount > 0 && (
-                <Animated.View 
-                    entering={SlideInDown.springify().damping(26).stiffness(80).mass(1)}
-                    exiting={SlideOutDown.duration(300)}
+            {cartCount > 0 && (
+                <View 
                     style={[styles.cartBannerWrapper, { bottom: cartBannerBottom }]}
+                    pointerEvents="box-none"
                 >
-                    <AnimatedPressable 
-                        style={styles.cartBanner}
-                        onPress={() => router.push('/(tabs)/cart')}
-                        scaleIn={0.98}
+                    <Animated.View 
+                        entering={SlideInDown.springify().damping(26).stiffness(80).mass(1)}
+                        exiting={SlideOutDown.duration(300)}
+                        style={{ width: '100%' }}
+                        pointerEvents="box-none"
                     >
-                        <View style={styles.cartContentLeft}>
-                            <View style={styles.cartItemImagesContainer}>
-                                {items.slice(0, 3).map((item, index) => (
-                                    <Image
-                                        key={item.id}
-                                        source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
-                                        style={[styles.cartItemImage, { marginLeft: index * -10 }]}
-                                    />
-                                ))}
+                        <AnimatedPressable 
+                            style={styles.cartBanner}
+                            onPress={() => router.push('/(tabs)/cart')}
+                            scaleIn={0.98}
+                        >
+                            <View style={styles.cartContentLeft}>
+                                <View style={styles.cartItemImagesContainer}>
+                                    {items.slice(0, 3).map((item, index) => (
+                                        <Image
+                                            key={item.id}
+                                            source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
+                                            style={[styles.cartItemImage, { marginLeft: index * -10 }]}
+                                            contentFit="cover"
+                                        />
+                                    ))}
+                                </View>
+                                <View style={styles.cartTextSection}>
+                                    <Text style={styles.cartCountText}>{cartCount} ITEMS</Text>
+                                    <Text style={styles.cartTotalText}>₹{cartTotal}<Text style={styles.cartTaxText}> + tax</Text></Text>
+                                </View>
                             </View>
-                            <View style={styles.cartTextSection}>
-                                <Text style={styles.cartCountText}>{cartCount} ITEMS</Text>
-                                <Text style={styles.cartTotalText}>₹{cartTotal}<Text style={styles.cartTaxText}> + tax</Text></Text>
+                            <View style={styles.cartActions}>
+                                <AnimatedPressable 
+                                    style={styles.clearCartBtn}
+                                    onPress={handleClearCart}
+                                    scaleIn={0.8}
+                                >
+                                    <Ionicons name="trash-outline" size={18} color={Colors.white} />
+                                </AnimatedPressable>
+                                <View style={styles.viewCartAction}>
+                                    <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+                                </View>
                             </View>
-                        </View>
-                        <View style={styles.cartActions}>
-                            <AnimatedPressable 
-                                style={styles.clearCartBtn}
-                                onPress={handleClearCart}
-                                scaleIn={0.8}
-                            >
-                                <Ionicons name="trash-outline" size={18} color={Colors.white} />
-                            </AnimatedPressable>
-                            <View style={styles.viewCartAction}>
-                                <Ionicons name="arrow-forward" size={20} color={Colors.white} />
-                            </View>
-                        </View>
-                    </AnimatedPressable>
-                </Animated.View>
+                        </AnimatedPressable>
+                    </Animated.View>
+                </View>
             )}
 
         </View>
@@ -533,12 +558,10 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 6,
         elevation: 5,
-        resizeMode: "cover",
     },
     bannerImage: {
         width: "100%",
         height: "100%",
-        resizeMode: "cover",
     },
     placeholderImage: {
         backgroundColor: Colors.surface,
@@ -734,7 +757,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 14,
-        resizeMode: 'cover',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -774,6 +796,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         shadowRadius: 8,
         elevation: 5,
         position: 'relative',
+        alignSelf: 'center',
     },
     addButtonText: {
         fontFamily: Fonts.brandBlack,
@@ -802,6 +825,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         shadowRadius: 5,
         elevation: 3,
         paddingHorizontal: 4,
+        alignSelf: 'center',
     },
     qtyBtn: {
         width: 32,
@@ -820,6 +844,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         position: "absolute",
         left: 16,
         right: 16,
+        zIndex: 99,
     },
     cartBanner: {
         backgroundColor: isDark ? Colors.surface : Colors.secondary, // Midnight Navy
@@ -842,6 +867,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         alignItems: "center",
         gap: 6,
         flex: 1,
+        marginRight: 12,
     },
     cartItemImagesContainer: {
         flexDirection: "row",
@@ -855,7 +881,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         borderRadius: 19,
         borderWidth: 2,
         borderColor: Colors.primary, // Gold border
-        resizeMode: "cover",
     },
     cartItemImageMore: {
         width: 38,

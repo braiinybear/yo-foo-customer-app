@@ -100,15 +100,17 @@ export const AnimatedBottomSheet: React.FC<AnimatedBottomSheetProps> = ({
   });
 
   const rBackdropStyle = useAnimatedStyle(() => {
+    const opacityValue = interpolate(
+      translateY.value,
+      [-height, 0],
+      [1, 0],
+      Extrapolate.CLAMP
+    );
+
     return {
-      opacity: interpolate(
-        translateY.value,
-        [-height, 0],
-        [1, 0],
-        Extrapolate.CLAMP
-      ),
-      display: translateY.value === 0 ? 'none' : 'flex',
-    };
+      opacity: opacityValue,
+      pointerEvents: opacityValue < 0.01 ? 'none' : 'auto',
+    } as any;
   });
 
   return (

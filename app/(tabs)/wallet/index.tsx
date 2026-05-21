@@ -10,10 +10,21 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import RazorpayCheckout from "react-native-razorpay";
+import Animated, { 
+    useSharedValue, 
+    useAnimatedProps, 
+    withTiming, 
+    useDerivedValue,
+    interpolate,
+    FadeInDown,
+    FadeInUp
+} from "react-native-reanimated";
+import { AnimatedPressable } from "@/components/AnimatedPressable";
 
 // Remove static import
 // import { Colors } from "@/constants/colors";
@@ -27,6 +38,7 @@ import {
     useVerifyWalletTopUp,
 } from "@/hooks/usePayments";
 import { WalletTransaction } from "@/types/razorpay";
+import { WalletSkeleton } from "@/components/loadingSkelton/WalletSkeleton";
 
 // ─── Razorpay key ─────────────────────────────────────────────────────────────
 const RAZORPAY_KEY_ID =
@@ -35,8 +47,10 @@ const RAZORPAY_KEY_ID =
 // ─── Quick-add amounts (₹) ────────────────────────────────────────────────────
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n: number) => `₹${n.toFixed(2)}`;
+
+// Create a Reanimated compatible TextInput
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 function formatDate(dateStr: string) {
     const d = new Date(dateStr);
@@ -178,6 +192,23 @@ export default function WalletScreen() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
 
+    // ── Animation ─────────────────────────────────────────────────────────────
+    const animatedBalance = useSharedValue(0);
+
+    React.useEffect(() => {
+        if (wallet?.balance != null && !balanceLoading) {
+            animatedBalance.value = withTiming(wallet.balance, { 
+                duration: 1500 
+            });
+        }
+    }, [wallet?.balance, balanceLoading]);
+
+    const animatedProps = useAnimatedProps(() => {
+        return {
+            text: `₹${animatedBalance.value.toFixed(2)}`,
+        } as any;
+    });
+
     // ── Pull-to-refresh ───────────────────────────────────────────────────────
     const onRefresh = async () => {
         setRefreshing(true);
@@ -273,11 +304,28 @@ export default function WalletScreen() {
         />
     ) : null;
 
+    if (balanceLoading && txLoading && !refreshing) {
+        return (
+            <View style={styles.root}>
+                <ScrollView 
+                    showsVerticalScrollIndicator={false} 
+                    contentContainerStyle={styles.scroll}
+                    decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.985}
+                    scrollEventThrottle={16}
+                >
+                    <WalletSkeleton />
+                </ScrollView>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.root}>
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scroll}
+                decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.985}
+                scrollEventThrottle={16}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -289,7 +337,7 @@ export default function WalletScreen() {
             >
                 {/* ── Order Success Banner ────────────────────────────────── */}
                 {orderId && (
-                    <View style={styles.orderPlacedCard}>
+                    <Animated.View entering={FadeInUp.springify().damping(22).stiffness(100)} style={styles.orderPlacedCard}>
                         <View style={styles.orderPlacedIcon}>
                             <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
                         </View>
@@ -297,17 +345,18 @@ export default function WalletScreen() {
                             <Text style={styles.orderPlacedTitle}>Order Placed Successfully!</Text>
                             <Text style={styles.orderPlacedSub}>Payment deducted from your wallet.</Text>
                         </View>
-                        <TouchableOpacity
+                        <AnimatedPressable
                             style={styles.trackOrderBtn}
                             onPress={() => router.replace(`/(tabs)/orders`)}
+                            scaleIn={0.94}
                         >
                             <Text style={styles.trackOrderText}>Track Order</Text>
-                        </TouchableOpacity>
-                    </View>
+                        </AnimatedPressable>
+                    </Animated.View>
                 )}
 
                 {/* ── Balance Card ─────────────────────────────────────── */}
-                <View style={styles.balanceCard}>
+                <Animated.View entering={FadeInUp.duration(600).springify().damping(20).stiffness(90)} style={styles.balanceCard}>
                     <View style={styles.circle1} />
                     <View style={styles.circle2} />
                     <View style={styles.cardTopRow}>
@@ -322,7 +371,13 @@ export default function WalletScreen() {
                     {balanceLoading ? (
                         <ActivityIndicator color={Colors.white} size="large" style={{ marginVertical: 18 }} />
                     ) : (
-                        <Text style={styles.balanceAmount}>{fmt(wallet?.balance ?? 0)}</Text>
+                        <AnimatedTextInput
+                            editable={false}
+                            underlineColorAndroid="transparent"
+                            style={styles.balanceAmount}
+                            animatedProps={animatedProps}
+                            value={fmt(wallet?.balance ?? 0)}
+                        />
                     )}
                     <View style={styles.cardDivider} />
                     <View style={styles.cardFooterRow}>
@@ -330,15 +385,15 @@ export default function WalletScreen() {
                             <Ionicons name="shield-checkmark-outline" size={13} color="rgba(255,255,255,0.75)" />
                             <Text style={styles.cardFooterText}>Secured Balance</Text>
                         </View>
-                        <TouchableOpacity style={styles.addMoneyChip} onPress={() => setShowModal(true)} activeOpacity={0.85}>
+                        <AnimatedPressable style={styles.addMoneyChip} onPress={() => setShowModal(true)} scaleIn={0.93}>
                             <Ionicons name="add" size={16} color="#0D1B2A" />
                             <Text style={styles.addMoneyChipText}>Add Money</Text>
-                        </TouchableOpacity>
+                        </AnimatedPressable>
                     </View>
-                </View>
+                </Animated.View>
 
                 {/* ── Stat Pills ───────────────────────────────────────── */}
-                <View style={styles.statsRow}>
+                <Animated.View entering={FadeInUp.delay(100).duration(600).springify().damping(20).stiffness(90)} style={styles.statsRow}>
                     <View style={styles.statCard}>
                         <View style={[styles.statIconWrap, { backgroundColor: Colors.success + "18" }]}>
                             <Ionicons name="arrow-down-circle-outline" size={20} color={Colors.success} />
@@ -366,10 +421,10 @@ export default function WalletScreen() {
                             {txLoading ? "—" : txTotal}
                         </Text>
                     </View>
-                </View>
+                </Animated.View>
 
                 {/* ── Transaction History Card ──────────────────────────── */}
-                <View style={styles.txCard}>
+                <Animated.View entering={FadeInUp.delay(200).duration(600).springify().damping(20).stiffness(90)} style={styles.txCard}>
                     {/* Card header */}
                     <View style={styles.txCardHeader}>
                         <View style={styles.txCardTitleRow}>
@@ -399,24 +454,18 @@ export default function WalletScreen() {
                             <Text style={styles.emptySubtitle}>
                                 Add money to your wallet and start ordering!
                             </Text>
-                            <TouchableOpacity style={styles.emptyAddBtn} onPress={() => setShowModal(true)}>
+                            <AnimatedPressable style={styles.emptyAddBtn} onPress={() => setShowModal(true)} scaleIn={0.94}>
                                 <Ionicons name="add" size={16} color="#0D1B2A" />
                                 <Text style={styles.emptyAddBtnText}>Add Money</Text>
-                            </TouchableOpacity>
+                            </AnimatedPressable>
                         </View>
                     ) : (
-                        <ScrollView
-                            nestedScrollEnabled
-                            showsVerticalScrollIndicator={false}
-                            style={styles.txInnerScroll}
-                            onScroll={({ nativeEvent }) => {
-                                const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-                                const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
-                                if (nearBottom) handleEndReached();
-                            }}
-                            scrollEventThrottle={200}
-                        >
-                            {txList.map((tx) => <TxRow key={tx.id} tx={tx} Colors={Colors} styles={styles} />)}
+                        <View style={styles.txInnerScroll}>
+                            {txList.map((tx, idx) => (
+                                <Animated.View key={tx.id} entering={FadeInDown.delay(Math.min(idx * 40, 400)).springify().damping(22).stiffness(110)}>
+                                    <TxRow tx={tx} Colors={Colors} styles={styles} />
+                                </Animated.View>
+                            ))}
 
                             {txFetchingMore && (
                                 <View style={styles.centerWrap}>
@@ -426,18 +475,18 @@ export default function WalletScreen() {
                             )}
 
                             {!txFetchingMore && txHasNextPage && (
-                                <TouchableOpacity
+                                <AnimatedPressable
                                     style={styles.loadMoreBtn}
                                     onPress={() => txFetchNextPage()}
-                                    activeOpacity={0.75}
+                                    scaleIn={0.96}
                                 >
                                     <Ionicons name="chevron-down" size={14} color={Colors.primary} />
                                     <Text style={styles.loadMoreText}>Load More</Text>
-                                </TouchableOpacity>
+                                </AnimatedPressable>
                             )}
-                        </ScrollView>
+                        </View>
                     )}
-                </View>
+                </Animated.View>
             </ScrollView>
 
 
@@ -474,12 +523,13 @@ export default function WalletScreen() {
                                 <Text style={styles.successSubtitle}>
                                     Your wallet has been topped up successfully.
                                 </Text>
-                                <TouchableOpacity
+                                <AnimatedPressable
                                     style={styles.doneBtn}
                                     onPress={closeModal}
+                                    scaleIn={0.96}
                                 >
                                     <Text style={styles.doneBtnText}>Done</Text>
-                                </TouchableOpacity>
+                                </AnimatedPressable>
                             </View>
                         ) : (
                             <>
@@ -491,7 +541,7 @@ export default function WalletScreen() {
                                 {/* Quick amounts */}
                                 <View style={styles.quickAmounts}>
                                     {QUICK_AMOUNTS.map((a) => (
-                                        <TouchableOpacity
+                                        <AnimatedPressable
                                             key={a}
                                             style={[
                                                 styles.quickChip,
@@ -501,7 +551,7 @@ export default function WalletScreen() {
                                                 setSelectedAmount(a);
                                                 setCustomAmount("");
                                             }}
-                                            activeOpacity={0.75}
+                                            scaleIn={0.92}
                                         >
                                             <Text
                                                 style={[
@@ -512,7 +562,7 @@ export default function WalletScreen() {
                                             >
                                                 ₹{a}
                                             </Text>
-                                        </TouchableOpacity>
+                                        </AnimatedPressable>
                                     ))}
                                 </View>
 
@@ -557,7 +607,7 @@ export default function WalletScreen() {
                                 )}
 
                                 {/* CTA */}
-                                <TouchableOpacity
+                                <AnimatedPressable
                                     style={[
                                         styles.payBtn,
                                         (isProcessing || !resolvedAmount) &&
@@ -572,7 +622,7 @@ export default function WalletScreen() {
                                             : handleTopUp
                                     }
                                     disabled={isProcessing}
-                                    activeOpacity={0.85}
+                                    scaleIn={0.96}
                                 >
                                     {isProcessing ? (
                                         <ActivityIndicator color={Colors.white} />
@@ -596,7 +646,7 @@ export default function WalletScreen() {
                                             </Text>
                                         </>
                                     )}
-                                </TouchableOpacity>
+                                </AnimatedPressable>
 
                                 <Text style={styles.secureNote}>
                                     🔒 Secured by Razorpay · 100% Safe & Encrypted
@@ -665,7 +715,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     scroll: {
         padding: 16,
         gap: 14,
-        paddingBottom: 32,
+        paddingBottom: 120, // Keep plenty of spacing for the floating global cart banner
     },
 
 
@@ -810,7 +860,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         marginHorizontal: 0,
     },
     txInnerScroll: {
-        maxHeight: 420,          // show ~5 transactions, scroll for more
         paddingHorizontal: 16,
     },
 

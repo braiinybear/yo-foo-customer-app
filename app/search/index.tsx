@@ -2,10 +2,10 @@ import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { getPlaceholderImage } from "@/constants/images";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import { Image } from "expo-image";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
   FlatList,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,7 +15,8 @@ import {
   Modal,
   ActivityIndicator,
   StatusBar,
-  RefreshControl
+  RefreshControl,
+  Platform
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
@@ -234,6 +235,7 @@ export default function SearchPage() {
             borderWidth: 4,
           },
         ]}
+        contentFit="cover"
       />
       <Text style={styles.dishItemName} numberOfLines={2}>
         {dish.dishName}
@@ -241,7 +243,7 @@ export default function SearchPage() {
     </TouchableOpacity>
   );
 
-  const renderRestaurantCard = ({ item }: { item: any }) => {
+  const renderRestaurantCard = useCallback(({ item }: { item: any }) => {
     return (
       <TouchableOpacity
         style={styles.restaurantCardItem}
@@ -263,6 +265,7 @@ export default function SearchPage() {
               uri: item.dishDetails.image || getPlaceholderImage(item.dishId),
             }}
             style={styles.dishImageCard}
+            contentFit="cover"
           />
           <View style={styles.dishCardInfo}>
             <Text style={styles.cardDishName} numberOfLines={2}>
@@ -300,7 +303,7 @@ export default function SearchPage() {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [styles, router, Colors, getPlaceholderImage]);
 
   const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -391,7 +394,7 @@ export default function SearchPage() {
                   }}
                 >
                   <View style={styles.cuisineImageWrapper}>
-                    <Image source={{ uri: cuisine.image || getPlaceholderImage(cuisine.id) }} style={styles.cuisineImage} />
+                    <Image source={{ uri: cuisine.image || getPlaceholderImage(cuisine.id) }} style={styles.cuisineImage} contentFit="cover" />
                   </View>
                   <Text style={styles.cuisineName} numberOfLines={1}>{cuisine.name}</Text>
                 </TouchableOpacity>
@@ -420,7 +423,7 @@ export default function SearchPage() {
                       addRecentSearch(item.name);
                     }}
                   >
-                    <Image source={{ uri: item.image || getPlaceholderImage(item.id) }} style={styles.popularItemImage} />
+                    <Image source={{ uri: item.image || getPlaceholderImage(item.id) }} style={styles.popularItemImage} contentFit="cover" />
                     <View style={styles.popularItemInfo}>
                       <Text style={styles.popularItemName} numberOfLines={1}>{item.name}</Text>
                       <Text style={styles.popularItemPrice}>₹{item.price}</Text>
@@ -507,13 +510,22 @@ export default function SearchPage() {
                 contentContainerStyle={styles.listContent}
                 refreshControl={
                   <RefreshControl
-                    refreshing={isPending}
-                    onRefresh={refetch}
+                    refreshing={isLoading}
+                    onRefresh={refetchSearch}
                     colors={[Colors.primary]}
                     tintColor={Colors.primary}
                   />
                 }
                 scrollEventThrottle={16}
+                decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.985}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={4}
+                maxToRenderPerBatch={6}
+                windowSize={7}
+                overScrollMode="never"
+                getItemLayout={(_, index) => ({ length: 340, offset: 340 * index, index })}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
                 ListEmptyComponent={
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyTitle}>No restaurants found</Text>
@@ -1517,11 +1529,10 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  cuisineImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
+    cuisineImage: {
+        width: "100%",
+        height: "100%",
+    },
   cuisineName: {
     fontFamily: Fonts.brandBold,
     fontSize: 13,
@@ -1546,11 +1557,10 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     borderColor: Colors.border,
     marginBottom: 12,
   },
-  popularItemImage: {
-    width: "100%",
-    height: 120,
-    resizeMode: "cover",
-  },
+    popularItemImage: {
+        width: "100%",
+        height: 120,
+    },
   popularItemInfo: {
     padding: 10,
     gap: 4,

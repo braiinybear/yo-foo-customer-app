@@ -1,27 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, Tabs } from "expo-router";
-import { TouchableOpacity } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { useCartStore } from "@/store/useCartStore";
 import { useTheme } from "@/context/ThemeContext";
+import GlobalCartBanner from "@/components/GlobalCartBanner";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { useCallback, useMemo } from "react";
 
 export default function TabsLayout() {
   const router = useRouter();
-  const cartCount = useCartStore((state) =>
-    state.items.reduce((total, item) => total + item.quantity, 0),
-  );
+  // Use individual primitive selectors to minimize tab tree re-renders
+  const cartCount = useCartStore((state) => state.items.length);
   const restaurantId = useCartStore((state) => state.restaurantId);
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 10);
   const { Colors, isDark } = useTheme();
 
-  const BackButton = () => (
+  // Memoized back button to avoid recreation on every render
+  const BackButton = useCallback(() => (
     <TouchableOpacity
       onPress={() => {
-        if (restaurantId) {
-          router.push(`/restaurants/${restaurantId}`);
-        } else {
+        if (router.canGoBack()) {
           router.back();
+        } else {
+          router.push("/(tabs)");
         }
       }}
       activeOpacity={0.7}
@@ -29,28 +31,50 @@ export default function TabsLayout() {
     >
       <Ionicons name="arrow-back" size={28} color={Colors.white} />
     </TouchableOpacity>
-  );
+  ), [router, Colors.white]);
 
-  return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: Colors.primary, // Gold
-        tabBarInactiveTintColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)",
-        tabBarStyle: {
-          backgroundColor: isDark ? Colors.background : Colors.white,
-          borderTopWidth: 1,
-          borderTopColor: Colors.border,
-          height: 58 + bottomPadding,
-          paddingBottom: bottomPadding,
-          paddingTop: 6,
-          elevation: 12,
-          shadowColor: isDark ? Colors.secondary : "#000",
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: -4 },
-        },
+  const CartBackButton = useCallback(() => (
+    <TouchableOpacity
+      onPress={() => {
+        if (restaurantId) {
+          router.replace(`/restaurants/${restaurantId}`);
+        } else if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.push("/(tabs)");
+        }
       }}
+      activeOpacity={0.7}
+      style={{ paddingLeft: 8, paddingRight: 12, height: 44, justifyContent: 'center' }}
+    >
+      <Ionicons name="arrow-back" size={28} color={Colors.white} />
+    </TouchableOpacity>
+  ), [router, restaurantId, Colors.white]);
+
+  // Memoize tab screen options to prevent recreation
+  const tabScreenOptions = useMemo(() => ({
+    headerShown: false,
+    tabBarActiveTintColor: Colors.primary,
+    tabBarInactiveTintColor: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)",
+    lazy: true,
+    tabBarStyle: {
+      backgroundColor: isDark ? Colors.background : Colors.white,
+      borderTopWidth: 1,
+      borderTopColor: Colors.border,
+      height: 58 + bottomPadding,
+      paddingBottom: bottomPadding,
+      paddingTop: 6,
+      elevation: 12,
+      shadowColor: isDark ? Colors.secondary : "#000",
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: -4 },
+    },
+  }), [Colors, isDark, bottomPadding]);
+  return (
+    <View style={{ flex: 1 }}>
+      <Tabs
+      screenOptions={tabScreenOptions}
     >
       <Tabs.Screen
         name="index"
@@ -88,7 +112,7 @@ export default function TabsLayout() {
         options={{
           title: "Cart",
           headerShown: true,
-          headerLeft: () => <BackButton />,
+          headerLeft: () => <CartBackButton />,
           headerStyle: {
             backgroundColor: isDark ? Colors.background : Colors.secondary,
             borderBottomWidth: 1,
@@ -135,5 +159,8 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    <GlobalCartBanner />
+    </View>
   );
 }
+ 

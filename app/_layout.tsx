@@ -65,12 +65,16 @@ const queryClient = new QueryClient({
   },
 });
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ThemedRoot />
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <ThemedRoot />
+        </ThemeProvider>
+      </SafeAreaProvider>
     </QueryClientProvider>
   );
 }
@@ -183,17 +187,21 @@ function ThemedRoot() {
               screenOptions={{
                 headerShown: false,
                 contentStyle: { backgroundColor: Colors.background },
+                animation: 'slide_from_right',
+                animationDuration: 250,
+                freezeOnBlur: true,
               }}
             >
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'none' }} />
+              <Stack.Screen name="(auth)/login" options={{ headerShown: false, animation: 'fade' }} />
+              <Stack.Screen name="(auth)/register" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen
                 name="profile"
                 options={{
                   headerShown: true,
                   headerTitle: "Profile",
                   headerTintColor: Colors.white,
+                  animation: 'slide_from_right',
                   headerStyle: {
                     backgroundColor: isDark ? Colors.background : Colors.secondary,
                   },
@@ -204,14 +212,14 @@ function ThemedRoot() {
                 }}
               />
 
-
-
               <Stack.Screen
                 name="checkout"
                 options={{
                   headerShown: true,
                   headerTitle: "Checkout",
                   headerTintColor: Colors.white,
+                  animation: 'slide_from_bottom',
+                  animationDuration: 300,
                   headerStyle: {
                     backgroundColor: isDark ? Colors.background : Colors.secondary,
                   },

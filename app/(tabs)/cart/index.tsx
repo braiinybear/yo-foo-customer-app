@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from "@/context/ThemeContext";
+import { Image } from "expo-image";
 import {
     View,
     Text,
@@ -7,14 +8,13 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     ScrollView,
-    Image,
     Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useCartStore } from '@/store/useCartStore';
-import { useCreateOrder } from '@/hooks/useOrders';
+
 import { useWalletBalance } from '@/hooks/usePayments';
 import { useAddresses } from '@/hooks/useAddresses';
 // import { Colors } from '@/constants/colors';
@@ -24,7 +24,7 @@ import { PaymentMode } from '@/types/orders';
 import { UserAddress } from '@/types/user';
 import AddressModal from '@/components/home/AddressModal';
 import { showAlert } from '@/store/useAlertStore';
-import Animated, { FadeInDown, LinearTransition, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 
 // ─── Payment option config ────────────────────────────────────────────────────
@@ -71,8 +71,7 @@ export default function CartScreen() {
             colorLight: Colors.primaryLight,
         },
     ];
-    const { items, updateQuantity, clearCart, totalAmount, restaurantId } = useCartStore();
-    const createOrderMutation = useCreateOrder();
+    const { items, updateQuantity, totalAmount, restaurantId } = useCartStore();
 
     const [selectedMode, setSelectedMode] = useState<PaymentMode>('WALLET');
     const [paymentModalVisible, setPaymentModalVisible] = useState(false);
@@ -117,33 +116,14 @@ export default function CartScreen() {
             }
         }
 
-        const payload = {
-            restaurantId,
-            items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity })),
-            paymentMode: selectedMode,
-            addressId: selectedAddress?.id,
-        };
-
-        createOrderMutation.mutate(payload, {
-            onSuccess: (order) => {
-                if (selectedMode === 'WALLET') {
-                    clearCart();
-                    router.replace({
-                        pathname: '/wallet',
-                        params: { orderId: order.id }
-                    });
-                } else if (selectedMode === 'COD') {
-                    clearCart();
-                    router.replace('/(tabs)/orders');
-                } else {
-                    router.push({ pathname: '/checkout', params: { orderId: order.id, amount: String(totalAmount) } });
-                }
-            },
-            onError: (err: any) => {
-                const msg =
-                    err?.response?.data?.message ??
-                    'Something went wrong while placing your order. Please try again.';
-                showAlert('Order Failed', msg);
+        // Navigate to checkout for ALL payment modes
+        // Checkout screen will handle order creation + payment
+        router.push({
+            pathname: '/checkout',
+            params: {
+                amount: String(totalAmount),
+                paymentMode: selectedMode,
+                addressId: selectedAddress?.id ?? '',
             },
         });
     };
@@ -174,14 +154,15 @@ export default function CartScreen() {
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
                 decelerationRate="normal"
+                overScrollMode="never"
+                removeClippedSubviews={true}
             >
-                <Animated.View entering={FadeInDown.delay(100).springify()}>
+                <View>
                     <Text style={styles.sectionTitle}>Order Summary</Text>
                     <View style={styles.itemsCard}>
                         {items.map((item, index) => (
                             <Animated.View
                                 key={item.id}
-                                layout={LinearTransition.springify()}
                                 exiting={SlideOutDown.duration(200)}
                                 style={[
                                     styles.itemRow,
@@ -191,6 +172,7 @@ export default function CartScreen() {
                                 <Image
                                     source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
                                     style={styles.cartItemImage}
+                                    contentFit="cover"
                                 />
                                 <View style={styles.itemInfo}>
                                     <Text style={styles.itemName} numberOfLines={1}>
@@ -227,11 +209,11 @@ export default function CartScreen() {
                             <Text style={styles.totalValue}>₹{totalAmount}</Text>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
 
 
                 {/* ── Payment Method ──────────────────────────────────── */}
-                <Animated.View entering={FadeInDown.delay(200).springify()}>
+                <View>
                     <Text style={styles.sectionTitle}>Payment Method</Text>
                     <AnimatedPressable
                         style={styles.paymentDropdownBtn}
@@ -255,7 +237,7 @@ export default function CartScreen() {
                             );
                         })()}
                     </AnimatedPressable>
-                </Animated.View>
+                </View>
 
                 {/* Payment Method Modal */}
                 <Modal
@@ -359,7 +341,7 @@ export default function CartScreen() {
             />
 
             {/* ── Sticky Footer ───────────────────────────────────────── */}
-            <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.footer}>
+            <View style={styles.footer}>
                 {!selectedAddress ? (
                     /* ── Step 1: No address yet ── */
                     <AnimatedPressable
@@ -406,7 +388,7 @@ export default function CartScreen() {
                             </AnimatedPressable>
                         </AnimatedPressable>
 
-                        {/* Pay button */}
+                        {/* Checkout button */}
                         <AnimatedPressable
                             style={[
                                 styles.checkoutBtn,
@@ -414,26 +396,21 @@ export default function CartScreen() {
                                     backgroundColor: Colors.secondary, // Midnight Navy
                                     shadowColor: Colors.secondary,
                                 },
-                                (createOrderMutation.isPending || isWalletInsufficient) &&
-                                styles.checkoutBtnDisabled,
+                                isWalletInsufficient && styles.checkoutBtnDisabled,
                             ]}
                             onPress={handleCheckout}
-                            disabled={createOrderMutation.isPending || isWalletInsufficient}
+                            disabled={isWalletInsufficient}
                         >
-                            {createOrderMutation.isPending ? (
-                                <ActivityIndicator color={Colors.white} />
-                            ) : (
-                                <View style={styles.payBtnContent}>
-                                    <Ionicons name="cash-outline" size={17} color={Colors.primary} style={styles.payBtnIcon} />
-                                    <Text style={styles.checkoutBtnText}>
-                                        Pay ₹{totalAmount}
-                                    </Text>
-                                </View>
-                            )}
+                            <View style={styles.payBtnContent}>
+                                <Ionicons name="arrow-forward" size={17} color={Colors.primary} style={styles.payBtnIcon} />
+                                <Text style={styles.checkoutBtnText}>
+                                    Proceed to Checkout · ₹{totalAmount}
+                                </Text>
+                            </View>
                         </AnimatedPressable>
                     </>
                 )}
-            </Animated.View>
+            </View>
 
         </View>
     );
@@ -496,7 +473,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 8,
-        resizeMode: 'cover',
     },
     itemInfo: {
         flex: 1,

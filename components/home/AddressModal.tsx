@@ -21,7 +21,7 @@ import { useDeleteAddress, useSetDefaultAddress } from "@/hooks/useAddresses";
 
 import { AnimatedBottomSheet } from "../AnimatedBottomSheet";
 import { AnimatedPressable } from "../AnimatedPressable";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 
 interface AddressModalProps {
     visible: boolean;
@@ -115,8 +115,12 @@ export default function AddressModal({
                                     data={addresses}
                                     keyExtractor={(item) => item.id}
                                     contentContainerStyle={styles.listContent}
+                                    removeClippedSubviews={Platform.OS === 'android'}
+                                    initialNumToRender={4}
+                                    maxToRenderPerBatch={8}
+                                    windowSize={7}
                                     renderItem={({ item, index }) => (
-                                        <Animated.View entering={FadeInDown.delay(index * 50)}>
+                                        <View>
                                             <AnimatedPressable
                                                 style={[
                                                     styles.addressItem,
@@ -168,7 +172,7 @@ export default function AddressModal({
                                                     )}
                                                 </View>
                                             </AnimatedPressable>
-                                        </Animated.View>
+                                        </View>
                                     )}
                                     ListFooterComponent={() => (
                                         <AnimatedPressable onPress={() => setOpenAdressAddform(true)} style={styles.addButton} scaleIn={0.98}>

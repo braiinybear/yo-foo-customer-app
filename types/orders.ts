@@ -120,6 +120,8 @@ export interface CreateOrderPayload {
         quantity: number;
     }[];
     paymentMode: PaymentMode;
+    addressId?: string;
+    promoCode?: string;
 }
 
 export interface OrderDetails {

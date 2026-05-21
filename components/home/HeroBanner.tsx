@@ -1,8 +1,7 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, memo, useCallback, useMemo } from "react";
 import {
-    Animated,
     Dimensions,
     NativeScrollEvent,
     NativeSyntheticEvent,
@@ -12,6 +11,12 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import Animated, {
+    SharedValue,
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+} from "react-native-reanimated";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -60,35 +65,63 @@ const SLIDES: BannerSlide[] = [
     },
 ];
 
+// Extracted Dot component — avoids hooks-inside-render violation
+const Dot = memo(({ dotWidth, isActive, onPress, dotStyle, activeColor, inactiveColor }: {
+    dotWidth: SharedValue<number>;
+    isActive: boolean;
+    onPress: () => void;
+    dotStyle: any;
+    activeColor: string;
+    inactiveColor: string;
+}) => {
+    const animStyle = useAnimatedStyle(() => ({
+        width: dotWidth.value,
+    }));
+
+    return (
+        <TouchableOpacity onPress={onPress}>
+            <Animated.View
+                style={[
+                    dotStyle,
+                    animStyle,
+                    { backgroundColor: isActive ? activeColor : inactiveColor },
+                ]}
+            />
+        </TouchableOpacity>
+    );
+});
+
 export default function HeroBanner() {
     const { Colors, isDark } = useTheme();
-    const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
+    const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const [activeIndex, setActiveIndex] = useState(0);
     const scrollRef = useRef<ScrollView>(null);
     const isUserScrolling = useRef(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // One Animated.Value per dot for smooth width spring
-    const dotAnims = useRef(SLIDES.map((_, i) => new Animated.Value(i === 0 ? 20 : 6))).current;
+    // Fixed number of dots — create shared values at top level (hooks rules safe)
+    const dot0 = useSharedValue(20);
+    const dot1 = useSharedValue(6);
+    const dot2 = useSharedValue(6);
+    const dot3 = useSharedValue(6);
+    const dotSharedValues = useRef([dot0, dot1, dot2, dot3]).current;
 
-    // Spring-animate dots whenever activeIndex changes
+    // Animate dots on UI thread whenever activeIndex changes
     useEffect(() => {
-        SLIDES.forEach((_, i) => {
-            Animated.spring(dotAnims[i], {
-                toValue: i === activeIndex ? 20 : 6,
-                useNativeDriver: false,
-                speed: 20,
-                bounciness: 4,
-            }).start();
+        dotSharedValues.forEach((sv, i) => {
+            sv.value = withSpring(i === activeIndex ? 20 : 6, {
+                damping: 15,
+                stiffness: 200,
+            });
         });
-    }, [activeIndex, dotAnims]);
+    }, [activeIndex]);
 
-    const goToSlide = (index: number) => {
+    const goToSlide = useCallback((index: number) => {
         scrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
         setActiveIndex(index);
-    };
+    }, []);
 
-    const startAutoSlide = () => {
+    const startAutoSlide = useCallback(() => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         intervalRef.current = setInterval(() => {
             if (!isUserScrolling.current) {
@@ -99,7 +132,7 @@ export default function HeroBanner() {
                 });
             }
         }, 3000);
-    };
+    }, []);
 
     // Start auto-slide on mount, clear on unmount
     useEffect(() => {
@@ -107,24 +140,24 @@ export default function HeroBanner() {
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
-    }, []);
+    }, [startAutoSlide]);
 
-    const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
         setActiveIndex(index);
-    };
+    }, []);
 
-    const handleDragStart = () => {
+    const handleDragStart = useCallback(() => {
         isUserScrolling.current = true;
         // Pause the timer while user is manually swiping
         if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    }, []);
 
-    const handleDragEnd = () => {
+    const handleDragEnd = useCallback(() => {
         isUserScrolling.current = false;
         // Restart timer after user finishes swiping
         startAutoSlide();
-    };
+    }, [startAutoSlide]);
 
     return (
         <View style={styles.container}>
@@ -162,17 +195,15 @@ export default function HeroBanner() {
             {/* Dot indicators */}
             <View style={styles.dotsRow}>
                 {SLIDES.map((_, i) => (
-                    <TouchableOpacity key={i} onPress={() => goToSlide(i)}>
-                        <Animated.View
-                            style={[
-                                styles.dot,
-                                {
-                                    width: dotAnims[i],
-                                    backgroundColor: i === activeIndex ? Colors.primary : Colors.border,
-                                },
-                            ]}
-                        />
-                    </TouchableOpacity>
+                    <Dot
+                        key={i}
+                        dotWidth={dotSharedValues[i]}
+                        isActive={i === activeIndex}
+                        onPress={() => goToSlide(i)}
+                        dotStyle={styles.dot}
+                        activeColor={Colors.primary}
+                        inactiveColor={Colors.border}
+                    />
                 ))}
             </View>
         </View>

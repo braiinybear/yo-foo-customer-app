@@ -18,32 +18,41 @@ import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { useCartStore } from "@/store/useCartStore";
 import { useCreatePaymentOrder, useVerifyPayment } from "@/hooks/usePayments";
+import { useCreateOrder } from "@/hooks/useOrders";
 import { useAvailableCoupons, useValidateCoupon } from "@/hooks/useCoupons";
 import { authClient } from "@/lib/auth-client";
 import { showAlert } from "@/store/useAlertStore";
 import { Coupon, ValidateCouponResponse } from "@/types/coupons";
 import { CouponDetailModal } from "@/components/CouponDetailModal";
+import { PaymentMode } from "@/types/orders";
 
 // ─── Razorpay test key ────────────────────────────────────────────────────────
 const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_XXXXXXXX";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type PaymentStep = "idle" | "creating_razorpay_order" | "awaiting_payment" | "verifying" | "success" | "failed";
+type PaymentStep = "idle" | "creating_order" | "creating_razorpay_order" | "awaiting_payment" | "verifying" | "success" | "failed";
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function CheckoutScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { orderId, amount } = useLocalSearchParams<{ orderId: string; amount: string }>();
+    const { amount, paymentMode: paymentModeParam, addressId } = useLocalSearchParams<{
+        amount: string;
+        paymentMode: string;
+        addressId: string;
+    }>();
 
     const { data: session } = authClient.useSession();
     const { Colors, isDark } = useTheme();
     const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
-    const { items, clearCart } = useCartStore();
+    const { items, clearCart, restaurantId } = useCartStore();
+
+    const paymentMode = (paymentModeParam ?? 'RAZORPAY') as PaymentMode;
 
     // itemTotal comes from the route param so it survives cart being cleared
     const itemTotal = parseFloat(amount ?? '0');
 
+    const createOrderMutation = useCreateOrder();
     const createPaymentOrder = useCreatePaymentOrder();
     const verifyPayment = useVerifyPayment();
 
@@ -67,6 +76,49 @@ export default function CheckoutScreen() {
     const gstAndCharges = itemTotal * 0.05;
     const subTotal = itemTotal + deliveryCharge + platformFee + gstAndCharges;
     const grandTotal = subTotal - (appliedCoupon?.discount ?? 0);
+
+    // ── Payment method display helpers ────────────────────────────────────────
+    const getPaymentMethodInfo = () => {
+        switch (paymentMode) {
+            case 'WALLET':
+                return {
+                    icon: 'wallet-outline' as const,
+                    name: 'Wallet Payment',
+                    sub: 'Pay instantly from your wallet balance',
+                };
+            case 'COD':
+                return {
+                    icon: 'cash-outline' as const,
+                    name: 'Cash on Delivery',
+                    sub: 'Pay with cash when your order arrives',
+                };
+            default:
+                return {
+                    icon: 'shield-checkmark' as const,
+                    name: 'Razorpay Secure Checkout',
+                    sub: 'UPI • Cards • Net Banking • Wallets',
+                };
+        }
+    };
+
+    const getPayButtonLabel = () => {
+        switch (paymentMode) {
+            case 'WALLET':
+                return `Pay ${formatCurrency(grandTotal)} via Wallet`;
+            case 'COD':
+                return `Place Order · ${formatCurrency(grandTotal)}`;
+            default:
+                return `Pay ${formatCurrency(grandTotal)} Securely`;
+        }
+    };
+
+    const getPayButtonIcon = (): keyof typeof Ionicons.glyphMap => {
+        switch (paymentMode) {
+            case 'WALLET': return 'wallet-outline';
+            case 'COD': return 'receipt-outline';
+            default: return 'lock-closed';
+        }
+    };
 
     const handleApplyCoupon = async () => {
         handleApplyCouponWithValue(couponCode);
@@ -94,21 +146,49 @@ export default function CheckoutScreen() {
 
     // ── Main payment handler ──────────────────────────────────────────────────
     const handlePayNow = async () => {
-        if (!orderId) {
-            showAlert("Error", "No order found. Please go back to cart.");
+        if (!restaurantId || items.length === 0) {
+            showAlert("Error", "Your cart is empty. Please go back and add items.");
             return;
         }
 
         setErrorMessage(null);
 
         try {
-            // ── Step 1: Create Razorpay order on our backend ──────────────────
-            setStep("creating_razorpay_order");
-            const paymentData = await createPaymentOrder.mutateAsync(orderId);
+            // ── Step 1: Create the order on our backend ──────────────────────
+            setStep("creating_order");
 
+            const orderPayload = {
+                restaurantId,
+                items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity })),
+                paymentMode: paymentMode,
+                addressId: addressId || undefined,
+                promoCode: appliedCoupon?.code || undefined,
+            };
+
+            const order = await createOrderMutation.mutateAsync(orderPayload);
+
+            // ── Handle payment based on mode ─────────────────────────────────
+            if (paymentMode === 'COD') {
+                // COD: Order created, no payment needed upfront
+                setStep("success");
+                clearCart();
+                return;
+            }
+
+            if (paymentMode === 'WALLET') {
+                // Wallet: Backend already charged the wallet during order creation
+                setStep("success");
+                clearCart();
+                return;
+            }
+
+            // ── RAZORPAY flow ────────────────────────────────────────────────
+            // Step 2: Create Razorpay order on our backend
+            setStep("creating_razorpay_order");
+            const paymentData = await createPaymentOrder.mutateAsync(order.id);
             const { razorpayOrder } = paymentData;
 
-            // ── Step 2: Open Razorpay SDK ─────────────────────────────────────
+            // Step 3: Open Razorpay SDK
             setStep("awaiting_payment");
 
             const options = {
@@ -129,16 +209,16 @@ export default function CheckoutScreen() {
 
             const razorpayResponse = await RazorpayCheckout.open(options);
 
-            // ── Step 3: Verify signature on our backend ───────────────────────
+            // Step 4: Verify signature on our backend
             setStep("verifying");
             await verifyPayment.mutateAsync({
                 razorpayPaymentId: razorpayResponse.razorpay_payment_id,
                 razorpayOrderId: razorpayResponse.razorpay_order_id,
                 razorpaySignature: razorpayResponse.razorpay_signature,
-                orderId: orderId,
+                orderId: order.id,
             });
 
-            // ── Step 4: Success ───────────────────────────────────────────────
+            // Step 5: Success
             setStep("success");
             clearCart();
         } catch (error: any) {
@@ -146,6 +226,7 @@ export default function CheckoutScreen() {
             // Razorpay SDK errors surface as { code, description }
             const description =
                 error?.description ??
+                error?.response?.data?.message ??
                 error?.message ??
                 "Payment could not be completed. Please try again.";
             setErrorMessage(description);
@@ -203,9 +284,13 @@ export default function CheckoutScreen() {
                 </View>
                 
                 <Animated.View style={[rContentStyle, { width: '100%' }]}>
-                    <Text style={styles.successTitle}>Payment Successful!</Text>
+                    <Text style={styles.successTitle}>
+                        {paymentMode === 'COD' ? 'Order Placed!' : 'Payment Successful!'}
+                    </Text>
                     <Text style={styles.successSubtitle}>
-                        Your order has been confirmed and is being prepared.
+                        {paymentMode === 'COD'
+                            ? 'Your order has been placed. Pay with cash when it arrives.'
+                            : 'Your order has been confirmed and is being prepared.'}
                     </Text>
 
                     <View style={{ width: '100%', paddingHorizontal: 20 }}>
@@ -230,6 +315,7 @@ export default function CheckoutScreen() {
 
     // ── Main view ─────────────────────────────────────────────────────────────
     const isProcessing =
+        step === "creating_order" ||
         step === "creating_razorpay_order" ||
         step === "awaiting_payment" ||
         step === "verifying";
@@ -249,6 +335,8 @@ export default function CheckoutScreen() {
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                overScrollMode="never"
+                removeClippedSubviews={true}
             >
                 {/* ── Order Summary Card ── */}
                 <View style={styles.card}>
@@ -358,12 +446,12 @@ export default function CheckoutScreen() {
                     <Text style={styles.cardTitle}>Payment Method</Text>
                     <View style={styles.paymentMethodRow}>
                         <View style={styles.paymentIconWrapper}>
-                            <Ionicons name="shield-checkmark" size={22} color={Colors.primary} />
+                            <Ionicons name={getPaymentMethodInfo().icon} size={22} color={Colors.primary} />
                         </View>
                         <View style={styles.paymentTextWrapper}>
-                            <Text style={styles.paymentMethodName}>Razorpay Secure Checkout</Text>
+                            <Text style={styles.paymentMethodName}>{getPaymentMethodInfo().name}</Text>
                             <Text style={styles.paymentMethodSub}>
-                                UPI • Cards • Net Banking • Wallets
+                                {getPaymentMethodInfo().sub}
                             </Text>
                         </View>
                         <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
@@ -385,6 +473,7 @@ export default function CheckoutScreen() {
                 {isProcessing && (
                     <View style={styles.stepIndicator}>
                         <Text style={styles.stepIndicatorText}>
+                            {step === "creating_order" && "Placing your order..."}
                             {step === "creating_razorpay_order" && "Setting up secure payment..."}
                             {step === "awaiting_payment" && "Waiting for payment confirmation..."}
                             {step === "verifying" && "Verifying payment..."}
@@ -408,9 +497,9 @@ export default function CheckoutScreen() {
                             <ActivityIndicator color={Colors.white} />
                         ) : (
                             <>
-                                <Ionicons name="lock-closed" size={18} color={Colors.white} />
+                                <Ionicons name={getPayButtonIcon()} size={18} color={Colors.white} />
                                 <Text style={styles.payButtonText}>
-                                    Pay {formatCurrency(grandTotal)} Securely
+                                    {getPayButtonLabel()}
                                 </Text>
                             </>
                         )}
@@ -418,7 +507,9 @@ export default function CheckoutScreen() {
                 )}
 
                 <Text style={styles.secureNote}>
-                    🔒 Secured by Razorpay · 100% Safe & Encrypted
+                    {paymentMode === 'COD'
+                        ? '📋 Your order will be confirmed by the restaurant'
+                        : '🔒 Secured by Razorpay · 100% Safe & Encrypted'}
                 </Text>
             </View>
         </View>

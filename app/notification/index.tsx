@@ -1,4 +1,5 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
+import { Image } from "expo-image";
+import React, { useMemo, useCallback, useEffect, memo } from 'react';
 import {
     View,
     Text,
@@ -7,7 +8,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     RefreshControl,
-    Image
+    Platform,
 } from 'react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
@@ -84,14 +85,13 @@ export default function NotificationScreen() {
         }
     };
 
-    const renderItem = ({ item, index }: { item: Notification, index: number }) => {
+    const NotificationItem = memo(({ item, index, onPress, Colors, styles }: { item: Notification, index: number, onPress: (n: Notification) => void, Colors: any, styles: any }) => {
         const isOrderUpdate = item.type === 'ORDER_UPDATE';
-        
         return (
             <Animated.View entering={FadeInRight.delay(index * 50).springify().damping(20)}>
                 <AnimatedPressable 
                     style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
-                    onPress={() => handleNotificationPress(item)}
+                    onPress={() => onPress(item)}
                     scaleIn={0.98}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: isOrderUpdate ? Colors.primary + '15' : Colors.border + '30' }]}>
@@ -123,7 +123,11 @@ export default function NotificationScreen() {
                 </AnimatedPressable>
             </Animated.View>
         );
-    };
+    });
+
+    const renderItem = useCallback(({ item, index }: { item: Notification, index: number }) => (
+        <NotificationItem item={item} index={index} onPress={handleNotificationPress} Colors={Colors} styles={styles} />
+    ), [Colors, styles, handleNotificationPress]);
 
     if (isLoading) {
         return (
@@ -140,6 +144,11 @@ export default function NotificationScreen() {
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={4}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                getItemLayout={(_, index) => ({ length: 90, offset: 90 * index, index })}
                 onEndReached={() => {
                     if (hasNextPage) fetchNextPage();
                 }}
