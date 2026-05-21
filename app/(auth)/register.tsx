@@ -195,10 +195,10 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         backgroundColor: Colors.background,
     },
     logo: {
-        width: 200,
-        height: 200,
+        width: 120,
+        height: 120,
         alignSelf: "center",
-        marginBottom: 4,
+        marginBottom: 8,
     },
 
     // ── Section ────────────────────────────────────────────────
