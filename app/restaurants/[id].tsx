@@ -696,8 +696,8 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         backgroundColor: Colors.surface,
         gap: 12,
         alignItems: "flex-start",
-        borderWidth: 1,
-        borderColor: Colors.border,
+
+
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,

@@ -1348,8 +1348,12 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     marginVertical: 8,
     borderRadius: 12,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: Colors.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+
   },
 
   cardHeaderSection: {
