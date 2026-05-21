@@ -12,7 +12,10 @@ export default {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.braiinyfood.fooddeliverycustomer"
+      bundleIdentifier: "com.braiinyfood.fooddeliverycustomer",
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false
+      }
     },
     android: {
       usesCleartextTraffic: true,
