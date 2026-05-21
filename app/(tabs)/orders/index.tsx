@@ -273,6 +273,12 @@ export default function OrderHistoryScreen() {
 
     const meta = ordersData?.meta;
 
+    const handleLoadMore = () => {
+        if (!historyLoading && meta && page < meta.totalPages) {
+            setPage(prevPage => prevPage + 1);
+        }
+    };
+
     // Categorize orders from history
     const activeOrdersFromHistory = allOrders.filter(order =>
         !['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status)
@@ -315,68 +321,6 @@ export default function OrderHistoryScreen() {
                 <Ionicons name="receipt-outline" size={80} color={isDark ? 'rgba(255,255,255,0.1)' : Colors.light} />
                 <Text style={uiStyles.emptyTitle}>No orders yet</Text>
                 <Text style={uiStyles.emptySubtitle}>When you place an order, it will appear here.</Text>
-
-                {/* Pagination visible even when no orders */}
-                {meta && meta.totalPages > 1 && (
-                    <View style={uiStyles.paginationBubbles}>
-                        {/* Previous Arrow */}
-                        <TouchableOpacity
-                            onPress={() => setPage(Math.max(1, page - 1))}
-                            disabled={page === 1 || historyLoading}
-                            style={[uiStyles.arrowButton, { opacity: page === 1 ? 0.3 : 1 }]}
-                        >
-                            <Ionicons
-                                name="chevron-back"
-                                size={18}
-                                color={page === 1 ? Colors.muted : Colors.primary}
-                            />
-                        </TouchableOpacity>
-
-                        {/* Page Bubbles */}
-                        {Array.from({ length: meta.totalPages }).map((_, idx) => {
-                            const pageNum = idx + 1;
-                            const isActive = pageNum === page;
-                            return (
-                                <TouchableOpacity
-                                    key={`pagination-bubble-${pageNum}`}
-                                    onPress={() => {
-                                        setPage(pageNum);
-                                        setAllOrders([]); // Reset orders when changing page
-                                    }}
-                                    disabled={historyLoading}
-                                    style={[
-                                        uiStyles.bubbleButton,
-                                        {
-                                            backgroundColor: isActive ? Colors.primary : Colors.surface,
-                                            borderColor: isActive ? Colors.primary : Colors.border,
-                                            opacity: historyLoading ? 0.6 : 1,
-                                        }
-                                    ]}
-                                >
-                                    <Text style={[
-                                        uiStyles.bubbleText,
-                                        { color: isActive ? (isDark ? Colors.secondary : Colors.white) : Colors.text }
-                                    ]}>
-                                        {pageNum}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-
-                        {/* Next Arrow */}
-                        <TouchableOpacity
-                            onPress={() => setPage(Math.min(meta.totalPages, page + 1))}
-                            disabled={page >= meta.totalPages || historyLoading}
-                            style={[uiStyles.arrowButton, { opacity: page >= meta.totalPages ? 0.3 : 1 }]}
-                        >
-                            <Ionicons
-                                name="chevron-forward"
-                                size={18}
-                                color={page >= meta.totalPages ? Colors.muted : Colors.primary}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                )}
             </View>
         );
     }
@@ -452,67 +396,17 @@ export default function OrderHistoryScreen() {
                         tintColor={Colors.primary}
                     />
                 }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.2}
                 ListFooterComponent={
-                    meta && meta.totalPages > 1 ? (
-                        <View style={uiStyles.paginationBubbles}>
-                            {/* Previous Arrow */}
-                            <TouchableOpacity
-                                onPress={() => setPage(Math.max(1, page - 1))}
-                                disabled={page === 1 || historyLoading}
-                                style={[uiStyles.arrowButton, { opacity: page === 1 ? 0.3 : 1 }]}
-                            >
-                                <Ionicons
-                                    name="chevron-back"
-                                    size={18}
-                                    color={page === 1 ? Colors.muted : Colors.primary}
-                                />
-                            </TouchableOpacity>
-
-                            {/* Page Bubbles */}
-                            {Array.from({ length: meta.totalPages }).map((_, idx) => {
-                                const pageNum = idx + 1;
-                                const isActive = pageNum === page;
-                                return (
-                                    <TouchableOpacity
-                                        key={`pagination-bubble-empty-${pageNum}`}
-                                        onPress={() => {
-                                            setPage(pageNum);
-                                            setAllOrders([]);
-                                        }}
-                                        disabled={historyLoading}
-                                        style={[
-                                            uiStyles.bubbleButton,
-                                            {
-                                                backgroundColor: isActive ? Colors.primary : Colors.surface,
-                                                borderColor: isActive ? Colors.primary : Colors.border,
-                                                opacity: historyLoading ? 0.6 : 1,
-                                            }
-                                        ]}
-                                    >
-                                        <Text style={[
-                                            uiStyles.bubbleText,
-                                            { color: isActive ? (isDark ? Colors.secondary : Colors.white) : Colors.text }
-                                        ]}>
-                                            {pageNum}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-
-                            {/* Next Arrow */}
-                            <TouchableOpacity
-                                onPress={() => setPage(Math.min(meta.totalPages, page + 1))}
-                                disabled={page >= meta.totalPages || historyLoading}
-                                style={[uiStyles.arrowButton, { opacity: page >= meta.totalPages ? 0.3 : 1 }]}
-                            >
-                                <Ionicons
-                                    name="chevron-forward"
-                                    size={18}
-                                    color={page >= meta.totalPages ? Colors.muted : Colors.primary}
-                                />
-                            </TouchableOpacity>
+                    historyLoading && page > 1 ? (
+                        <View style={uiStyles.loadingMoreContainer}>
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                            <Text style={uiStyles.loadingMoreText}>Loading more orders...</Text>
                         </View>
-                    ) : null
+                    ) : (
+                        <View style={{ height: 100 }} />
+                    )
                 }
             />
         </View>
@@ -886,37 +780,18 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         marginTop: 8,
         paddingHorizontal: 40,
     },
-    // Pagination Bubbles
-    paginationBubbles: {
+    // Loading More
+    loadingMoreContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        flexWrap: 'wrap',
+        gap: 8,
+        paddingVertical: 20,
+        paddingBottom: 110,
     },
-    arrowButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: Colors.primary,
-        backgroundColor: Colors.surface,
-    },
-    bubbleButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        borderWidth: 1.5,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    bubbleText: {
-        fontFamily: Fonts.brandBold,
-        fontSize: FontSize.xs,
-        color: Colors.text,
+    loadingMoreText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.sm,
+        color: Colors.muted,
     },
 });
