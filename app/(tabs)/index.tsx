@@ -34,6 +34,7 @@ import { Restaurant } from "@/types/restaurants";
 import RestaurantCardSkeleton from "@/components/loadingSkelton/RestaurantCardSkeleton";
 import CuisineFilterSkeleton from "@/components/loadingSkelton/CuisineFilterSkeleton";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
+import { useUser } from "@/hooks/useUser";
 
 // Stable FlatList helpers — defined outside component to prevent re-creation
 const ITEM_HEIGHT = 306; // 200px image + ~90px info + 16px marginBottom
@@ -48,6 +49,7 @@ const getItemLayout = (_: any, index: number) => ({
 export default function Index() {
   const { Colors, isDark } = useTheme();
   const { data: session } = authClient.useSession();
+  const { data: user } = useUser();
   const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
   // ── Infinite-scroll restaurants ──────────────────────────────────────────
@@ -209,7 +211,7 @@ export default function Index() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const userInitial = session?.user?.name?.[0]?.toUpperCase() ?? "U";
+  const userInitial = (user?.name || session?.user?.name)?.[0]?.toUpperCase() ?? "U";
 
   // ── STABLE renderItem (prevents RestaurantCard re-mount on every parent render) ──
   const renderRestaurantCard = useCallback(({ item, index }: { item: Restaurant; index: number }) => (
@@ -273,7 +275,7 @@ export default function Index() {
           address={selectedAddress ? [selectedAddress] : addresses}
           subAddress="Tap to change delivery address"
           userInitial={userInitial}
-          userImage={session?.user?.image}
+          userImage={user?.image || session?.user?.image}
           onAddressPress={() => setIsAddressModalVisible(true)}
           onWalletPress={() => router.push("/notification")}
           onProfilePress={() => router.push("/profile")}
