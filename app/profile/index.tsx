@@ -3,6 +3,8 @@ import { useUser } from "@/hooks/useUser";
 import { useUpdateUser } from "@/hooks/useUpdateUser";
 import { uploadImageToCloudinary } from "@/utils/cloudinary";
 import * as ImagePicker from "expo-image-picker";
+import { useQueryClient } from "@tanstack/react-query";
+import { clearUserSessionState } from "@/utils/sessionCleanup";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -35,6 +37,7 @@ export default function ProfileScreen() {
     const router = useRouter();
     const { data: user, isLoading, error } = useUser();
     const updateUser = useUpdateUser();
+    const queryClient = useQueryClient();
     
     const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
@@ -79,6 +82,7 @@ export default function ProfileScreen() {
     const handleSignOut = async () => {
         try {
             await authClient.signOut();
+            await clearUserSessionState(queryClient);
             router.replace("/(auth)/login");
         } catch (e) {
             console.error(e);

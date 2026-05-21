@@ -54,7 +54,7 @@ Notifications.setNotificationHandler({
 // Keep native splash visible
 ExpoSplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,

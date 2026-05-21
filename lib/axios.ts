@@ -2,6 +2,8 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { authClient } from "./auth-client";
 import { router } from "expo-router";
+import { clearUserSessionState } from "@/utils/sessionCleanup";
+import { queryClient } from "../app/_layout";
 
 // Use your backend IP (avoid localhost for physical devices)
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -73,7 +75,8 @@ apiClient.interceptors.response.use(
                 // Run cleanup
                 await Promise.all([
                     authClient.signOut().catch(() => { }),
-                    SecureStore.deleteItemAsync(BETTER_AUTH_COOKIE_KEY).catch(() => { })
+                    SecureStore.deleteItemAsync(BETTER_AUTH_COOKIE_KEY).catch(() => { }),
+                    clearUserSessionState(queryClient).catch(() => { })
                 ]);
 
                 // Redirect to login
