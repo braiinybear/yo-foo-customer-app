@@ -106,43 +106,72 @@ export default function TrackingScreen() {
     return fallbackDriverPos;
   }, [driverLocation, fallbackDriverPos]);
 
-  // ─── Fetch directions from Google Directions API ───
+  // ─── Fetch directions from Google Directions API (with OSRM fallback) ───
   const fetchRoute = useCallback(async (
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
   ) => {
-    if (!GOOGLE_MAPS_APIKEY) {
-      // No API key — draw a straight dashed line as fallback
-      setRouteCoords([origin, destination]);
-      setEta(null);
-      return;
-    }
+    // Helper: compute Haversine-based ETA as a last resort
+    const haversineEta = () => {
+      const R = 6371;
+      const dLat = (destination.latitude - origin.latitude) * Math.PI / 180;
+      const dLon = (destination.longitude - origin.longitude) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(origin.latitude * Math.PI / 180) * Math.cos(destination.latitude * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const roadKm = distKm * 1.4;
+      const mins = Math.max(2, Math.round((roadKm / 20) * 60)); // 20 km/h city speed
+      return `${mins} min`;
+    };
 
     try {
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
-      const res = await fetch(url);
-      const json = await res.json();
+      // Try Google Directions first (if API key exists)
+      if (GOOGLE_MAPS_APIKEY) {
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&departure_time=now&key=${GOOGLE_MAPS_APIKEY}`;
+        const res = await fetch(url);
+        const json = await res.json();
 
-      if (json.routes?.length > 0) {
-        const route = json.routes[0];
-        const encoded = route.overview_polyline.points;
-        const decoded = decodePolyline(encoded);
-        setRouteCoords(decoded);
+        if (json.routes?.length > 0) {
+          const route = json.routes[0];
+          const encoded = route.overview_polyline.points;
+          const decoded = decodePolyline(encoded);
+          setRouteCoords(decoded);
 
-        // Extract ETA
-        const leg = route.legs?.[0];
-        if (leg?.duration?.text) {
-          setEta(leg.duration.text);
+          // Extract ETA — prefer real-time traffic duration
+          const leg = route.legs?.[0];
+          if (leg) {
+            const durationText = leg.duration_in_traffic?.text ?? leg.duration?.text;
+            if (durationText) {
+              setEta(durationText);
+            }
+          }
+          return;
+        }
+      }
+
+      // Fallback to free OSRM routing
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=polyline`;
+      const osrmRes = await fetch(osrmUrl);
+      const osrmJson = await osrmRes.json();
+
+      if (osrmJson.routes?.length > 0) {
+        const osrmRoute = osrmJson.routes[0];
+        setRouteCoords(decodePolyline(osrmRoute.geometry));
+
+        // OSRM returns duration in seconds
+        if (osrmRoute.duration) {
+          const mins = Math.max(2, Math.round(osrmRoute.duration / 60));
+          setEta(`${mins} min`);
         }
       } else {
-        // Directions API returned no routes — straight line fallback
         setRouteCoords([origin, destination]);
-        setEta(null);
+        setEta(haversineEta());
       }
     } catch (err) {
       console.log('[Tracking] Directions fetch failed:', err);
       setRouteCoords([origin, destination]);
-      setEta(null);
+      setEta(haversineEta());
     }
   }, [GOOGLE_MAPS_APIKEY]);
 

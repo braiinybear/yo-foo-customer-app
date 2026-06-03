@@ -86,11 +86,11 @@ const MAP_STYLE_DARK = [
     { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
 ];
 
-// ─── Haversine ETA calculator (no Google billing needed) ──────────────────────
+// ─── Haversine ETA calculator (fallback when routing APIs fail) ────────────────
 function calculateETA(
     driverLat: number, driverLng: number,
     destLat: number, destLng: number,
-    avgSpeedKmh: number = 25 // average city driving speed
+    avgSpeedKmh: number = 20 // realistic city delivery speed with traffic
 ): { distanceKm: number; etaMinutes: number } {
     const R = 6371;
     const dLat = (destLat - driverLat) * Math.PI / 180;
@@ -298,24 +298,23 @@ export default function OrderDetailScreen() {
         return userLocLatLng;
     }, [order?.customerAddress, userLocLatLng]);
 
-    // ─── ETA calculation (updates as driver moves) ────────────────────────────
+    // ─── Haversine ETA fallback (used immediately while route API loads) ───────
     useEffect(() => {
         if (!displayDriverLocation || !destination) {
             setEta(null);
             return;
         }
-        const result = calculateETA(
-            displayDriverLocation.lat, displayDriverLocation.lng,
-            destination.lat, destination.lng
-        );
-        setEta(result);
-
-        // Pulse animation on ETA update
-        Animated.sequence([
-            Animated.timing(etaPulse, { toValue: 1.05, duration: 200, useNativeDriver: true }),
-            Animated.timing(etaPulse, { toValue: 1, duration: 200, useNativeDriver: true }),
-        ]).start();
-    }, [displayDriverLocation?.lat, displayDriverLocation?.lng, destination?.lat, destination?.lng, etaPulse]);
+        // Only use Haversine as an instant fallback — route-based ETA
+        // from fetchRoute will overwrite this once the API responds
+        setEta(prev => {
+            // If we already have a route-based ETA, don't overwrite with Haversine
+            if (prev && (prev as any)._fromRoute) return prev;
+            return calculateETA(
+                displayDriverLocation.lat, displayDriverLocation.lng,
+                destination.lat, destination.lng
+            );
+        });
+    }, [displayDriverLocation?.lat, displayDriverLocation?.lng, destination?.lat, destination?.lng]);
 
     const fetchRoute = useCallback(async (
         origin: { latitude: number; longitude: number; },
@@ -336,13 +335,38 @@ export default function OrderDetailScreen() {
             return points;
         };
 
+        // Helper to update ETA from real route API data and trigger pulse animation
+        const updateRouteEta = (durationSeconds: number, distanceMeters: number) => {
+            const etaMinutes = Math.max(2, Math.round(durationSeconds / 60));
+            const distanceKm = parseFloat((distanceMeters / 1000).toFixed(1));
+            const routeEta = { distanceKm, etaMinutes, _fromRoute: true } as any;
+            setEta(routeEta);
+            // Pulse animation on ETA update
+            Animated.sequence([
+                Animated.timing(etaPulse, { toValue: 1.05, duration: 200, useNativeDriver: true }),
+                Animated.timing(etaPulse, { toValue: 1, duration: 200, useNativeDriver: true }),
+            ]).start();
+        };
+
         try {
             if (GOOGLE_MAPS_APIKEY) {
-                const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
+                const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&mode=driving&departure_time=now&key=${GOOGLE_MAPS_APIKEY}`;
                 const res = await fetch(url);
                 const json = await res.json();
                 if (json.routes?.length > 0) {
-                    setRouteCoords(decodePoly(json.routes[0].overview_polyline.points));
+                    const route = json.routes[0];
+                    setRouteCoords(decodePoly(route.overview_polyline.points));
+
+                    // Extract real driving duration and distance from Google
+                    const leg = route.legs?.[0];
+                    if (leg) {
+                        // Prefer duration_in_traffic (real-time) over static duration
+                        const durationSec = leg.duration_in_traffic?.value ?? leg.duration?.value;
+                        const distanceM = leg.distance?.value;
+                        if (durationSec && distanceM) {
+                            updateRouteEta(durationSec, distanceM);
+                        }
+                    }
                     return;
                 }
             }
@@ -353,14 +377,22 @@ export default function OrderDetailScreen() {
             const osrmJson = await osrmRes.json();
 
             if (osrmJson.routes?.length > 0) {
-                setRouteCoords(decodePoly(osrmJson.routes[0].geometry));
+                const osrmRoute = osrmJson.routes[0];
+                setRouteCoords(decodePoly(osrmRoute.geometry));
+
+                // Extract real driving duration and distance from OSRM
+                // OSRM returns duration in seconds, distance in meters
+                if (osrmRoute.duration && osrmRoute.distance) {
+                    updateRouteEta(osrmRoute.duration, osrmRoute.distance);
+                }
             } else {
                 setRouteCoords([origin, dest]); // Ultimate fallback
             }
         } catch (err) {
             setRouteCoords([origin, dest]);
+            // Haversine fallback already set by the ETA useEffect above
         }
-    }, [GOOGLE_MAPS_APIKEY]);
+    }, [GOOGLE_MAPS_APIKEY, etaPulse]);
 
     useEffect(() => {
         if (destination && displayDriverLocation) {
