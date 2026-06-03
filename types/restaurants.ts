@@ -20,12 +20,45 @@ export interface PaginatedRestaurantsResponse {
   meta: PaginationMeta;
 }
 
+export interface MenuVariant {
+  id: string;
+  menuItemId: string;
+  name: string;
+  price: number;
+  salePrice: number | null;
+  quantity: string | null;
+  servingSize: string | null;
+  stock: number | null;
+  isDefault: boolean;
+  isAvailable: boolean;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface AddonOption {
+  id: string;
+  addonGroupId: string;
+  name: string;
+  price: number;
+  isAvailable: boolean;
+}
+
+export interface AddonGroup {
+  id: string;
+  menuItemId: string;
+  name: string;
+  minSelect: number;
+  maxSelect: number;
+  options: AddonOption[];
+}
+
 export interface MenuItem {
   id: string;
   categoryId: string;
   name: string;
   description: string | null;
-  price: number;
+  /** Deprecated in favor of variants, but kept optional for legacy compatibility */
+  price?: number;
   image: string | null;
   type: "VEG" | "NON_VEG" | "VEGAN" | null;
   isAvailable: boolean;
@@ -34,6 +67,8 @@ export interface MenuItem {
   prepTime: number | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  variants: MenuVariant[];
+  addons: AddonGroup[];
 }
 
 export interface MenuCategory {
@@ -51,8 +86,8 @@ export interface RestaurantDetail {
   managerId: string;
   name: string;
   description: string | null;
-  logo:string,
-  banner:string,
+  logo: string | null;
+  banner: string | null;
   image: string | null;
   costForTwo: number;
   cuisineTypes: string[];
@@ -72,7 +107,6 @@ export interface RestaurantDetail {
   menuCategories: MenuCategory[];
   reviews: any[]; // You can replace 'any' with a Review interface if needed
 }
-
 
 export interface SearchParams {
   query?: string;

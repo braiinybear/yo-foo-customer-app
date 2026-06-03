@@ -159,7 +159,14 @@ export default function CheckoutScreen() {
 
             const orderPayload = {
                 restaurantId,
-                items: items.map((item) => ({ menuItemId: item.id, quantity: item.quantity })),
+                items: items.map((item) => ({ 
+                    menuItemId: item.id, 
+                    variantId: item.selectedVariant?.id,
+                    quantity: item.quantity,
+                    selectedAddons: item.selectedAddons?.map(addon => ({
+                        addonOptionId: addon.id
+                    }))
+                })),
                 paymentMode: paymentMode,
                 addressId: addressId || undefined,
                 promoCode: appliedCoupon?.code || undefined,
@@ -343,16 +350,28 @@ export default function CheckoutScreen() {
                     <Text style={styles.cardTitle}>Order Summary</Text>
 
                     {items.map((item) => (
-                        <View key={item.id} style={styles.summaryRow}>
+                        <View key={item.customUniqueId ?? item.id} style={[styles.summaryRow, { alignItems: 'flex-start', marginVertical: 4 }]}>
                             <View style={styles.summaryLeft}>
-                                <View style={styles.vegDot} />
-                                <Text style={styles.summaryItemName} numberOfLines={1}>
-                                    {item.name}
-                                </Text>
+                                <View style={[styles.vegDot, { marginTop: 4 }]} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.summaryItemName}>
+                                        {item.name}
+                                    </Text>
+                                    {item.selectedVariant && (
+                                        <Text style={{ fontFamily: Fonts.brandBold, fontSize: 11, color: Colors.muted, marginTop: 1 }}>
+                                            Size: {item.selectedVariant.name.toLowerCase()}
+                                        </Text>
+                                    )}
+                                    {item.selectedAddons && item.selectedAddons.length > 0 && (
+                                        <Text style={{ fontFamily: Fonts.brand, fontSize: 11, color: Colors.muted, marginTop: 1 }}>
+                                            Extras: {item.selectedAddons.map(a => `${a.name} (+₹${a.price})`).join(", ")}
+                                        </Text>
+                                    )}
+                                </View>
                             </View>
-                            <Text style={styles.summaryQty}>×{item.quantity}</Text>
-                            <Text style={styles.summaryPrice}>
-                                {formatCurrency(item.price * item.quantity)}
+                            <Text style={[styles.summaryQty, { marginTop: 2 }]}>×{item.quantity}</Text>
+                            <Text style={[styles.summaryPrice, { marginTop: 2 }]}>
+                                {formatCurrency((item.price ?? 0) * item.quantity)}
                             </Text>
                         </View>
                     ))}

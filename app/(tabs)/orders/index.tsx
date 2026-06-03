@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getPlaceholderImage } from '@/constants/images';
 import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 import { UserOrder, OrderStatus, CurrentOrder } from '@/types/orders';
-import LoadingLottie from '@/components/LoadingLottie';
+import OrdersSkeleton from '@/components/loadingSkelton/OrdersSkeleton';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 
@@ -233,11 +233,18 @@ const PastOrderItem = memo(({ item, onPress, uiStyles, isDark, entering }: { ite
             <View style={uiStyles.divider} />
 
             <View style={uiStyles.itemsList}>
-                {item.items.slice(0, 2).map((orderItem) => (
-                    <Text key={orderItem.id} style={uiStyles.itemText}>
-                        {orderItem.quantity} × {orderItem.menuItem.name}
-                    </Text>
-                ))}
+                 {item.items.slice(0, 2).map((orderItem) => (
+                     <View key={orderItem.id} style={uiStyles.itemRowContainer}>
+                         <Text style={uiStyles.itemText}>
+                             {orderItem.quantity} × {orderItem.itemName || orderItem.menuItem.name}
+                         </Text>
+                         {orderItem.variantName ? (
+                             <Text style={uiStyles.itemVariantText}>
+                                 {orderItem.variantName}
+                             </Text>
+                         ) : null}
+                     </View>
+                 ))}
                 {item.items.length > 2 && (
                     <Text style={uiStyles.moreItemsLabel}>View all {item.items.length} items</Text>
                 )}
@@ -308,11 +315,7 @@ export default function OrderHistoryScreen() {
 
     const isLoading = currentLoading || (historyLoading && page === 1);
     if (isLoading) {
-        return (
-            <View style={uiStyles.centerContainer}>
-                <LoadingLottie message="Fetching your orders..." />
-            </View>
-        );
+        return <OrdersSkeleton />;
     }
 
     if (activeOrders.length === 0 && pastOrders.length === 0) {
@@ -736,11 +739,20 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         paddingHorizontal: 16,
         paddingBottom: 12,
     },
+    itemRowContainer: {
+        marginBottom: 6,
+    },
     itemText: {
         fontFamily: Fonts.brand,
         fontSize: FontSize.xs,
         color: Colors.textSecondary,
-        marginBottom: 2,
+    },
+    itemVariantText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 10,
+        color: Colors.muted,
+        marginLeft: 22,
+        marginTop: 1,
     },
     moreItemsLabel: {
         fontFamily: Fonts.brandMedium,

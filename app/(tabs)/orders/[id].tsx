@@ -42,7 +42,7 @@ import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar'
 // import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { OrderStatus } from '@/types/orders';
-import LoadingLottie from '@/components/LoadingLottie';
+import OrderDetailSkeleton from '@/components/loadingSkelton/OrderDetailSkeleton';
 
 // ─── Premium Google Maps Styles ──────────────────────────────────────────────
 const MAP_STYLE_LIGHT = [
@@ -408,7 +408,7 @@ export default function OrderDetailScreen() {
     }, [foodRating, deliveryRating, reviewComment, order?.id, id, submitReview]);
 
     const displayStatus: OrderStatus | undefined = (realTimeStatus as OrderStatus) || order?.status;
-    const showMap = displayStatus ? ['ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].includes(displayStatus) : false;
+    const showMap = displayStatus ? ['PLACED', 'CONFIRMED', 'ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'ON_THE_WAY'].includes(displayStatus) : false;
 
     // Draggable bottom sheet snap points & physics configuration
     const SNAP_EXPANDED = SCREEN_HEIGHT * 0.25; // Sheet covers exactly 75% of screen!
@@ -526,11 +526,7 @@ export default function OrderDetailScreen() {
 
     // ── Loading ───────────────────────────────────────────────────────────────
     if (isLoading) {
-        return (
-            <View style={styles.center}>
-                <LoadingLottie message="Fetching order details..." />
-            </View>
-        );
+        return <OrderDetailSkeleton />;
     }
 
     // ── Error ─────────────────────────────────────────────────────────────────
@@ -641,7 +637,10 @@ export default function OrderDetailScreen() {
                 </View>
             )}
 
-            <Reanimated.View style={showMap ? [styles.sheetContainer80, rSheetStyle] : styles.normalContainerFull}>
+            <Reanimated.View 
+                key={showMap ? "with-map" : "without-map"}
+                style={showMap ? [styles.sheetContainer80, rSheetStyle] : styles.normalContainerFull}
+            >
                 {showMap && (
                     <GestureDetector gesture={panGesture}>
                         <View style={styles.handleArea}>
@@ -665,6 +664,25 @@ export default function OrderDetailScreen() {
                         />
                     }
                 >
+                {!showMap && (
+                    <View style={styles.celebrationHeader}>
+                        <View style={[styles.celebrationIconBg, { backgroundColor: displayStatus === 'DELIVERED' ? Colors.success + '15' : Colors.danger + '15' }]}>
+                            <Ionicons 
+                                name={displayStatus === 'DELIVERED' ? "checkmark-circle" : "close-circle"} 
+                                size={52} 
+                                color={displayStatus === 'DELIVERED' ? Colors.success : Colors.danger} 
+                            />
+                        </View>
+                        <Text style={styles.celebrationTitle}>
+                            {displayStatus === 'DELIVERED' ? "Order Delivered! 🎉" : "Order Cancelled"}
+                        </Text>
+                        <Text style={styles.celebrationSubtitle}>
+                            {displayStatus === 'DELIVERED' 
+                                ? "Your delicious meal has arrived. We hope you enjoy it!" 
+                                : "This order has been cancelled. Any payment made will be refunded."}
+                        </Text>
+                    </View>
+                )}
                 {/* ── Status Banner ────────────────────────────────────── */}
                 <View style={[styles.statusBanner, { backgroundColor: sc.bg }]}>
                     <View style={[styles.statusIconCircle, { backgroundColor: sc.color + '22' }]}>
@@ -809,47 +827,75 @@ export default function OrderDetailScreen() {
                         <View
                             key={item.id}
                             style={[
-                                styles.itemRow,
+                                styles.itemRowCard,
                                 idx < order.items.length - 1 && styles.itemRowBorder,
                             ]}
                         >
-                            <View style={styles.itemImageContainer}>
-                                {item.menuItem.image ? (
-                                    <Image
-                                        source={{ uri: item.menuItem.image }}
-                                        style={styles.itemImage}
-                                        contentFit="cover"
-                                        transition={300}
+                            {/* Top part: Image + Name & Qty and Price on the right */}
+                            <View style={styles.itemTopRow}>
+                                <View style={styles.itemImageContainer}>
+                                    {item.menuItem.image ? (
+                                        <Image
+                                            source={{ uri: item.menuItem.image }}
+                                            style={styles.itemImage}
+                                            contentFit="cover"
+                                            transition={300}
+                                        />
+                                    ) : (
+                                        <View style={styles.itemImagePlaceholder}>
+                                            <Ionicons name="fast-food-outline" size={20} color={Colors.muted} />
+                                        </View>
+                                    )}
+                                    {/* Veg / Non-veg dot overlay */}
+                                    <View
+                                        style={[
+                                            styles.vegDotOverlay,
+                                            {
+                                                backgroundColor:
+                                                    item.menuItem.type === 'VEG'
+                                                        ? Colors.success
+                                                        : Colors.danger,
+                                            },
+                                        ]}
                                     />
-                                ) : (
-                                    <View style={styles.itemImagePlaceholder}>
-                                        <Ionicons name="fast-food-outline" size={20} color={Colors.muted} />
-                                    </View>
-                                )}
-                                {/* Veg / Non-veg dot overlay */}
-                                <View
-                                    style={[
-                                        styles.vegDotOverlay,
-                                        {
-                                            backgroundColor:
-                                                item.menuItem.type === 'VEG'
-                                                    ? Colors.success
-                                                    : Colors.danger,
-                                        },
-                                    ]}
-                                />
+                                </View>
+
+                                <View style={styles.itemTopTextContainer}>
+                                    <Text style={styles.itemNameWithQty}>
+                                        {item.itemName || item.menuItem.name}
+                                        <Text style={styles.itemQtyInline}>  x{item.quantity}</Text>
+                                    </Text>
+                                    <Text style={styles.itemPriceUnderName}>
+                                        ₹{item.totalPrice ?? (item.price * item.quantity)}
+                                    </Text>
+                                </View>
                             </View>
-                            <View style={styles.itemInfo}>
-                                <Text style={styles.itemName}>{item.menuItem.name}</Text>
-                                {item.menuItem.description && (
-                                    <Text style={styles.itemDesc} numberOfLines={2}>
+
+                            {/* Bottom part: Variant & description details & extras stacked vertically */}
+                            <View style={styles.itemDetailsBottom}>
+                                {item.variantName ? (
+                                    <Text style={styles.itemVariantLabel}>
+                                        {item.variantName}
+                                    </Text>
+                                ) : null}
+
+                                {item.menuItem.description ? (
+                                    <Text style={styles.itemDescText}>
                                         {item.menuItem.description}
                                     </Text>
+                                ) : null}
+
+                                {item.selectedAddons && item.selectedAddons.length > 0 && (
+                                    <View style={styles.itemAddonsBox}>
+                                        <Text style={styles.addonsHeading}>Extras</Text>
+                                        {item.selectedAddons.map((addon) => (
+                                            <View key={addon.id} style={styles.addonRow}>
+                                                <Text style={styles.addonName}>• {addon.name}</Text>
+                                                <Text style={styles.addonPrice}>+₹{addon.price}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
                                 )}
-                            </View>
-                            <View style={styles.itemRight}>
-                                <Text style={styles.itemQty}>×{item.quantity}</Text>
-                                <Text style={styles.itemPrice}>₹{item.price * item.quantity}</Text>
                             </View>
                         </View>
                     ))}
@@ -1428,11 +1474,9 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     },
 
     // ── Items ──────────────────────────────────────────────────────────────
-    itemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingVertical: 12,
+    itemRowCard: {
+        paddingVertical: 14,
+        gap: 10,
     },
     itemRowBorder: {
         borderBottomWidth: 1,
@@ -1467,33 +1511,82 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Colors.white,
     },
-    itemInfo: {
+    itemTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    itemTopTextContainer: {
         flex: 1,
+        justifyContent: 'center',
+        gap: 3,
     },
-    itemName: {
-        fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.sm,
+    itemNameWithQty: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.sm + 1,
         color: Colors.text,
+        lineHeight: 18,
     },
-    itemDesc: {
-        fontFamily: Fonts.brand,
-        fontSize: FontSize.xs,
-        color: Colors.muted,
-        marginTop: 2,
+    itemQtyInline: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.sm,
+        color: Colors.primary,
     },
-    itemRight: {
-        alignItems: 'flex-end',
-        gap: 2,
-    },
-    itemQty: {
-        fontFamily: Fonts.brandMedium,
-        fontSize: FontSize.xs,
-        color: Colors.muted,
-    },
-    itemPrice: {
+    itemPriceUnderName: {
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
         color: Colors.text,
+        marginTop: 2,
+    },
+    itemDetailsBottom: {
+        paddingLeft: 0,
+        gap: 5,
+        marginTop: 2,
+    },
+    itemVariantLabel: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.xs,
+        color: Colors.textSecondary,
+        lineHeight: 16,
+    },
+    itemDescText: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs,
+        color: Colors.muted,
+        lineHeight: 15,
+    },
+    itemAddonsBox: {
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        marginTop: 6,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderStyle: 'dashed',
+    },
+    addonsHeading: {
+        fontFamily: Fonts.brandBold,
+        fontSize: 9,
+        color: Colors.primary,
+        letterSpacing: 0.5,
+        marginBottom: 4,
+    },
+    addonRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 1.5,
+    },
+    addonName: {
+        fontFamily: Fonts.brand,
+        fontSize: 11,
+        color: Colors.textSecondary,
+    },
+    addonPrice: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 11,
+        color: Colors.muted,
     },
 
     // ── Bill ───────────────────────────────────────────────────────────────
@@ -1856,6 +1949,45 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
         color: '#FFF',
+    },
+    celebrationHeader: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 24,
+        paddingHorizontal: 20,
+        backgroundColor: Colors.surface,
+        borderRadius: 20,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDark ? 0.2 : 0.03,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    celebrationIconBg: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    celebrationTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.lg,
+        color: Colors.text,
+        textAlign: 'center',
+        marginBottom: 6,
+    },
+    celebrationSubtitle: {
+        fontFamily: Fonts.brand,
+        fontSize: FontSize.xs + 1,
+        color: Colors.muted,
+        textAlign: 'center',
+        lineHeight: 18,
+        paddingHorizontal: 12,
     },
     modalSpacing: {
         height: 300,

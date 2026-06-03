@@ -11,12 +11,29 @@ export type OrderStatus =
     | "PICKED_UP"
 
 
+export interface OrderItemAddon {
+    id: string;
+    orderItemId: string;
+    addonOptionId: string | null;
+    name: string;
+    price: number;
+    quantity: number;
+    createdAt: string;
+}
+
 export interface OrderItem {
     id: string;
     orderId: string;
     menuItemId: string;
+    itemName?: string | null;
+    variantId?: string | null;
+    variantName?: string | null;
     quantity: number;
-    price: number;
+    price: number; // For compatibility
+    unitPrice?: number;
+    addonsPrice?: number;
+    totalPrice?: number;
+    selectedAddons?: OrderItemAddon[];
     menuItem: {
         id: string;
         name: string;
@@ -91,8 +108,15 @@ export interface CurrentOrder {
         id: string;
         orderId: string;
         menuItemId: string;
+        itemName?: string | null;
+        variantId?: string | null;
+        variantName?: string | null;
         quantity: number;
         price: number;
+        unitPrice?: number;
+        addonsPrice?: number;
+        totalPrice?: number;
+        selectedAddons?: OrderItemAddon[];
         menuItem: {
             id: string;
             categoryId: string;
@@ -157,8 +181,15 @@ export interface OrderDetails {
         id: string;
         orderId: string;
         menuItemId: string;
+        itemName?: string | null;
+        variantId?: string | null;
+        variantName?: string | null;
         quantity: number;
         price: number;
+        unitPrice?: number;
+        addonsPrice?: number;
+        totalPrice?: number;
+        selectedAddons?: OrderItemAddon[];
         menuItem: {
             id: string;
             categoryId: string;

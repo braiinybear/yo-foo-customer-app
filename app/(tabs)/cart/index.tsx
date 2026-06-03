@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useCartStore } from '@/store/useCartStore';
+import { useCartStore, CartItem } from '@/store/useCartStore';
 
 import { useWalletBalance } from '@/hooks/usePayments';
 import { useAddresses } from '@/hooks/useAddresses';
@@ -77,6 +77,7 @@ export default function CartScreen() {
     const [paymentModalVisible, setPaymentModalVisible] = useState(false);
     const [addressModalVisible, setAddressModalVisible] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState<UserAddress | null>(null);
+    const [viewDetailsItem, setViewDetailsItem] = useState<CartItem | null>(null);
 
     const { data: walletData, isLoading: walletLoading } = useWalletBalance();
     const { data: addresses = [] } = useAddresses();
@@ -160,48 +161,65 @@ export default function CartScreen() {
                 <View>
                     <Text style={styles.sectionTitle}>Order Summary</Text>
                     <View style={styles.itemsCard}>
-                        {items.map((item, index) => (
-                            <Animated.View
-                                key={item.id}
-                                exiting={SlideOutDown.duration(200)}
-                                style={[
-                                    styles.itemRow,
-                                    index < items.length - 1 && styles.itemRowBorder,
-                                ]}
-                            >
-                                <Image
-                                    source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
-                                    style={styles.cartItemImage}
-                                    contentFit="cover"
-                                />
-                                <View style={styles.itemInfo}>
-                                    <Text style={styles.itemName} numberOfLines={1}>
-                                        {item.name}
-                                    </Text>
-                                    <Text style={styles.itemPrice}>
-                                        ₹{(item.price * item.quantity).toFixed(0)}
-                                    </Text>
-                                </View>
+                        {items.map((item, index) => {
+                            const cartKey = item.customUniqueId ?? item.id;
+                            const hasAddons = item.selectedAddons && item.selectedAddons.length > 0;
 
-                                <View style={styles.qtyRow}>
-                                    <AnimatedPressable
-                                        style={styles.qtyBtn}
-                                        onPress={() => updateQuantity(item.id, item.quantity - 1)}
-                                        scaleIn={0.8}
-                                    >
-                                        <Ionicons name="remove" size={16} color={Colors.primary} />
-                                    </AnimatedPressable>
-                                    <Text style={styles.qtyText}>{item.quantity}</Text>
-                                    <AnimatedPressable
-                                        style={styles.qtyBtn}
-                                        onPress={() => updateQuantity(item.id, item.quantity + 1)}
-                                        scaleIn={0.8}
+                            return (
+                                <Animated.View
+                                    key={cartKey}
+                                    exiting={SlideOutDown.duration(200)}
+                                    style={[
+                                        styles.itemRow,
+                                        index < items.length - 1 && styles.itemRowBorder,
+                                    ]}
+                                >
+                                    <Image
+                                        source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
+                                        style={styles.cartItemImage}
+                                        contentFit="cover"
+                                    />
+                                    <View style={styles.itemInfo}>
+                                        <Text style={styles.itemName} numberOfLines={1}>
+                                            {item.name}
+                                        </Text>
+                                        
+                                        {item.selectedVariant || hasAddons ? (
+                                            <TouchableOpacity 
+                                                style={styles.viewCustomizationBtn}
+                                                onPress={() => setViewDetailsItem(item)}
+                                            >
+                                                <Text style={styles.viewCustomizationText}>
+                                                    View
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ) : null}
+
+                                        <Text style={styles.itemPrice}>
+                                            ₹{((item.price ?? 0) * item.quantity).toFixed(0)}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.qtyRow}>
+                                        <AnimatedPressable
+                                            style={styles.qtyBtn}
+                                            onPress={() => updateQuantity(cartKey, item.quantity - 1)}
+                                            scaleIn={0.8}
                                         >
-                                        <Ionicons name="add" size={16} color={Colors.primary} />
-                                    </AnimatedPressable>
-                                </View>
-                            </Animated.View>
-                        ))}
+                                            <Ionicons name="remove" size={16} color={Colors.primary} />
+                                        </AnimatedPressable>
+                                        <Text style={styles.qtyText}>{item.quantity}</Text>
+                                        <AnimatedPressable
+                                            style={styles.qtyBtn}
+                                            onPress={() => updateQuantity(cartKey, item.quantity + 1)}
+                                            scaleIn={0.8}
+                                        >
+                                            <Ionicons name="add" size={16} color={Colors.primary} />
+                                        </AnimatedPressable>
+                                    </View>
+                                </Animated.View>
+                            );
+                        })}
 
                         {/* Total row inside the card */}
                         <View style={styles.totalRow}>
@@ -412,6 +430,74 @@ export default function CartScreen() {
                 )}
             </View>
 
+            {/* Customization Details Modal */}
+            <Modal
+                visible={viewDetailsItem !== null}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setViewDetailsItem(null)}
+            >
+                <View style={styles.detailsModalOverlay}>
+                    <View style={styles.detailsModalContent}>
+                        {/* Header */}
+                        <View style={styles.detailsModalHeader}>
+                            <Text style={styles.detailsModalTitle}>Customisation Details</Text>
+                            <TouchableOpacity onPress={() => setViewDetailsItem(null)}>
+                                <Ionicons name="close" size={24} color={Colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Body */}
+                        <ScrollView 
+                            style={styles.detailsModalBody} 
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {viewDetailsItem && (
+                                <View style={styles.detailsContainer}>
+                                    <View style={styles.detailsItemHeader}>
+                                        <Image
+                                            source={{ uri: viewDetailsItem.image ?? getPlaceholderImage(viewDetailsItem.id) }}
+                                            style={styles.detailsItemImage}
+                                            contentFit="cover"
+                                        />
+                                        <View style={styles.detailsItemHeaderInfo}>
+                                            <Text style={styles.detailsItemName}>{viewDetailsItem.name}</Text>
+                                            {viewDetailsItem.selectedVariant && (
+                                                <Text style={styles.detailsItemVariant}>
+                                                    Size: {viewDetailsItem.selectedVariant.name} (₹{viewDetailsItem.selectedVariant.price})
+                                                </Text>
+                                            )}
+                                        </View>
+                                    </View>
+
+                                    {viewDetailsItem.selectedAddons && viewDetailsItem.selectedAddons.length > 0 && (
+                                        <View style={styles.detailsSection}>
+                                            <Text style={styles.detailsSectionTitle}>Selected Extras</Text>
+                                            {viewDetailsItem.selectedAddons.map((addon) => (
+                                                <View key={addon.id} style={styles.detailsAddonRow}>
+                                                    <Text style={styles.detailsAddonName}>{addon.name}</Text>
+                                                    <Text style={styles.detailsAddonPrice}>+₹{addon.price}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    <View style={styles.detailsDivider} />
+
+                                    <View style={styles.detailsTotalRow}>
+                                        <Text style={styles.detailsTotalLabel}>Unit Total</Text>
+                                        <Text style={styles.detailsTotalValue}>
+                                            ₹{(viewDetailsItem.price ?? 0).toFixed(0)}
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+                            <View style={{ height: 40 }} />
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
         </View>
     );
 }
@@ -480,6 +566,13 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         fontSize: FontSize.sm,
         color: Colors.text,
         marginBottom: 2,
+    },
+    itemCustomizationText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 11,
+        color: Colors.muted,
+        marginTop: 1,
+        marginBottom: 3,
     },
     itemPrice: {
         fontFamily: Fonts.brandMedium,
@@ -835,5 +928,123 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.sm,
         color: Colors.white,
+    },
+    viewCustomizationBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 2,
+        marginBottom: 4,
+    },
+    viewCustomizationText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 12,
+        color: Colors.primary,
+    },
+    detailsModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        justifyContent: 'flex-end',
+    },
+    detailsModalContent: {
+        backgroundColor: Colors.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '75%',
+        overflow: 'hidden',
+    },
+    detailsModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 18,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    detailsModalTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
+        color: Colors.text,
+    },
+    detailsModalBody: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    detailsContainer: {
+        gap: 16,
+    },
+    detailsItemHeader: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
+    },
+    detailsItemImage: {
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+    },
+    detailsItemHeaderInfo: {
+        flex: 1,
+        gap: 4,
+    },
+    detailsItemName: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
+        color: Colors.text,
+    },
+    detailsItemVariant: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.xs,
+        color: Colors.textSecondary,
+    },
+    detailsSection: {
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        padding: 14,
+        gap: 10,
+    },
+    detailsSectionTitle: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.xs,
+        color: Colors.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+        marginBottom: 4,
+    },
+    detailsAddonRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    detailsAddonName: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: FontSize.sm,
+        color: Colors.text,
+    },
+    detailsAddonPrice: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.sm,
+        color: Colors.textSecondary,
+    },
+    detailsDivider: {
+        height: 1,
+        backgroundColor: Colors.border,
+        marginVertical: 4,
+    },
+    detailsTotalRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    detailsTotalLabel: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.md,
+        color: Colors.text,
+    },
+    detailsTotalValue: {
+        fontFamily: Fonts.brandBlack,
+        fontSize: FontSize.lg,
+        color: Colors.primary,
     },
 });

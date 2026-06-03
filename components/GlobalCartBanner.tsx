@@ -72,7 +72,7 @@ export default function GlobalCartBanner() {
           <View style={styles.cartItemImagesContainer}>
             {displayItems.map((item, index) => (
               <Image
-                key={item.id}
+                key={item.customUniqueId ?? `${item.id}-${index}`}
                 source={{ uri: item.image ?? getPlaceholderImage(item.id) }}
                 style={[styles.cartItemImage, { marginLeft: index * -10 }]}
                 contentFit="cover"

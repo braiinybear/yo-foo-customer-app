@@ -16,7 +16,9 @@ import {
   ActivityIndicator,
   StatusBar,
   RefreshControl,
-  Platform
+  Platform,
+  Dimensions,
+  PanResponder,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
@@ -29,6 +31,70 @@ import {
 } from "@/hooks/useDiscovery";
 import { useSearchRestaurants } from "@/hooks/useRestaurantSearch";
 import { router } from "expo-router";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
+// ─── Dual-thumb Range Slider ────────────────────────────────────────────────
+function RangeSlider({ min, max, step = 1, low, high, onLowChange, onHighChange, formatLabel, accentColor }: {
+  min: number; max: number; step?: number; low: number; high: number;
+  onLowChange: (v: number) => void; onHighChange: (v: number) => void;
+  formatLabel?: (v: number) => string; accentColor: string;
+}) {
+  const trackW = SCREEN_WIDTH - 80;
+  const THUMB = 24;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  const snap  = (v: number) => Math.round(v / step) * step;
+  const toX   = (v: number) => ((v - min) / (max - min)) * trackW;
+  const toVal = (x: number) => snap(clamp(min + (x / trackW) * (max - min), min, max));
+
+  const lowStartX  = useRef(toX(low));
+  const highStartX = useRef(toX(high));
+
+  const lowPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => { lowStartX.current = toX(low); },
+    onPanResponderMove: (_, gs) => {
+      const newX = clamp(lowStartX.current + gs.dx, 0, toX(high) - THUMB);
+      onLowChange(clamp(toVal(newX), min, high - step));
+    },
+  })).current;
+
+  const highPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => { highStartX.current = toX(high); },
+    onPanResponderMove: (_, gs) => {
+      const newX = clamp(highStartX.current + gs.dx, toX(low) + THUMB, trackW);
+      onHighChange(clamp(toVal(newX), low + step, max));
+    },
+  })).current;
+
+  const fmt = formatLabel ?? String;
+  const lowPx  = toX(low);
+  const highPx = toX(high);
+
+  return (
+    <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
+        <View style={{ backgroundColor: accentColor + "1A", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+          <Text style={{ color: accentColor, fontWeight: "700", fontSize: 13 }}>{fmt(low)}</Text>
+        </View>
+        <View style={{ backgroundColor: accentColor + "1A", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+          <Text style={{ color: accentColor, fontWeight: "700", fontSize: 13 }}>{fmt(high)}</Text>
+        </View>
+      </View>
+      <View style={{ width: trackW, height: 4, borderRadius: 2, backgroundColor: "rgba(0,0,0,0.10)", alignSelf: "center" }}>
+        <View style={{ position: "absolute", left: lowPx, width: highPx - lowPx, height: 4, borderRadius: 2, backgroundColor: accentColor }} />
+        <View {...lowPan.panHandlers} style={{ position: "absolute", left: lowPx - THUMB / 2, top: -THUMB / 2 + 2, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: "#fff", borderWidth: 2.5, borderColor: accentColor, elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }} />
+        <View {...highPan.panHandlers} style={{ position: "absolute", left: highPx - THUMB / 2, top: -THUMB / 2 + 2, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: "#fff", borderWidth: 2.5, borderColor: accentColor, elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }} />
+      </View>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 14 }}>
+        <Text style={{ fontSize: 11, color: "#aaa" }}>{fmt(min)}</Text>
+        <Text style={{ fontSize: 11, color: "#aaa" }}>{fmt(max)}</Text>
+      </View>
+    </View>
+  );
+}
+
 const VEG_TYPE_OPTIONS = [
   { id: "VEG", label: "Vegetarian", emoji: "🥦", color: "#10B981" },
   { id: "NON_VEG", label: "Non-Vegetarian", emoji: "🍗", color: "#EF4444" },
@@ -381,7 +447,7 @@ export default function SearchPage() {
           )}
 
           {/* What's on your mind Section */}
-          <View style={styles.discoverySection}>
+          {/* <View style={styles.discoverySection}>
             <Text style={styles.sectionTitle}>WHAT'S ON YOUR MIND?</Text>
             <View style={styles.cuisinesGrid}>
               {cuisines?.map((cuisine) => (
@@ -400,7 +466,7 @@ export default function SearchPage() {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </View> */}
 
           {/* Popular Dishes Section */}
           {popularItems && popularItems.length > 0 && (
@@ -633,157 +699,75 @@ export default function SearchPage() {
                 </View>
               </View>
 
-              {/* Price Range Filter */}
+              {/* Price Range — Slider */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Price Range</Text>
-                <View style={styles.filterOptions}>
-                  {[
-                    { id: "under100", label: "Under ₹100", range: [0, 100] },
-                    { id: "100-200", label: "₹100 - ₹200", range: [100, 200] },
-                    { id: "200-500", label: "₹200 - ₹500", range: [200, 500] },
-                    {
-                      id: "above500",
-                      label: "Above ₹500",
-                      range: [500, 10000],
-                    },
-                  ].map((option) => (
-                    <TouchableOpacity
-                      key={option.id}
-                      style={[
-                        styles.filterOption,
-                        priceRange?.[0] === option.range[0] &&
-                          priceRange?.[1] === option.range[1] && {
-                            backgroundColor: Colors.primary,
-                            borderColor: Colors.primary,
-                          },
-                      ]}
-                      onPress={() => {
-                        if (
-                          priceRange?.[0] === option.range[0] &&
-                          priceRange?.[1] === option.range[1]
-                        ) {
-                          setPriceRange(null);
-                        } else {
-                          setPriceRange(option.range as [number, number]);
-                        }
-                      }}
-                    >
-                      <Text style={styles.optionEmoji}>💰</Text>
-                      <Text
-                        style={[
-                          styles.optionLabel,
-                          priceRange?.[0] === option.range[0] &&
-                            priceRange?.[1] === option.range[1] && {
-                              color: Colors.white,
-                            },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      {priceRange?.[0] === option.range[0] &&
-                        priceRange?.[1] === option.range[1] && (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={20}
-                            color={Colors.white}
-                          />
-                        )}
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <Text style={styles.filterSectionTitle}>Price Range</Text>
+                  {priceRange && (
+                    <TouchableOpacity onPress={() => setPriceRange(null)}>
+                      <Text style={{ fontSize: 12, color: Colors.primary, fontFamily: Fonts.brandMedium }}>Clear</Text>
                     </TouchableOpacity>
-                  ))}
+                  )}
                 </View>
+                <RangeSlider
+                  min={0} max={1000} step={50}
+                  low={priceRange?.[0] ?? 0}
+                  high={priceRange?.[1] ?? 1000}
+                  onLowChange={(v) => setPriceRange([v, priceRange?.[1] ?? 1000])}
+                  onHighChange={(v) => setPriceRange([priceRange?.[0] ?? 0, v])}
+                  formatLabel={(v) => `₹${v}`}
+                  accentColor={Colors.primary}
+                />
               </View>
 
-              {/* Prep Time Range Filter */}
+              {/* Prep Time — Slider */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Preparation Time</Text>
-                <View style={styles.filterOptions}>
-                  {[
-                    { id: "under15", label: "Under 15 mins", range: [0, 15] },
-                    { id: "15-30", label: "15 - 30 mins", range: [15, 30] },
-                    { id: "30-45", label: "30 - 45 mins", range: [30, 45] },
-                    { id: "above45", label: "Above 45 mins", range: [45, 120] },
-                  ].map((option) => (
-                    <TouchableOpacity
-                      key={option.id}
-                      style={[
-                        styles.filterOption,
-                        prepTimeRange?.[0] === option.range[0] &&
-                          prepTimeRange?.[1] === option.range[1] && {
-                            backgroundColor: Colors.primary,
-                            borderColor: Colors.primary,
-                          },
-                      ]}
-                      onPress={() => {
-                        if (
-                          prepTimeRange?.[0] === option.range[0] &&
-                          prepTimeRange?.[1] === option.range[1]
-                        ) {
-                          setPrepTimeRange(null);
-                        } else {
-                          setPrepTimeRange(option.range as [number, number]);
-                        }
-                      }}
-                    >
-                      <Text style={styles.optionEmoji}>⏱️</Text>
-                      <Text
-                        style={[
-                          styles.optionLabel,
-                          prepTimeRange?.[0] === option.range[0] &&
-                            prepTimeRange?.[1] === option.range[1] && {
-                              color: Colors.white,
-                            },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                      {prepTimeRange?.[0] === option.range[0] &&
-                        prepTimeRange?.[1] === option.range[1] && (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={20}
-                            color={Colors.white}
-                          />
-                        )}
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <Text style={styles.filterSectionTitle}>Preparation Time</Text>
+                  {prepTimeRange && (
+                    <TouchableOpacity onPress={() => setPrepTimeRange(null)}>
+                      <Text style={{ fontSize: 12, color: Colors.primary, fontFamily: Fonts.brandMedium }}>Clear</Text>
                     </TouchableOpacity>
-                  ))}
+                  )}
                 </View>
+                <RangeSlider
+                  min={0} max={90} step={5}
+                  low={prepTimeRange?.[0] ?? 0}
+                  high={prepTimeRange?.[1] ?? 90}
+                  onLowChange={(v) => setPrepTimeRange([v, prepTimeRange?.[1] ?? 90])}
+                  onHighChange={(v) => setPrepTimeRange([prepTimeRange?.[0] ?? 0, v])}
+                  formatLabel={(v) => `${v} min`}
+                  accentColor={Colors.primary}
+                />
               </View>
 
               {/* Availability & Bestseller */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionTitle}>More Options</Text>
                 <TouchableOpacity
-                  style={[
-                    styles.checkboxOption,
-                    showAvailableOnly && {
-                      backgroundColor: `${Colors.primary}15`,
-                    },
-                  ]}
+                  style={[styles.checkboxOption, showAvailableOnly && styles.checkboxOptionActive]}
                   onPress={() => setShowAvailableOnly(!showAvailableOnly)}
                 >
                   <Ionicons
-                    name={showAvailableOnly ? "checkbox" : "checkbox-outline"}
-                    size={20}
-                    color={Colors.primary}
+                    name={showAvailableOnly ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={showAvailableOnly ? Colors.primary : Colors.muted}
                   />
-                  <Text style={styles.checkboxLabel}>Available Only</Text>
+                  <Text style={[styles.checkboxLabel, showAvailableOnly && { fontFamily: Fonts.brandBold, color: Colors.text }]}>Available Only</Text>
+                  {showAvailableOnly && <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />}
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.checkboxOption,
-                    showBestsellersOnly && {
-                      backgroundColor: `${Colors.primary}15`,
-                    },
-                  ]}
+                  style={[styles.checkboxOption, showBestsellersOnly && styles.checkboxOptionActive]}
                   onPress={() => setShowBestsellersOnly(!showBestsellersOnly)}
                 >
                   <Ionicons
-                    name={showBestsellersOnly ? "checkbox" : "checkbox-outline"}
-                    size={20}
-                    color={Colors.primary}
+                    name={showBestsellersOnly ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={showBestsellersOnly ? Colors.primary : Colors.muted}
                   />
-                  <Text style={styles.checkboxLabel}>Bestsellers Only</Text>
+                  <Text style={[styles.checkboxLabel, showBestsellersOnly && { fontFamily: Fonts.brandBold, color: Colors.text }]}>Bestsellers Only</Text>
+                  {showBestsellersOnly && <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />}
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1265,19 +1249,24 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
   checkboxOption: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
     backgroundColor: isDark ? Colors.surface : Colors.white,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: isDark ? 0.3 : 0.1,
+    shadowOpacity: isDark ? 0.3 : 0.08,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
     gap: 12,
     marginBottom: 8,
+  },
+
+  checkboxOptionActive: {
+    backgroundColor: Colors.primary + "12",
+    borderColor: Colors.primary,
   },
 
   checkboxLabel: {

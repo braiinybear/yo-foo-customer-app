@@ -1,37 +1,49 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import * as SecureStore from 'expo-secure-store';
-import { MenuItem } from '@/types/restaurants';
-
-// Custom storage wrapper for SecureStore
-const secureStorage = {
-    getItem: async (name: string): Promise<string | null> => {
-        return await SecureStore.getItemAsync(name);
-    },
-    setItem: async (name: string, value: string): Promise<void> => {
-        await SecureStore.setItemAsync(name, value);
-    },
-    removeItem: async (name: string): Promise<void> => {
-        await SecureStore.deleteItemAsync(name);
-    },
-};
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MenuItem, MenuVariant, AddonOption } from '@/types/restaurants';
 
 export interface CartItem extends MenuItem {
     quantity: number;
+    selectedVariant?: MenuVariant;
+    selectedAddons?: AddonOption[];
+    customUniqueId?: string; // composite key to support multiple configurations of the same dish
 }
 
 interface CartState {
     items: CartItem[];
     restaurantId: string | null;
     totalAmount: number;
-    addItem: (item: MenuItem, restaurantId: string) => void;
-    removeItem: (itemId: string) => void;
-    updateQuantity: (itemId: string, quantity: number) => void;
+    addItem: (
+        item: MenuItem, 
+        restaurantId: string, 
+        selectedVariant?: MenuVariant, 
+        selectedAddons?: AddonOption[],
+        quantity?: number
+    ) => void;
+    removeItem: (cartItemKey: string) => void;
+    updateQuantity: (cartItemKey: string, quantity: number) => void;
     clearCart: () => void;
 }
 
+export const getCartItemKey = (item: MenuItem, variant?: MenuVariant, addons?: AddonOption[]) => {
+    const variantPart = variant ? variant.id : 'default';
+    const addonPart = addons && addons.length > 0
+        ? addons.map(a => a.id).sort().join(',')
+        : 'none';
+    return `${item.id}-${variantPart}-${addonPart}`;
+};
+
+export const getCartItemPrice = (item: CartItem) => {
+    const basePrice = item.selectedVariant ? item.selectedVariant.price : (item.price ?? 0);
+    const addonsPrice = item.selectedAddons
+        ? item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0)
+        : 0;
+    return basePrice + addonsPrice;
+};
+
 const calculateTotal = (items: CartItem[]) => {
-    return items.reduce((total, item) => total + (item.price || 0) * (item.quantity || 0), 0);
+    return items.reduce((total, item) => total + getCartItemPrice(item) * (item.quantity || 0), 0);
 };
 
 export const useCartStore = create<CartState>()(
@@ -41,21 +53,38 @@ export const useCartStore = create<CartState>()(
             restaurantId: null,
             totalAmount: 0,
 
-            addItem: (item, restaurantId) => {
+            addItem: (item, restaurantId, selectedVariant, selectedAddons, qty = 1) => {
                 const currentItems = get().items;
                 const currentRestaurantId = get().restaurantId;
                 let newItems: CartItem[] = [];
 
+                // Generate composite unique key
+                const uniqueKey = getCartItemKey(item, selectedVariant, selectedAddons);
+                
+                // Calculate item price for backward-compatibility storage
+                const basePrice = selectedVariant ? selectedVariant.price : (item.price ?? 0);
+                const addonsPrice = selectedAddons ? selectedAddons.reduce((sum, a) => sum + a.price, 0) : 0;
+                const computedPrice = basePrice + addonsPrice;
+
+                const newCartItem: CartItem = {
+                    ...item,
+                    price: computedPrice, // Set computed price directly to support backward compatibility seamlessly
+                    quantity: qty,
+                    selectedVariant,
+                    selectedAddons,
+                    customUniqueId: uniqueKey,
+                };
+
                 if (currentRestaurantId && currentRestaurantId !== restaurantId) {
-                    newItems = [{ ...item, quantity: 1 }];
+                    newItems = [newCartItem];
                 } else {
-                    const existingItem = currentItems.find((i) => i.id === item.id);
+                    const existingItem = currentItems.find((i) => (i.customUniqueId ?? i.id) === uniqueKey);
                     if (existingItem) {
                         newItems = currentItems.map((i) =>
-                            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+                            (i.customUniqueId ?? i.id) === uniqueKey ? { ...i, quantity: i.quantity + qty } : i
                         );
                     } else {
-                        newItems = [...currentItems, { ...item, quantity: 1 }];
+                        newItems = [...currentItems, newCartItem];
                     }
                 }
 
@@ -66,8 +95,8 @@ export const useCartStore = create<CartState>()(
                 });
             },
 
-            removeItem: (itemId) => {
-                const newItems = get().items.filter((i) => i.id !== itemId);
+            removeItem: (cartItemKey) => {
+                const newItems = get().items.filter((i) => (i.customUniqueId ?? i.id) !== cartItemKey);
                 set({
                     items: newItems,
                     totalAmount: calculateTotal(newItems),
@@ -75,13 +104,13 @@ export const useCartStore = create<CartState>()(
                 });
             },
 
-            updateQuantity: (itemId, quantity) => {
+            updateQuantity: (cartItemKey, quantity) => {
                 if (quantity <= 0) {
-                    get().removeItem(itemId);
+                    get().removeItem(cartItemKey);
                     return;
                 }
                 const newItems = get().items.map((i) =>
-                    i.id === itemId ? { ...i, quantity } : i
+                    (i.customUniqueId ?? i.id) === cartItemKey ? { ...i, quantity } : i
                 );
                 set({
                     items: newItems,
@@ -92,13 +121,13 @@ export const useCartStore = create<CartState>()(
             clearCart: () => {
                 // Clear state
                 set({ items: [], restaurantId: null, totalAmount: 0 });
-                // Explicitly remove from SecureStore to ensure complete cleanup
-                secureStorage.removeItem('food-cart-storage').catch(console.error);
+                // Explicitly remove from AsyncStorage to ensure complete cleanup
+                AsyncStorage.removeItem('food-cart-storage').catch(console.error);
             },
         }),
         {
             name: 'food-cart-storage',
-            storage: createJSONStorage(() => secureStorage),
+            storage: createJSONStorage(() => AsyncStorage),
         }
     )
 );
