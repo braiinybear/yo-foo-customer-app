@@ -135,7 +135,7 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
         // Re-emit join to get current status from server (if connected)
         if (currentSocket?.connected) {
           console.log(`[RealTimeUpdate] 📱 Re-emitting join_order_tracking to get current status from server`);
-          currentSocket.emit('join_order_tracking', orderId);
+          currentSocket.emit('join_order_tracking', { orderId });
         }
         
         // Fetch fresh status from API with a small delay to give backend time to respond
@@ -163,7 +163,7 @@ export function useOrderRealTimeUpdate(orderId: string | null | undefined) {
       const socket = getSocket();
       if (socket && socket.connected) {
         console.log(`[RealTimeUpdate] 🔌 Joining order tracking room for: ${orderId}`);
-        socket.emit('join_order_tracking', orderId);
+        socket.emit('join_order_tracking', { orderId });
       }
     }
   }, [orderId, isSocketConnected]);
