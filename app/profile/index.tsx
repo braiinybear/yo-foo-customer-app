@@ -1008,7 +1008,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     },
     statsPillText: {
         fontFamily: Fonts.brandBold,
-        fontSize: FontSize.xxs,
+        fontSize: 11,
         color: Colors.white,
     },
 });
