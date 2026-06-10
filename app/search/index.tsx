@@ -1,7 +1,7 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { getPlaceholderImage } from "@/constants/images";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -34,7 +34,7 @@ import { router } from "expo-router";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// ─── Dual-thumb Range Slider ────────────────────────────────────────────────
+// ─── Single-thumb Slider ─────────────────────────────────────────────────────
 function RangeSlider({ min, max, step = 1, low, high, onLowChange, onHighChange, formatLabel, accentColor }: {
   min: number; max: number; step?: number; low: number; high: number;
   onLowChange: (v: number) => void; onHighChange: (v: number) => void;
@@ -43,48 +43,44 @@ function RangeSlider({ min, max, step = 1, low, high, onLowChange, onHighChange,
   const trackW = SCREEN_WIDTH - 80;
   const THUMB = 24;
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-  const snap  = (v: number) => Math.round(v / step) * step;
-  const toX   = (v: number) => ((v - min) / (max - min)) * trackW;
-  const toVal = (x: number) => snap(clamp(min + (x / trackW) * (max - min), min, max));
+  const snap = (v: number, s: number) => Math.round(v / s) * s;
 
-  const lowStartX  = useRef(toX(low));
-  const highStartX = useRef(toX(high));
+  const propsRef = useRef({ min, max, step, low, high, onLowChange, onHighChange });
+  useEffect(() => {
+    propsRef.current = { min, max, step, low, high, onLowChange, onHighChange };
+  });
 
-  const lowPan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => { lowStartX.current = toX(low); },
-    onPanResponderMove: (_, gs) => {
-      const newX = clamp(lowStartX.current + gs.dx, 0, toX(high) - THUMB);
-      onLowChange(clamp(toVal(newX), min, high - step));
-    },
-  })).current;
+  const highStartX = useRef(((high - min) / (max - min)) * trackW);
 
   const highPan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => { highStartX.current = toX(high); },
+    onPanResponderGrant: () => {
+      const { min, max, high } = propsRef.current;
+      highStartX.current = ((high - min) / (max - min)) * trackW;
+    },
     onPanResponderMove: (_, gs) => {
-      const newX = clamp(highStartX.current + gs.dx, toX(low) + THUMB, trackW);
-      onHighChange(clamp(toVal(newX), low + step, max));
+      const { min, max, step, high, onHighChange } = propsRef.current;
+      const newX = clamp(highStartX.current + gs.dx, 0, trackW);
+      const rawVal = min + (newX / trackW) * (max - min);
+      const val = clamp(snap(rawVal, step), min, max);
+      if (val !== high) {
+        onHighChange(val);
+      }
     },
   })).current;
 
   const fmt = formatLabel ?? String;
-  const lowPx  = toX(low);
-  const highPx = toX(high);
+  const highPx = ((high - min) / (max - min)) * trackW;
 
   return (
     <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
-        <View style={{ backgroundColor: accentColor + "1A", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-          <Text style={{ color: accentColor, fontWeight: "700", fontSize: 13 }}>{fmt(low)}</Text>
-        </View>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 16 }}>
         <View style={{ backgroundColor: accentColor + "1A", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
           <Text style={{ color: accentColor, fontWeight: "700", fontSize: 13 }}>{fmt(high)}</Text>
         </View>
       </View>
       <View style={{ width: trackW, height: 4, borderRadius: 2, backgroundColor: "rgba(0,0,0,0.10)", alignSelf: "center" }}>
-        <View style={{ position: "absolute", left: lowPx, width: highPx - lowPx, height: 4, borderRadius: 2, backgroundColor: accentColor }} />
-        <View {...lowPan.panHandlers} style={{ position: "absolute", left: lowPx - THUMB / 2, top: -THUMB / 2 + 2, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: "#fff", borderWidth: 2.5, borderColor: accentColor, elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }} />
+        <View style={{ position: "absolute", left: 0, width: highPx, height: 4, borderRadius: 2, backgroundColor: accentColor }} />
         <View {...highPan.panHandlers} style={{ position: "absolute", left: highPx - THUMB / 2, top: -THUMB / 2 + 2, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: "#fff", borderWidth: 2.5, borderColor: accentColor, elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }} />
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 14 }}>
@@ -262,14 +258,19 @@ export default function SearchPage() {
     setSelectedDishId(null);
   }, [debouncedSearchQuery]);
 
-  // Auto-select first dish when dishes load
+  // Auto-select first dish when dishes load, preserving selection if still valid
   useEffect(() => {
     if (allDishes.length > 0) {
-      setSelectedDishId(allDishes[0].dishId);
+      const stillExists = allDishes.some((d) => d.dishId === selectedDishId);
+      if (!stillExists) {
+        setSelectedDishId(allDishes[0].dishId);
+      }
+    } else {
+      setSelectedDishId(null);
     }
-  }, [allDishes]);
+  }, [allDishes, selectedDishId]);
 
-  const totalUniqueDishes = data?.pages[0]?.totalUniqueDishes ?? 0;
+  // const totalUniqueDishes = data?.pages[0]?.totalUniqueDishes ?? 0;
 
   const handleSearch = (text: string) => {
     setSearchQuery(text);
@@ -288,7 +289,12 @@ export default function SearchPage() {
         styles.dishItem,
         selectedDishId === dish.dishId && styles.dishItemSelected,
       ]}
-      onPress={() => setSelectedDishId(dish.dishId)}
+      onPress={() => {
+        setSelectedDishId(dish.dishId);
+        if (searchQuery.trim()) {
+          addRecentSearch(searchQuery.trim());
+        }
+      }}
     >
       <Image
         source={{
@@ -313,7 +319,10 @@ export default function SearchPage() {
     return (
       <TouchableOpacity
         style={styles.restaurantCardItem}
-        onPress={() =>
+        onPress={() => {
+          if (searchQuery.trim()) {
+            addRecentSearch(searchQuery.trim());
+          }
           router.push({
             pathname: "/restaurants/[id]",
             params: {
@@ -321,8 +330,8 @@ export default function SearchPage() {
               menuItemName: item.dishName,
               menuItemId: item.dishId,
             },
-          })
-        }
+          });
+        }}
       >
         {/* Dish and Restaurant Header */}
         <View style={styles.cardHeaderSection}>
@@ -369,7 +378,7 @@ export default function SearchPage() {
         </View>
       </TouchableOpacity>
     );
-  }, [styles, router, Colors, getPlaceholderImage]);
+  }, [styles, router, Colors, getPlaceholderImage, searchQuery, addRecentSearch]);
 
   const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -386,7 +395,7 @@ export default function SearchPage() {
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color={Colors.secondary} />
+          <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.secondary} />
         </TouchableOpacity>
         
         <View style={styles.searchInputWrapper}>
@@ -447,58 +456,30 @@ export default function SearchPage() {
           )}
 
           {/* What's on your mind Section */}
-          {/* <View style={styles.discoverySection}>
-            <Text style={styles.sectionTitle}>WHAT'S ON YOUR MIND?</Text>
-            <View style={styles.cuisinesGrid}>
-              {cuisines?.map((cuisine) => (
-                <TouchableOpacity 
-                  key={cuisine.id} 
-                  style={styles.cuisineItem}
-                  onPress={() => {
-                    setSearchQuery(cuisine.name);
-                    addRecentSearch(cuisine.name);
-                  }}
-                >
-                  <View style={styles.cuisineImageWrapper}>
-                    <Image source={{ uri: cuisine.image || getPlaceholderImage(cuisine.id) }} style={styles.cuisineImage} contentFit="cover" />
-                  </View>
-                  <Text style={styles.cuisineName} numberOfLines={1}>{cuisine.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View> */}
-
-          {/* Popular Dishes Section */}
-          {popularItems && popularItems.length > 0 && (
-            <View style={[styles.discoverySection, { paddingBottom: 40 }]}>
-              <Text style={styles.sectionTitle}>POPULAR DISHES</Text>
-              <View style={styles.popularItemsGrid}>
-                {popularItems.map((item) => (
+          {cuisines && cuisines.length > 0 && (
+            <View style={styles.discoverySection}>
+              <Text style={styles.sectionTitle}>WHAT'S ON YOUR MIND?</Text>
+              <View style={styles.cuisinesGrid}>
+                {cuisines.map((cuisine) => (
                   <TouchableOpacity 
-                    key={item.id} 
-                    style={styles.popularItemCard}
+                    key={cuisine.id} 
+                    style={styles.cuisineItem}
                     onPress={() => {
-                      router.push({
-                        pathname: "/restaurants/[id]",
-                        params: { 
-                          id: item.restaurantId,
-                          menuItemName: item.name,
-                          menuItemId: item.id
-                        }
-                      });
-                      addRecentSearch(item.name);
+                      setSearchQuery(cuisine.name);
+                      addRecentSearch(cuisine.name);
                     }}
                   >
-                    <Image source={{ uri: item.image || getPlaceholderImage(item.id) }} style={styles.popularItemImage} contentFit="cover" />
-                    <View style={styles.popularItemInfo}>
-                      <Text style={styles.popularItemName} numberOfLines={1}>{item.name}</Text>
-                      <Text style={styles.popularItemPrice}>₹{item.price}</Text>
+                    <View style={styles.cuisineImageWrapper}>
+                      <Image source={{ uri: cuisine.image || getPlaceholderImage(cuisine.id) }} style={styles.cuisineImage} contentFit="cover" />
                     </View>
+                    <Text style={styles.cuisineName} numberOfLines={1}>{cuisine.name}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
           )}
+
+         
         </ScrollView>
       ) : isLoading && allDishes.length === 0 ? (
         <View style={styles.loadingContainer}>
@@ -1255,11 +1236,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     borderWidth: 1.5,
     borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
     backgroundColor: isDark ? Colors.surface : Colors.white,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: isDark ? 0.3 : 0.08,
-    shadowRadius: 4,
-    elevation: 2,
     gap: 12,
     marginBottom: 8,
   },
@@ -1278,7 +1254,8 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
 
   // Horizontal Dishes Scroll
   dishesScrollContainer: {
-    flexGrow: 0,
+    height: 146,
+    flexShrink: 0,
     backgroundColor: Colors.background,
   },
 
@@ -1290,6 +1267,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
 
   dishItem: {
     width: 90,
+    height: 126,
     alignItems: "center",
     gap: 6,
   },

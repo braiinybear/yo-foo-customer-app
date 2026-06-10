@@ -19,8 +19,9 @@ import * as Location from 'expo-location';
 
 import { useTheme } from '@/context/ThemeContext';
 import { Fonts, FontSize } from '@/constants/typography';
-import { useAddAddress } from '@/hooks/useAddresses';
+import { useAddAddress, useUpdateAddress } from '@/hooks/useAddresses';
 import { useReverseGeocode } from '@/hooks/useReverseGeocode';
+import { UserAddress } from '@/types/user';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -134,33 +135,58 @@ interface AddressTypeOption {
     icon: React.ComponentProps<typeof Ionicons>['name'];
 }
 
-export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdressAddform: React.Dispatch<React.SetStateAction<boolean>> }) {
+interface AddAddressScreenProps {
+    setOpenAdressAddform: React.Dispatch<React.SetStateAction<boolean>>;
+    initialAddress?: UserAddress;
+}
+
+export default function AddAddressScreen({ setOpenAdressAddform, initialAddress }: AddAddressScreenProps) {
     const { Colors, isDark } = useTheme();
     const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
     const [form, setForm] = useState<AddressFormState>({
-        type: 'HOME', // Defaulted to HOME
-        addressLine: '',
-        landmark: '',
-        receiverName: '',
-        receiverPhone: '',
-        lat: null,
-        lng: null,
+        type: initialAddress?.type || 'HOME',
+        addressLine: initialAddress?.addressLine || '',
+        landmark: initialAddress?.landmark || '',
+        receiverName: initialAddress?.receiverName || '',
+        receiverPhone: initialAddress?.receiverPhone || '',
+        lat: initialAddress?.lat ?? null,
+        lng: initialAddress?.lng ?? null,
     });
 
     const [isFetchingLocation, setIsFetchingLocation] = useState<boolean>(false);
     const [locationError, setLocationError] = useState<string>('');
-    const { mutate: addAddress, isPending } = useAddAddress();
+    const { mutate: addAddress, isPending: isAddPending } = useAddAddress();
+    const { mutate: updateAddress, isPending: isUpdatePending } = useUpdateAddress();
+    const isPending = isAddPending || isUpdatePending;
     const { reverseGeocode, isLoading: isGeocoding } = useReverseGeocode();
 
     useEffect(() => {
-        handleFetchLocation();
-    }, []);
+        if (!initialAddress) {
+            handleFetchLocation();
+        }
+    }, [initialAddress]);
+
+    // Animate map to initialAddress on mount if editing
+    useEffect(() => {
+        if (initialAddress?.lat && initialAddress?.lng) {
+            const initialRegion = {
+                latitude: initialAddress.lat,
+                longitude: initialAddress.lng,
+                latitudeDelta: LATITUDE_DELTA,
+                longitudeDelta: LONGITUDE_DELTA,
+            };
+            setRegion(initialRegion);
+            setTimeout(() => {
+                mapRef.current?.animateToRegion(initialRegion, 500);
+            }, 300);
+        }
+    }, [initialAddress]);
 
     const mapRef = useRef<MapView>(null);
     const [region, setRegion] = useState<Region>({
-        latitude: 30.3165, // Default Dehradun
-        longitude: 78.0322,
+        latitude: initialAddress?.lat ?? 30.3165, // Default Dehradun
+        longitude: initialAddress?.lng ?? 78.0322,
         latitudeDelta: LATITUDE_DELTA,
         longitudeDelta: LONGITUDE_DELTA,
     });
@@ -286,18 +312,27 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
         // Create payload
         const payload: AddressFormState = { ...form };
 
-      
-
-        // Call the mutation
-        addAddress(payload, {
-            onSuccess: () => {
-                showAlert("Success", "Address added successfully!");
-                setOpenAdressAddform(false);
-            },
-            onError: (error) => {
-                showAlert("Error", "Failed to save address. Please try again.")
-            }
-        });
+        if (initialAddress) {
+            updateAddress({ id: initialAddress.id, address: payload }, {
+                onSuccess: () => {
+                    showAlert("Success", "Address updated successfully!");
+                    setOpenAdressAddform(false);
+                },
+                onError: (error) => {
+                    showAlert("Error", "Failed to update address. Please try again.");
+                }
+            });
+        } else {
+            addAddress(payload, {
+                onSuccess: () => {
+                    showAlert("Success", "Address added successfully!");
+                    setOpenAdressAddform(false);
+                },
+                onError: (error) => {
+                    showAlert("Error", "Failed to save address. Please try again.");
+                }
+            });
+        }
     };
 
     // --- RENDER ---
@@ -489,7 +524,9 @@ export default function AddAddressScreen({ setOpenAdressAddform }: { setOpenAdre
                     {isPending ? (
                         <ActivityIndicator color={Colors.white} />
                     ) : (
-                        <Text style={styles.submitButtonText}>Save Address</Text>
+                        <Text style={styles.submitButtonText}>
+                            {initialAddress ? 'Update Address' : 'Save Address'}
+                        </Text>
                     )}
                 </TouchableOpacity>
             </View>

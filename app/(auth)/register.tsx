@@ -3,7 +3,6 @@ import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
 import React, { useState, useMemo } from "react";
-import * as SecureStore from "expo-secure-store";
 import {
     ActivityIndicator, // IGNORE: This is a standard React Native component for showing a loading spinner
     Image,
@@ -13,7 +12,6 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    TouchableOpacity,
     View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -75,7 +73,7 @@ export default function Register() {
                 keyboardShouldPersistTaps="handled"
             >
                 {/* Logo */}
-                <Animated.View entering={FadeInDown.springify()}>
+                <Animated.View entering={FadeInDown.springify()} needsOffscreenAlphaCompositing={true}>
                     <Image
                         source={require("@/assets/images/app-logo.png")}
                         style={styles.logo}
@@ -84,7 +82,7 @@ export default function Register() {
                 </Animated.View>
 
                 {/* ── Email Sign-up Section ── */}
-                <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section}>
+                <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section} needsOffscreenAlphaCompositing={true}>
                     <Text style={styles.sectionLabel}>Create Account</Text>
 
                     <TextInput
@@ -148,14 +146,14 @@ export default function Register() {
                 </Animated.View>
 
                 {/* ── Divider ── */}
-                <Animated.View entering={FadeInDown.delay(400)} style={styles.dividerContainer}>
+                <Animated.View entering={FadeInDown.delay(400)} style={styles.dividerContainer} needsOffscreenAlphaCompositing={true}>
                     <View style={styles.divider} />
                     <Text style={styles.dividerText}>or continue with</Text>
                     <View style={styles.divider} />
                 </Animated.View>
 
                 {/* ── Google ── */}
-                <Animated.View entering={FadeInDown.delay(500).springify()}>
+                <Animated.View entering={FadeInDown.delay(500).springify()} needsOffscreenAlphaCompositing={true}>
                     <AnimatedPressable
                         style={styles.googleButton}
                         onPress={handleGoogleRegister}
@@ -171,7 +169,7 @@ export default function Register() {
                 </Animated.View>
 
                 {/* ── Sign in link ── */}
-                <Animated.View entering={FadeInDown.delay(600)}>
+                <Animated.View entering={FadeInDown.delay(600)} needsOffscreenAlphaCompositing={true}>
                     <AnimatedPressable
                         onPress={() => router.push("/(auth)/login")}
                         style={styles.switchContainer}

@@ -3,7 +3,6 @@ import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
 import { router } from "expo-router";
 import React, { useState, useMemo } from "react";
-import * as SecureStore from "expo-secure-store";
 import {
     ActivityIndicator,
     Image,
@@ -13,7 +12,6 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    TouchableOpacity,
     View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -132,7 +130,7 @@ export default function Login() {
                 keyboardShouldPersistTaps="handled"
             >
                 {session?.user ? (
-                    <Animated.View entering={FadeInDown.duration(600)} style={styles.profileContainer}>
+                    <Animated.View entering={FadeInDown.duration(600)} style={styles.profileContainer} needsOffscreenAlphaCompositing={true}>
                         <View style={styles.avatarWrapper}>
                             {session.user.image ? (
                                 <Image source={{ uri: session.user.image }} style={styles.profileImage} />
@@ -149,7 +147,7 @@ export default function Login() {
                         <ActivityIndicator color={Colors.primary} style={{ marginTop: 10 }} />
                     </Animated.View>
                 ) : (
-                    <Animated.View entering={FadeInDown.springify().damping(15)}>
+                    <Animated.View entering={FadeInDown.springify().damping(15)} needsOffscreenAlphaCompositing={true}>
                         <Image
                             source={require("@/assets/images/app-logo.png")}
                             style={styles.logo}
@@ -161,7 +159,7 @@ export default function Login() {
 
                 {/* ── PHONE OTP (default) ── */}
                 {!toggleEmailPhoneLogin && (
-                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section}>
+                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section} needsOffscreenAlphaCompositing={true}>
                         <Text style={styles.sectionLabel}>
                             {step === "phone" ? "Sign in with Phone" : "Enter OTP"}
                         </Text>
@@ -277,7 +275,7 @@ export default function Login() {
 
                 {/* ── EMAIL / PASSWORD (shown when toggled) ── */}
                 {toggleEmailPhoneLogin && (
-                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section}>
+                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.section} needsOffscreenAlphaCompositing={true}>
                         <Text style={styles.sectionLabel}>Email & Password</Text>
 
                         <TextInput
@@ -326,14 +324,14 @@ export default function Login() {
                 )}
 
                 {/* ── DIVIDER ── */}
-                <Animated.View entering={FadeInDown.delay(400)} style={styles.dividerContainer}>
+                <Animated.View entering={FadeInDown.delay(400)} style={styles.dividerContainer} needsOffscreenAlphaCompositing={true}>
                     <View style={styles.divider} />
                     <Text style={styles.dividerText}>or continue with</Text>
                     <View style={styles.divider} />
                 </Animated.View>
 
                 {/* ── Google ── */}
-                <Animated.View entering={FadeInDown.delay(500).springify()}>
+                <Animated.View entering={FadeInDown.delay(500).springify()} needsOffscreenAlphaCompositing={true}>
                     <AnimatedPressable
                         style={styles.googleButton}
                         onPress={handleGoogleLogin}
@@ -348,7 +346,7 @@ export default function Login() {
                 </Animated.View>
 
                 {/* ── Register link ── */}
-                <Animated.View entering={FadeInDown.delay(600)}>
+                <Animated.View entering={FadeInDown.delay(600)} needsOffscreenAlphaCompositing={true}>
                     <AnimatedPressable
                         onPress={() => router.push("/(auth)/register")}
                         style={styles.switchContainer}

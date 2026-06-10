@@ -1,7 +1,7 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { UserAddress } from "@/types/user";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState, useMemo } from "react";
 import {
     Modal,
@@ -39,7 +39,7 @@ export default function AddressModal({
     onSelectAddress,
 }: AddressModalProps) {
     const { Colors, isDark } = useTheme();
-    const [openAdressAddform, setOpenAdressAddform] = useState<boolean>(false)
+    const [addressFormState, setAddressFormState] = useState<false | 'add' | UserAddress>(false);
     const deleteMutation = useDeleteAddress();
     const setDefaultMutation = useSetDefaultAddress();
     const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
@@ -87,17 +87,22 @@ export default function AddressModal({
             height={Dimensions.get('window').height}
         >
                 <View style={styles.sheetContainer}>
-                    {openAdressAddform ? (
+                    {addressFormState ? (
                         <>
                             <View style={styles.header}>
-                                <AnimatedPressable onPress={() => setOpenAdressAddform(false)} scaleIn={0.8}>
-                                    <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                                <AnimatedPressable onPress={() => setAddressFormState(false)} scaleIn={0.8}>
+                                    <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.text} />
                                 </AnimatedPressable>
-                                <Text style={styles.title}>Add New Address</Text>
+                                <Text style={styles.title}>
+                                    {addressFormState === 'add' ? 'Add New Address' : 'Edit Address'}
+                                </Text>
                                 <View style={{ width: 40 }} />
                             </View>
                             <View style={{ flex: 1 }}>
-                                <AddAddressScreen setOpenAdressAddform={setOpenAdressAddform} />
+                                <AddAddressScreen 
+                                    setOpenAdressAddform={() => setAddressFormState(false)} 
+                                    initialAddress={addressFormState !== 'add' ? addressFormState : undefined}
+                                />
                             </View>
                         </>
                     ) : (
@@ -156,6 +161,14 @@ export default function AddressModal({
 
                                                 <View style={styles.actions}>
                                                     <AnimatedPressable
+                                                        onPress={() => setAddressFormState(item)}
+                                                        style={[styles.actionButton, { marginRight: 8 }]}
+                                                        disabled={deleteMutation.isPending || setDefaultMutation.isPending}
+                                                        scaleIn={0.8}
+                                                    >
+                                                        <Ionicons name="create-outline" size={20} color={Colors.primary} />
+                                                    </AnimatedPressable>
+                                                    <AnimatedPressable
                                                         onPress={() => handleDelete(item.id)}
                                                         style={styles.actionButton}
                                                         disabled={deleteMutation.isPending || setDefaultMutation.isPending}
@@ -175,7 +188,7 @@ export default function AddressModal({
                                         </View>
                                     )}
                                     ListFooterComponent={() => (
-                                        <AnimatedPressable onPress={() => setOpenAdressAddform(true)} style={styles.addButton} scaleIn={0.98}>
+                                        <AnimatedPressable onPress={() => setAddressFormState('add')} style={styles.addButton} scaleIn={0.98}>
                                             <View style={styles.addIcon}>
                                                 <Ionicons name="add" size={24} color={Colors.primary} />
                                             </View>

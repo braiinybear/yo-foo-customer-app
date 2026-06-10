@@ -138,7 +138,7 @@ const CurrentOrderCard = memo(({ order, onPress, realtimeStatus, isUpdating, isF
                         />
                     </View>
                     <View style={uiStyles.currentOrderDetails}>
-                        <Text style={uiStyles.currentOrderResName}>{order.restaurant.name}</Text>
+                        <Text style={uiStyles.currentOrderResName} numberOfLines={1}>{order.restaurant.name}</Text>
                         <Text style={uiStyles.currentOrderAddress} numberOfLines={1}>
                             {order.restaurant.address}
                         </Text>
@@ -222,8 +222,8 @@ const PastOrderItem = memo(({ item, onPress, uiStyles, isDark, entering }: { ite
                             contentFit="cover"
                         />
                     </View>
-                    <View>
-                        <Text style={uiStyles.resName}>{item.restaurant.name.slice(0, 25)}</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={uiStyles.resName} numberOfLines={1}>{item.restaurant.name}</Text>
                         <Text style={uiStyles.orderDate}>{date}</Text>
                     </View>
                 </View>
@@ -291,9 +291,6 @@ export default function OrderHistoryScreen() {
         !['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status)
     );
 
-    const pastOrders = allOrders.filter(order =>
-        ['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status)
-    );
 
     // Combine with currentOrder for a unified active orders list
     // This ensures we always have the most detailed data for the main active order
@@ -302,13 +299,24 @@ export default function OrderHistoryScreen() {
         activeOrders.unshift(currentOrder as any);
     }
 
-    // Accumulate orders when page changes
+    // Exclude any order already shown in the active section from the past list
+    const activeOrderIds = new Set(activeOrders.map(o => o.id));
+    const pastOrders = allOrders.filter(order =>
+        ['DELIVERED', 'CANCELLED', 'REFUSED'].includes(order.status) &&
+        !activeOrderIds.has(order.id)
+    );
+
+    // Accumulate orders when page changes, deduplicating by ID
     React.useEffect(() => {
         if (ordersData?.data) {
             if (page === 1) {
                 setAllOrders(ordersData.data);
             } else {
-                setAllOrders(prev => [...prev, ...ordersData.data]);
+                setAllOrders(prev => {
+                    const existingIds = new Set(prev.map((o: UserOrder) => o.id));
+                    const newOrders = ordersData.data.filter((o: UserOrder) => !existingIds.has(o.id));
+                    return [...prev, ...newOrders];
+                });
             }
         }
     }, [ordersData, page]);
@@ -382,12 +390,14 @@ export default function OrderHistoryScreen() {
                     />
                 )}
                 contentContainerStyle={uiStyles.listContent}
+                showsVerticalScrollIndicator={false}
                 scrollEventThrottle={16}
                 decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.985}
                 removeClippedSubviews={Platform.OS === 'android'}
                 initialNumToRender={4}
                 maxToRenderPerBatch={6}
                 windowSize={11}
+            
                 refreshControl={
                     <RefreshControl
                         refreshing={currentLoading || (historyLoading && page === 1)}

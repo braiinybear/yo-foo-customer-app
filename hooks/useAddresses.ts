@@ -63,3 +63,18 @@ export const useDeleteAddress = () => {
         },
     });
 };
+
+// 5. Update an address
+export const useUpdateAddress = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, address }: { id: string; address: AddressFormState }) => {
+            const { data } = await apiClient.patch(`/api/addresses/${id}`, address);
+            return data as UserAddress;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["addresses"] });
+        },
+    });
+};

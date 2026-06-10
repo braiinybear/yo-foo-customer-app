@@ -1,6 +1,7 @@
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
 import { authClient } from "@/lib/auth-client";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -35,6 +36,7 @@ import RestaurantCardSkeleton from "@/components/loadingSkelton/RestaurantCardSk
 import CuisineFilterSkeleton from "@/components/loadingSkelton/CuisineFilterSkeleton";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 import { useUser } from "@/hooks/useUser";
+import { useUserLocation } from "@/hooks/useUserLocation";
 
 // Stable FlatList helpers — defined outside component to prevent re-creation
 const ITEM_HEIGHT = 306; // 200px image + ~90px info + 16px marginBottom
@@ -52,6 +54,8 @@ export default function Index() {
   const { data: user } = useUser();
   const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
+  const { coords } = useUserLocation();
+
   // ── Infinite-scroll restaurants ──────────────────────────────────────────
   const {
     data: pagedData,
@@ -61,7 +65,7 @@ export default function Index() {
     fetchNextPage,
     refetch: refetchRestaurants,
     isError: isRestaurantsError,
-  } = useRestaurants();
+  } = useRestaurants(coords?.lat, coords?.lng);
 
   // Flatten pages → single array for FlatList
   const restaurants: Restaurant[] = useMemo(
@@ -186,7 +190,21 @@ export default function Index() {
 
   // ── Auto-select default address ───────────────────────────────────────────
   useEffect(() => {
-    if (addresses && addresses.length > 0 && !selectedAddress) {
+    if (!addresses || addresses.length === 0) {
+      // All addresses deleted → clear the stale selection
+      setSelectedAddress(null);
+      return;
+    }
+
+    if (!selectedAddress) {
+      // No selection yet → pick default or first
+      setSelectedAddress(addresses.find((a) => a.isDefault) ?? addresses[0]);
+      return;
+    }
+
+    // If the currently selected address was deleted, pick a new one
+    const stillExists = addresses.some((a) => a.id === selectedAddress.id);
+    if (!stillExists) {
       setSelectedAddress(addresses.find((a) => a.isDefault) ?? addresses[0]);
     }
   }, [addresses, selectedAddress]);
@@ -255,6 +273,22 @@ export default function Index() {
       )}
     </View>
   ), [isRestaurantsError, isLoading, styles, refetchRestaurants]);
+
+  // ── Empty State ────────────────────────────────────────────────────────
+  const ListEmpty = useMemo(() => {
+    if (isLoading || isRestaurantsError) return null;
+    return (
+      <View style={styles.emptyStateContainer}>
+        <View style={styles.emptyStateIconCircle}>
+          <MaterialCommunityIcons name="map-marker-off-outline" size={48} color={Colors.primary} />
+        </View>
+        <Text style={styles.emptyStateTitle}>We're not here yet!</Text>
+        <Text style={styles.emptyStateSub}>
+          Your area is currently out of our service range. We are expanding rapidly, so check back soon!
+        </Text>
+      </View>
+    );
+  }, [isLoading, isRestaurantsError, styles, Colors.primary]);
 
   // ── Footer spinner ───────────────────────────────────────────────────────
 
@@ -342,6 +376,7 @@ export default function Index() {
         renderItem={renderRestaurantCard}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
+        ListEmptyComponent={ListEmpty}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         overScrollMode="never"
@@ -498,5 +533,35 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.danger,
     paddingHorizontal: 10,
+  },
+
+  emptyStateContainer: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 40,
+  },
+  emptyStateIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: Colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  emptyStateTitle: {
+    fontFamily: Fonts.brandBold,
+    fontSize: FontSize.lg,
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  emptyStateSub: {
+    fontFamily: Fonts.brandMedium,
+    fontSize: FontSize.md,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

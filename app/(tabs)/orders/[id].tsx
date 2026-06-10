@@ -33,11 +33,12 @@ import MapView, { Marker, Polyline, AnimatedRegion, PROVIDER_GOOGLE } from 'reac
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 
-import { useOrderDetail } from '@/hooks/useOrders';
+import { useOrderDetail, useCancelOrder } from '@/hooks/useOrders';
 import { useOrderRealTimeUpdate } from '@/hooks/useOrderRealTimeUpdate';
 import { useOrderTracking, useSocketOrders } from '@/hooks/useSocketOrders';
 import { useSocketStore } from '@/store/useSocketStore';
-import { useSubmitReview } from '@/hooks/useReview';
+import { useSubmitReview, useRestaurantReviews } from '@/hooks/useReview';
+import { showAlert } from '@/store/useAlertStore';
 import { CustomerOrderProgressBar } from '@/components/CustomerOrderProgressBar';
 // import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
@@ -216,6 +217,36 @@ export default function OrderDetailScreen() {
     const [deliveryRating, setDeliveryRating] = useState(0);
     const [reviewComment, setReviewComment] = useState('');
     const { mutate: submitReview, isPending: isSubmittingReview } = useSubmitReview();
+    const { data: restaurantReviews } = useRestaurantReviews(order?.restaurant?.id || '');
+    const { mutate: cancelOrder, isPending: isCancelling } = useCancelOrder();
+
+    const handleCancelOrderClick = useCallback(() => {
+        if (!order) return;
+        showAlert(
+            "Cancel Order",
+            "Are you sure you want to cancel this order? If paid via wallet, it will be refunded automatically.",
+            [
+                { text: "No", style: "cancel" },
+                {
+                    text: "Yes, Cancel",
+                    style: "destructive",
+                    onPress: () => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        cancelOrder(order.id, {
+                            onSuccess: () => {
+                                showAlert("Order Cancelled", "Your order has been cancelled successfully.", [{ text: "OK" }], "success");
+                            },
+                            onError: (error: any) => {
+                                const errMsg = error?.response?.data?.message || "Something went wrong while cancelling the order.";
+                                showAlert("Cancellation Failed", errMsg, [{ text: "OK" }], "error");
+                            }
+                        });
+                    }
+                }
+            ],
+            "confirm"
+        );
+    }, [order, cancelOrder]);
     const reviewModalRef = useRef<View>(null);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -691,6 +722,19 @@ export default function OrderDetailScreen() {
                     <View style={styles.statusTextBlock}>
                         <View style={styles.statusLabelRow}>
                             <Text style={[styles.statusLabel, { color: sc.color }]}>{sc.label}</Text>
+                            {['PLACED', 'ACCEPTED'].includes(displayStatus ?? '') && (
+                                <TouchableOpacity 
+                                    onPress={handleCancelOrderClick} 
+                                    disabled={isCancelling}
+                                    style={styles.headerCancelTouch}
+                                >
+                                    {isCancelling ? (
+                                        <ActivityIndicator color={Colors.danger} size="small" />
+                                    ) : (
+                                        <Text style={styles.headerCancelText}>Cancel</Text>
+                                    )}
+                                </TouchableOpacity>
+                            )}
                             {isUpdating && (
                                 <View style={styles.updateBadge}>
                                     <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
@@ -1019,6 +1063,109 @@ export default function OrderDetailScreen() {
                         </View>
                     )}
                 </SectionCard>
+
+                {/* ── Your Review Section ────────────────────────────────── */}
+                {order?.review && (
+                    <SectionCard Colors={Colors} styles={styles} title="Your Review" icon="star">
+                        <View style={{ gap: 12 }}>
+                            {/* User details header */}
+                            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                                <Image
+                                    source={{ uri: order.customer?.image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" }}
+                                    style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surface }}
+                                />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontFamily: Fonts.brandBold, fontSize: FontSize.sm, color: Colors.text }}>
+                                        {order.customer?.name || 'You'}
+                                    </Text>
+                                    <Text style={{ fontFamily: Fonts.brand, fontSize: FontSize.xs, color: Colors.muted }}>
+                                        {new Date(order.review.createdAt).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={{ gap: 6 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <Text style={{ fontFamily: Fonts.brandMedium, fontSize: FontSize.xs + 1, color: Colors.textSecondary }}>Food Quality:</Text>
+                                    <View style={{ flexDirection: 'row', gap: 2 }}>
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <Ionicons
+                                                key={`cust-food-${star}`}
+                                                name="star"
+                                                size={14}
+                                                color={star <= order.review.foodRating ? '#FFD700' : Colors.border}
+                                            />
+                                        ))}
+                                    </View>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <Text style={{ fontFamily: Fonts.brandMedium, fontSize: FontSize.xs + 1, color: Colors.textSecondary }}>Delivery:</Text>
+                                    <View style={{ flexDirection: 'row', gap: 2 }}>
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <Ionicons
+                                                key={`cust-delivery-${star}`}
+                                                name="star"
+                                                size={14}
+                                                color={star <= order.review.deliveryRating ? '#FFD700' : Colors.border}
+                                            />
+                                        ))}
+                                    </View>
+                                </View>
+                            </View>
+
+                            {order.review.comment ? (
+                                <View style={{ backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border }}>
+                                    <Text style={{ fontFamily: Fonts.brand, fontSize: FontSize.sm, color: Colors.text, fontStyle: 'italic' }}>
+                                        "{order.review.comment}"
+                                    </Text>
+                                </View>
+                            ) : null}
+                        </View>
+                    </SectionCard>
+                )}
+
+                {/* ── Restaurant Reviews Section ──────────────────────── */}
+                {order?.restaurant?.id && restaurantReviews?.data && restaurantReviews.data.length > 0 && (
+                    <SectionCard Colors={Colors} styles={styles} title="Restaurant Reviews" icon="star-half">
+                        <View style={{ gap: 12 }}>
+                            {restaurantReviews.data.slice(0, 5).map((rev) => (
+                                <View key={rev.id} style={{ borderBottomWidth: 1, borderBottomColor: Colors.border, paddingBottom: 10, gap: 6 }}>
+                                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                                        <Image
+                                            source={{ uri: rev.user?.image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" }}
+                                            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surface }}
+                                        />
+                                        <View style={{ flex: 1 }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontFamily: Fonts.brandBold, fontSize: FontSize.sm, color: Colors.text }}>
+                                                    {rev.user?.name || 'Customer'}
+                                                </Text>
+                                                <View style={{ flexDirection: 'row', gap: 1 }}>
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <Ionicons
+                                                            key={`rev-food-${rev.id}-${star}`}
+                                                            name="star"
+                                                            size={12}
+                                                            color={star <= rev.foodRating ? '#FFD700' : Colors.border}
+                                                        />
+                                                    ))}
+                                                </View>
+                                            </View>
+                                            <Text style={{ fontFamily: Fonts.brand, fontSize: FontSize.xs, color: Colors.muted }}>
+                                                {new Date(rev.createdAt).toLocaleDateString()}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    {rev.comment ? (
+                                        <Text style={{ fontFamily: Fonts.brand, fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4, paddingLeft: 46 }}>
+                                            {rev.comment}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            ))}
+                        </View>
+                    </SectionCard>
+                )}
 
                 {/* ── Review Section (after delivery) ───── */}
                 {displayStatus === 'DELIVERED' && !order?.review && (
@@ -1846,6 +1993,18 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         fontFamily: Fonts.brandBold,
         fontSize: FontSize.md,
         color: '#FFF',
+    },
+    // ── Cancel Button ──────────────────────────────────────────────────────
+    headerCancelTouch: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerCancelText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.sm,
+        color: Colors.danger,
     },
 
     // ── Review Modal ───────────────────────────────────────────────────────

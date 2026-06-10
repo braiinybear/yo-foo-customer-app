@@ -21,9 +21,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   AppState,
   Platform,
-  StyleSheet,
-  View,
+  TouchableOpacity,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import GlobalCustomAlert from "@/components/GlobalCustomAlert";
 import { AnimatedToast } from "@/components/AnimatedToast";
@@ -54,16 +54,7 @@ Notifications.setNotificationHandler({
 // Keep native splash visible
 ExpoSplashScreen.preventAutoHideAsync();
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 15,
-      retry: 2,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+import { queryClient } from "@/lib/query-client";
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -112,7 +103,6 @@ function ThemedRoot() {
   useEffect(() => {
     if (Platform.OS === "android") {
       NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark");
-      NavigationBar.setBackgroundColorAsync(Colors.background);
     }
 
     const subscription = AppState.addEventListener("change", (nextAppState) => {
@@ -190,6 +180,21 @@ function ThemedRoot() {
                 animation: 'slide_from_right',
                 animationDuration: 250,
                 freezeOnBlur: true,
+                headerLeft: () => (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (router.canGoBack()) {
+                        router.back();
+                      } else {
+                        router.push("/(tabs)");
+                      }
+                    }}
+                    activeOpacity={0.7}
+                    style={{ paddingLeft: 2, paddingRight: 8, height: 44, justifyContent: 'center' }}
+                  >
+                    <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.white} />
+                  </TouchableOpacity>
+                ),
               }}
             >
               <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'none' }} />
@@ -207,7 +212,7 @@ function ThemedRoot() {
                   },
                   headerTitleAlign: "center",
                   headerTitleStyle: {
-                    color: Colors.primary,
+                    color: Colors.white,
                   },
                 }}
               />
@@ -227,6 +232,30 @@ function ThemedRoot() {
                   headerTitleStyle: {
                     color: Colors.primary,
                   },
+                }}
+              />
+
+              <Stack.Screen
+                name="notification"
+                options={{
+                  headerShown: true,
+                  headerTitle: "Notifications",
+                  headerTintColor: Colors.white,
+                  animation: 'slide_from_right',
+                  headerStyle: {
+                    backgroundColor: isDark ? Colors.background : Colors.secondary,
+                  },
+                  headerTitleAlign: "center",
+                  headerTitleStyle: {
+                    color: Colors.white,
+                  },
+                }}
+              />
+
+              <Stack.Screen
+                name="favourite"
+                options={{
+                  headerShown: false,
                 }}
               />
             </Stack>

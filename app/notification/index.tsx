@@ -88,7 +88,7 @@ export default function NotificationScreen() {
     const NotificationItem = memo(({ item, index, onPress, Colors, styles }: { item: Notification, index: number, onPress: (n: Notification) => void, Colors: any, styles: any }) => {
         const isOrderUpdate = item.type === 'ORDER_UPDATE';
         return (
-            <Animated.View entering={FadeInRight.delay(index * 50).springify().damping(20)}>
+            <Animated.View entering={FadeInRight.delay(index * 50).springify().damping(20)} needsOffscreenAlphaCompositing={true}>
                 <AnimatedPressable 
                     style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
                     onPress={() => onPress(item)}

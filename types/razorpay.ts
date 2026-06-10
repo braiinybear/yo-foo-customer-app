@@ -56,6 +56,7 @@ export interface WalletTransaction {
     walletId: string;
     /** API returns "TOPUP" for credits, "DEBIT" for order payments */
     type: "TOPUP" | "DEBIT" | string;
+    direction: "CREDIT" | "DEBIT";
     amount: number;
     createdAt: string;
 }

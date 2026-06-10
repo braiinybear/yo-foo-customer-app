@@ -66,17 +66,12 @@ function formatDate(dateStr: string) {
 
 /** Returns true for any transaction type that represents a credit/top-up */
 function isCredit(tx: WalletTransaction): boolean {
-    const t = tx.type?.toUpperCase() ?? '';
-    return (
-        t === 'TOPUP' ||
-        t.startsWith('REFERRAL_BONUS') ||
-        t === 'REFUND'
-    );
+    return tx.direction === 'CREDIT';
 }
 
 /** Returns true for any debit — ORDER_PAYMENT, DEBIT, or any unrecognised type */
 function isDebit(tx: WalletTransaction): boolean {
-    return !isCredit(tx);
+    return tx.direction === 'DEBIT';
 }
 
 /** Human-readable label for each transaction type */
@@ -84,10 +79,14 @@ function txLabel(tx: WalletTransaction): string {
     const t = tx.type?.toUpperCase() ?? '';
     if (t === 'TOPUP') return 'Wallet Top-up';
     if (t === 'DEBIT') return 'Order Payment';
-    if (t === 'ORDER_PAYMENT' || t.startsWith('ORDER_PAYMENT')) return 'Order Payment';
+    if (t.startsWith('ORDER_PAYMENT')) return 'Order Payment';
     if (t === 'REFERRAL_BONUS_WELCOME') return 'Referral Bonus 🎉';
     if (t.startsWith('REFERRAL_BONUS')) return 'Referral Reward 🎁';
-    if (t === 'REFUND') return 'Refund';
+    if (t.startsWith('REFUND')) return 'Refund';
+    if (t.startsWith('WITHDRAWAL_REJECTED_REFUND')) return 'Withdrawal Refund';
+    if (t.startsWith('WITHDRAWAL')) return 'Withdrawal';
+    if (t.startsWith('DELIVERY_PAYOUT') || t.startsWith('DELIVERY_TIP_PAYOUT')) return 'Delivery Payout';
+    if (t === 'ADMIN_CREDIT') return 'Admin Credit';
     return 'Transaction';
 }
 
@@ -142,7 +141,7 @@ const TxRow = ({ tx, Colors, styles }: { tx: WalletTransaction, Colors: any, sty
                             { color: credit ? Colors.success : Colors.danger },
                         ]}
                     >
-                        {credit ? "TOPUP" : "DEBIT"}
+                        {credit ? "CREDIT" : "DEBIT"}
                     </Text>
                 </View>
             </View>
@@ -163,7 +162,7 @@ export default function WalletScreen() {
         isLoading: balanceLoading,
         refetch: refetchBalance,
     } = useWalletBalance();
-
+   console.log(" wallet",wallet)
     const {
         data: txPagedData,
         isLoading: txLoading,
@@ -172,7 +171,6 @@ export default function WalletScreen() {
         fetchNextPage: txFetchNextPage,
         refetch: refetchTx,
     } = useWalletTransactions();
-
     // Flatten all pages into a single array
     const txList: WalletTransaction[] = useMemo(
         () => txPagedData?.pages.flatMap((p) => p.data) ?? [],
@@ -337,7 +335,7 @@ export default function WalletScreen() {
             >
                 {/* ── Order Success Banner ────────────────────────────────── */}
                 {orderId && (
-                    <Animated.View entering={FadeInUp.springify().damping(22).stiffness(100)} style={styles.orderPlacedCard}>
+                    <Animated.View entering={FadeInUp.springify().damping(22).stiffness(100)} style={styles.orderPlacedCard} needsOffscreenAlphaCompositing={true}>
                         <View style={styles.orderPlacedIcon}>
                             <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
                         </View>
@@ -356,7 +354,7 @@ export default function WalletScreen() {
                 )}
 
                 {/* ── Balance Card ─────────────────────────────────────── */}
-                <Animated.View entering={FadeInUp.duration(600).springify().damping(20).stiffness(90)} style={styles.balanceCard}>
+                <Animated.View entering={FadeInUp.duration(600).springify().damping(20).stiffness(90)} style={styles.balanceCard} needsOffscreenAlphaCompositing={true}>
                     <View style={styles.circle1} />
                     <View style={styles.circle2} />
                     <View style={styles.cardTopRow}>
@@ -393,7 +391,7 @@ export default function WalletScreen() {
                 </Animated.View>
 
                 {/* ── Stat Pills ───────────────────────────────────────── */}
-                <Animated.View entering={FadeInUp.delay(100).duration(600).springify().damping(20).stiffness(90)} style={styles.statsRow}>
+                <Animated.View entering={FadeInUp.delay(100).duration(600).springify().damping(20).stiffness(90)} style={styles.statsRow} needsOffscreenAlphaCompositing={true}>
                     <View style={styles.statCard}>
                         <View style={[styles.statIconWrap, { backgroundColor: Colors.success + "18" }]}>
                             <Ionicons name="arrow-down-circle-outline" size={20} color={Colors.success} />
@@ -424,7 +422,7 @@ export default function WalletScreen() {
                 </Animated.View>
 
                 {/* ── Transaction History Card ──────────────────────────── */}
-                <Animated.View entering={FadeInUp.delay(200).duration(600).springify().damping(20).stiffness(90)} style={styles.txCard}>
+                <Animated.View entering={FadeInUp.delay(200).duration(600).springify().damping(20).stiffness(90)} style={styles.txCard} needsOffscreenAlphaCompositing={true}>
                     {/* Card header */}
                     <View style={styles.txCardHeader}>
                         <View style={styles.txCardTitleRow}>
@@ -462,7 +460,7 @@ export default function WalletScreen() {
                     ) : (
                         <View style={styles.txInnerScroll}>
                             {txList.map((tx, idx) => (
-                                <Animated.View key={tx.id} entering={FadeInDown.delay(Math.min(idx * 40, 400)).springify().damping(22).stiffness(110)}>
+                                <Animated.View key={tx.id} entering={FadeInDown.delay(Math.min(idx * 40, 400)).springify().damping(22).stiffness(110)} needsOffscreenAlphaCompositing={true}>
                                     <TxRow tx={tx} Colors={Colors} styles={styles} />
                                 </Animated.View>
                             ))}

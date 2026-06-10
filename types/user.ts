@@ -35,6 +35,8 @@ export interface UserAddress {
   type: string;
   addressLine: string;
   landmark?: string;
+  receiverName?: string;
+  receiverPhone?: string;
   lat: number;
   lng: number;
   isDefault: boolean;
@@ -45,6 +47,8 @@ export interface AddressFormState {
   type?: string;
   addressLine: string;
   landmark?: string;
+  receiverName?: string;
+  receiverPhone?: string;
   lat: number | null;
   lng: number | null;
 }

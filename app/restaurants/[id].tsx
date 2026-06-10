@@ -4,7 +4,7 @@ import { getPlaceholderImage } from "@/constants/images";
 import { useRestaurantDetail } from "@/hooks/useRestaurants";
 import { useCartStore } from "@/store/useCartStore";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useState, useMemo, useRef, useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -119,8 +119,8 @@ export default function RestaurantDetailScreen() {
     // References for Scroll Navigation
     const scrollViewRef = useRef<any>(null);
     const categoryYRefs = useRef<{ [key: string]: number }>({});
-    const menuContainerY = useRef<number>(0);
-    const stickyBarY = useRef<number>(0);
+    const menuContainerY = useSharedValue<number>(0);
+    const stickyBarY = useSharedValue<number>(0);
     const [activeTabId, setActiveTabId] = useState<string>("");
 
     const scrollY = useSharedValue(0);
@@ -270,7 +270,7 @@ export default function RestaurantDetailScreen() {
         heartScale.value = withSpring(1.2, { damping: 4, stiffness: 200 }, () => {
             heartScale.value = withSpring(1);
         });
-        showToast(!isLiked ? "Added to Favorites ♥" : "Removed from Favorites", "success");
+        showToast(!isLiked ? "Added to Favorites" : "Removed from Favorites", "success");
     };
 
     // Scroll Handler for Parallax / Sticky Headers
@@ -347,7 +347,7 @@ export default function RestaurantDetailScreen() {
     });
 
     const stickyHeaderAnimatedStyle = useAnimatedStyle(() => {
-        const stickyPoint = stickyBarY.current > 0 ? (stickyBarY.current - (56 + insets.top)) : 420;
+        const stickyPoint = stickyBarY.value > 0 ? (stickyBarY.value - (56 + insets.top)) : 420;
         const opacity = interpolate(
             scrollY.value,
             [stickyPoint - 10, stickyPoint],
@@ -371,7 +371,7 @@ export default function RestaurantDetailScreen() {
     });
 
     const inlineHeaderAnimatedStyle = useAnimatedStyle(() => {
-        const stickyPoint = stickyBarY.current > 0 ? (stickyBarY.current - (56 + insets.top)) : 420;
+        const stickyPoint = stickyBarY.value > 0 ? (stickyBarY.value - (56 + insets.top)) : 420;
         const opacity = interpolate(
             scrollY.value,
             [stickyPoint - 10, stickyPoint],
@@ -518,7 +518,7 @@ export default function RestaurantDetailScreen() {
         if (yOffset !== undefined && scrollViewRef.current) {
             // Scroll to the absolute coordinate: menuContainer Y position + category relative Y position
             // Shift offset by top header (56 + insets.top) and absolute sticky bar height (~150)
-            const targetY = menuContainerY.current + yOffset - (56 + insets.top + 150);
+            const targetY = menuContainerY.value + yOffset - (56 + insets.top + 150);
             scrollViewRef.current.scrollTo({ y: Math.max(0, targetY), animated: true });
         }
     };
@@ -567,7 +567,7 @@ export default function RestaurantDetailScreen() {
                         }}
                         scaleIn={0.85}
                     >
-                        <Ionicons name="arrow-back" size={22} color={isDark ? Colors.white : Colors.secondary} />
+                        <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.white} />
                     </AnimatedPressable>
                     
                     <Animated.View style={[styles.headerNameContainer, headerTextAnimatedStyle]}>
@@ -582,7 +582,7 @@ export default function RestaurantDetailScreen() {
                             onPress={handleShare}
                             scaleIn={0.85}
                         >
-                            <Ionicons name="share-outline" size={22} color={isDark ? Colors.white : Colors.secondary} />
+                            <Ionicons name="share-outline" size={22} color={Colors.white} />
                         </AnimatedPressable>
                         
                         <AnimatedPressable
@@ -594,7 +594,7 @@ export default function RestaurantDetailScreen() {
                                 <Ionicons
                                     name={isLiked ? "heart" : "heart-outline"}
                                     size={22}
-                                    color={isLiked ? Colors.danger : (isDark ? Colors.white : Colors.secondary)}
+                                    color={isLiked ? Colors.danger : Colors.white}
                                 />
                             </Animated.View>
                         </AnimatedPressable>
@@ -901,7 +901,7 @@ export default function RestaurantDetailScreen() {
                 <Animated.View 
                     style={[styles.stickyBarContainer, inlineHeaderAnimatedStyle]}
                     onLayout={(event) => {
-                        stickyBarY.current = event.nativeEvent.layout.y;
+                        stickyBarY.value = event.nativeEvent.layout.y;
                     }}
                 >
                     <View style={styles.searchBarWrapper}>
@@ -1234,7 +1234,7 @@ export default function RestaurantDetailScreen() {
                 <View 
                     style={styles.menuContainer}
                     onLayout={(event) => {
-                        menuContainerY.current = event.nativeEvent.layout.y;
+                        menuContainerY.value = event.nativeEvent.layout.y;
                     }}
                 >
                     {filteredCategories.length === 0 ? (
@@ -1287,6 +1287,7 @@ export default function RestaurantDetailScreen() {
                                             exiting={FadeOutUp.duration(150)}
                                             layout={Layout.springify().damping(20).stiffness(150)}
                                             style={styles.itemsListContainer}
+                                            needsOffscreenAlphaCompositing={true}
                                         >
                                             {category.items.map((item: MenuItem, index: number) => {
                                                 const customizable = isCustomizable(item);
@@ -1299,6 +1300,7 @@ export default function RestaurantDetailScreen() {
                                                         key={item.id} 
                                                         entering={FadeInDown.delay(index * 40).duration(300)}
                                                         style={styles.menuItemCard}
+                                                        needsOffscreenAlphaCompositing={true}
                                                     >
                                                         <View style={styles.itemInfo}>
                                                             <View style={styles.typeIconContainer}>
@@ -1398,6 +1400,7 @@ export default function RestaurantDetailScreen() {
                                     key={rev.id} 
                                     entering={FadeInDown.delay(index * 60).duration(450)}
                                     style={styles.reviewCard}
+                                    needsOffscreenAlphaCompositing={true}
                                 >
                                     <View style={styles.reviewerHeader}>
                                         <Image source={{ uri: rev.userAvatar }} style={styles.reviewerAvatar} />
@@ -1485,6 +1488,7 @@ export default function RestaurantDetailScreen() {
                         exiting={SlideOutDown.duration(250)}
                         style={{ width: '100%' }}
                         pointerEvents="box-none"
+                        needsOffscreenAlphaCompositing={true}
                     >
                         <AnimatedPressable
                             style={[styles.cartBanner, cartPulseStyle]}
@@ -1830,7 +1834,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         width: 38,
         height: 38,
         borderRadius: 19,
-        backgroundColor: isDark ? "rgba(27, 38, 59, 0.7)" : "rgba(255, 255, 255, 0.75)",
+        backgroundColor: "rgba(13, 27, 42, 0.65)",
         justifyContent: "center",
         alignItems: "center",
         shadowColor: "#000",
@@ -1859,7 +1863,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         width: 38,
         height: 38,
         borderRadius: 19,
-        backgroundColor: isDark ? "rgba(27, 38, 59, 0.7)" : "rgba(255, 255, 255, 0.75)",
+        backgroundColor: "rgba(13, 27, 42, 0.65)",
         justifyContent: "center",
         alignItems: "center",
         shadowColor: "#000",

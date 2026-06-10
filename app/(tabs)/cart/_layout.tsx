@@ -7,6 +7,7 @@ export default function CartRootLayout() {
             options={{
                 title: "Cart",
                 headerShown: false
+                
             }}
         />
     </Stack>

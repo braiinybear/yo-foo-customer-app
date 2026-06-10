@@ -15,11 +15,12 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import Constants from 'expo-constants';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
-import { useOrderDetail } from '@/hooks/useOrders';
+import { useOrderDetail, useCancelOrder } from '@/hooks/useOrders';
 import { useOrderTracking } from '@/hooks/useSocketOrders';
 import { useSocketStore } from '@/store/useSocketStore';
 import { OrderStatus } from '@/types/orders';
 import { showAlert } from '@/store/useAlertStore';
+import * as Haptics from 'expo-haptics';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -66,7 +67,36 @@ export default function TrackingScreen() {
   const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 
   const { data: order, isLoading } = useOrderDetail(id as string);
+  const { mutate: cancelOrder, isPending: isCancelling } = useCancelOrder();
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+
+  const handleCancelOrderClick = useCallback(() => {
+    if (!order) return;
+    showAlert(
+      "Cancel Order",
+      "Are you sure you want to cancel this order? If paid via wallet, it will be refunded automatically.",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            cancelOrder(order.id, {
+              onSuccess: () => {
+                showAlert("Order Cancelled", "Your order has been cancelled successfully.", [{ text: "OK" }], "success");
+              },
+              onError: (error: any) => {
+                const errMsg = error?.response?.data?.message || "Something went wrong while cancelling the order.";
+                showAlert("Cancellation Failed", errMsg, [{ text: "OK" }], "error");
+              }
+            });
+          }
+        }
+      ],
+      "confirm"
+    );
+  }, [order, cancelOrder]);
   const [eta, setEta] = useState<string | null>(null);
   const driverLocation = useSocketStore((state) =>
     state.driverLocation?.orderId === id ? state.driverLocation : null
@@ -239,15 +269,25 @@ export default function TrackingScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Order #{order.id.slice(-6).toUpperCase()}</Text>
           <Text style={styles.headerSubtitle}>{order.restaurant.name}</Text>
         </View>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <Ionicons name="help-circle-outline" size={24} color={Colors.text} />
-        </TouchableOpacity>
+        {['PLACED', 'ACCEPTED'].includes(order.status) ? (
+          <TouchableOpacity style={styles.headerCancelButton} onPress={handleCancelOrderClick} disabled={isCancelling}>
+            {isCancelling ? (
+              <ActivityIndicator color={Colors.danger} size="small" />
+            ) : (
+              <Text style={styles.headerCancelText}>Cancel</Text>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.headerIconButton}>
+            <Ionicons name="help-circle-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ETA Pill — only shown when rider is on the way */}
@@ -856,5 +896,16 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     color: Colors.white,
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  headerCancelButton: {
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  headerCancelText: {
+    fontSize: 14,
+    color: Colors.danger,
+    fontWeight: 'bold',
   },
 });

@@ -227,6 +227,13 @@ export interface OrderDetails {
         updatedAt: string;
     };
     review?: any;
+    customer?: {
+        id: string;
+        name: string;
+        phoneNumber: string | null;
+        email: string | null;
+        image: string | null;
+    } | null;
     customerAddress: {
         id: string;
         addressLine: string;

@@ -50,4 +50,20 @@ export const useCreateOrder = () => {
             queryClient.invalidateQueries({ queryKey: ["wallet"] });
         },
     });
+};
+
+export const useCancelOrder = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (orderId: string) => {
+            const { data } = await apiClient.delete(`/api/orders/${orderId}`);
+            return data;
+        },
+        onSuccess: (data, orderId) => {
+            queryClient.invalidateQueries({ queryKey: ["orders"] });
+            queryClient.invalidateQueries({ queryKey: ["orders", orderId] });
+            queryClient.invalidateQueries({ queryKey: ["wallet"] });
+        },
+    });
 }; 

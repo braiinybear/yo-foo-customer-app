@@ -1,6 +1,6 @@
 import apiClient from "@/lib/axios";
-import { CreateReviewRequest, ReviewResponse } from "@/types/review";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CreateReviewRequest, ReviewResponse, PaginatedReviewsResponse } from "@/types/review";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const submitReview = async (
   body: CreateReviewRequest,
@@ -19,6 +19,20 @@ export const useSubmitReview = () => {
       // refresh relevant data
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["restaurant"] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-reviews"] });
     },
+  });
+};
+
+export const useRestaurantReviews = (restaurantId: string, page = 1, limit = 10) => {
+  return useQuery({
+    queryKey: ["restaurant-reviews", restaurantId, page, limit],
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/reviews/restaurant/${restaurantId}`, {
+        params: { page, limit },
+      });
+      return data as PaginatedReviewsResponse;
+    },
+    enabled: !!restaurantId,
   });
 };

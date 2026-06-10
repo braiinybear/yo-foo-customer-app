@@ -10,10 +10,12 @@ const PAGE_LIMIT = 3;
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
 const fetchRestaurantsPaged = async (
-  page: number
+  page: number,
+  lat?: number,
+  lng?: number
 ): Promise<PaginatedRestaurantsResponse> => {
   const { data } = await apiClient.get("/api/restaurants", {
-    params: { page, limit: PAGE_LIMIT },
+    params: { page, limit: PAGE_LIMIT, userLat: lat, userLng: lng },
   });
 
   
@@ -31,10 +33,10 @@ const fetchRestaurantDetail = async (id: string) => {
  * Infinite-scroll hook for the home restaurant listing.
  * Pages through /api/restaurants?page=N&limit=5 automatically.
  */
-export const useRestaurants = () =>
+export const useRestaurants = (lat?: number, lng?: number) =>
   useInfiniteQuery<PaginatedRestaurantsResponse>({
-    queryKey: ["restaurants"],
-    queryFn: ({ pageParam }) => fetchRestaurantsPaged(pageParam as number),
+    queryKey: ["restaurants", lat, lng],
+    queryFn: ({ pageParam }) => fetchRestaurantsPaged(pageParam as number, lat, lng),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       const { page, totalPages } = lastPage.meta;

@@ -19,11 +19,22 @@ export async function initSocket(): Promise<Socket> {
     const cookieBlob = await SecureStore.getItemAsync(BETTER_AUTH_COOKIE_KEY);
     const cookieHeader = parseCookieBlob(cookieBlob);
 
+    let sessionToken = "";
+    if (cookieBlob) {
+      try {
+        const parsed = JSON.parse(cookieBlob);
+        sessionToken = parsed["better-auth.session_token"]?.value || "";
+      } catch (e) {}
+    }
+
     // [Socket] 🔌 Initializing socket connection...
     socket = io(SOCKET_URL, {
       // Send cookies as headers (same as HTTP requests)
       extraHeaders: {
         Cookie: cookieHeader,
+      },
+      auth: {
+        token: sessionToken,
       },
       reconnection: true,
       reconnectionDelay: 1000,

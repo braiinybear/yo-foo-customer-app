@@ -5,7 +5,7 @@ import { Fonts } from '@/constants/typography';
 import { TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function NotificationLayout() {
+export default function FavouriteLayout() {
     const { Colors, isDark } = useTheme();
     const router = useRouter();
 
@@ -23,6 +23,7 @@ export default function NotificationLayout() {
                 contentStyle: {
                     backgroundColor: Colors.background,
                 },
+                 headerTitleAlign: 'center',
                 headerLeft: () => (
                     <TouchableOpacity
                         onPress={() => {
@@ -33,7 +34,7 @@ export default function NotificationLayout() {
                             }
                         }}
                         activeOpacity={0.7}
-                        style={{ paddingLeft: 8, paddingRight: 12, height: 44, justifyContent: 'center' }}
+                        style={{ paddingLeft: 1, paddingRight: 12, height: 44, justifyContent: 'center' }}
                     >
                         <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.white} />
                     </TouchableOpacity>
@@ -43,8 +44,7 @@ export default function NotificationLayout() {
             <Stack.Screen
                 name="index"
                 options={{
-                    title: 'Notifications',
-                    headerShown: false,
+                    title: 'My Favorites',
                 }}
             />
         </Stack>

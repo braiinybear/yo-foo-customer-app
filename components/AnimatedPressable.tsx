@@ -75,6 +75,7 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
       <Animated.View 
         entering={entering} 
         style={[wrapperStyle, containerStyle]}
+        needsOffscreenAlphaCompositing={true}
       >
         <AnimatedPressableBase
           {...props}

@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, Tabs } from "expo-router";
 import { TouchableOpacity, View } from "react-native";
 import { useCartStore } from "@/store/useCartStore";
@@ -29,7 +29,7 @@ export default function TabsLayout() {
       activeOpacity={0.7}
       style={{ paddingLeft: 8, paddingRight: 12, height: 44, justifyContent: 'center' }}
     >
-      <Ionicons name="arrow-back" size={28} color={Colors.white} />
+      <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.white} />
     </TouchableOpacity>
   ), [router, Colors.white]);
 
@@ -47,7 +47,7 @@ export default function TabsLayout() {
       activeOpacity={0.7}
       style={{ paddingLeft: 8, paddingRight: 12, height: 44, justifyContent: 'center' }}
     >
-      <Ionicons name="arrow-back" size={28} color={Colors.white} />
+      <MaterialCommunityIcons name="keyboard-backspace" size={28} color={Colors.white} />
     </TouchableOpacity>
   ), [router, restaurantId, Colors.white]);
 
@@ -99,7 +99,7 @@ export default function TabsLayout() {
           headerTitleStyle: {
             fontSize: 18,
             fontWeight: '700',
-            color: Colors.primary, // Gold
+            color: Colors.white, // Gold
           },
           headerTitleAlign: 'center',
           tabBarIcon: ({ color, size }) => (
@@ -121,7 +121,7 @@ export default function TabsLayout() {
           headerTitleStyle: {
             fontSize: 18,
             fontWeight: '700',
-            color: Colors.primary, // Gold
+            color: Colors.white, // Gold
           },
           headerTitleAlign: 'center',
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
@@ -150,7 +150,7 @@ export default function TabsLayout() {
           headerTitleStyle: {
             fontSize: 18,
             fontWeight: '700',
-            color: Colors.primary, // Gold
+            color: Colors.white,
           },
           headerTitleAlign: 'center',
           tabBarIcon: ({ color, size }) => (

@@ -34,23 +34,15 @@ export function useReverseGeocode() {
       try {
         // Use the dedicated Geocoding key (no Android app restriction — REST calls need this)
         const apiKey = process.env.EXPO_PUBLIC_GEOCODING_API_KEY;
-        console.log('[Geocode] API key present:', !!apiKey, '| Value:', apiKey);
         
         if (!apiKey) {
           console.error('[Geocode] No API key found in EXPO_PUBLIC_GEOCODING_API_KEY');
           throw new Error('Google Maps API key is not configured.');
         }
-        console.log('[Geocode] Input lat/lng:', lat, lng);
         
         const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
-        console.log('[Geocode] Fetching URL:', url);
         const response = await fetch(url);
-        console.log('[Geocode] HTTP status:', response.status);
         const json = await response.json() as GoogleGeocodeResponse & { error_message?: string };
-        console.log('[Geocode] Raw response:', JSON.stringify(json));
-
-        console.log('[Geocode] Status:', json.status, '| Results:', json.results?.length ?? 0);
-        if (json.error_message) console.log('[Geocode] Error:', json.error_message);
 
         if (json.status !== 'OK' || json.results.length === 0) {
           console.error('[Geocode] Geocode failed:', json.status, json.error_message);
@@ -58,7 +50,6 @@ export function useReverseGeocode() {
         }
 
         const topResult = json.results[0];
-        console.log('[Geocode] Address:', topResult.formatted_address);
         
         const components = topResult.address_components;
 

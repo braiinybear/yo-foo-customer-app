@@ -62,6 +62,7 @@ export default function GlobalCartBanner() {
         exiting={SlideOutDown.duration(300)}
         style={{ width: '100%' }}
         pointerEvents="box-none"
+        needsOffscreenAlphaCompositing={true}
       >
         <AnimatedPressable
           style={styles.cartBanner}

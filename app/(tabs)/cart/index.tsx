@@ -17,6 +17,7 @@ import { useCartStore, CartItem } from '@/store/useCartStore';
 
 import { useWalletBalance } from '@/hooks/usePayments';
 import { useAddresses } from '@/hooks/useAddresses';
+import { useRestaurantDetail } from '@/hooks/useRestaurants';
 // import { Colors } from '@/constants/colors';
 import { Fonts, FontSize } from '@/constants/typography';
 import { getPlaceholderImage } from '@/constants/images';
@@ -26,6 +27,18 @@ import AddressModal from '@/components/home/AddressModal';
 import { showAlert } from '@/store/useAlertStore';
 import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+}
 
 // ─── Payment option config ────────────────────────────────────────────────────
 type PaymentOption = {
@@ -84,6 +97,23 @@ export default function CartScreen() {
     const walletBalance = walletData?.balance ?? 0;
     const isWalletInsufficient = selectedMode === 'WALLET' && !walletLoading && walletBalance < totalAmount;
 
+    const { data: restaurant, isLoading: restaurantLoading } = useRestaurantDetail(restaurantId ?? '');
+
+    const distance = useMemo(() => {
+        if (!selectedAddress || !restaurant) return null;
+        return calculateDistance(
+            selectedAddress.lat,
+            selectedAddress.lng,
+            restaurant.lat,
+            restaurant.lng
+        );
+    }, [selectedAddress, restaurant]);
+
+    const isOutOfRange = useMemo(() => {
+        if (distance === null) return false;
+        return distance > 7; // Max delivery range is 7km
+    }, [distance]);
+
     // Auto-select the default address on load
     useEffect(() => {
         if (addresses.length > 0 && !selectedAddress) {
@@ -96,6 +126,11 @@ export default function CartScreen() {
     const handleCheckout = () => {
         if (!restaurantId || items.length === 0) {
             showAlert('Error', 'Your cart is empty');
+            return;
+        }
+
+        if (isOutOfRange) {
+            showAlert('Out of Delivery Range', 'The selected address is outside the delivery range of this restaurant.');
             return;
         }
 
@@ -132,19 +167,21 @@ export default function CartScreen() {
     // ── Empty state ───────────────────────────────────────────────────────────
     if (items.length === 0) {
         return (
-            <Animated.View entering={FadeInDown.duration(600)} style={styles.emptyContainer}>
-                <View style={[styles.emptyIconCircle, { backgroundColor: Colors.secondary + '12' }]}>
-                    <Ionicons name="cart-outline" size={52} color={Colors.secondary} />
-                </View>
-                <Text style={styles.emptyTitle}>Your cart is empty</Text>
-                <Text style={styles.emptySubtitle}>Add items from a restaurant to get started</Text>
-                <AnimatedPressable
-                    style={styles.browseBtn}
-                    onPress={() => router.push('/(tabs)')}
-                >
-                    <Text style={styles.browseBtnText}>Browse Restaurants</Text>
-                </AnimatedPressable>
-            </Animated.View>
+            <View style={styles.root}>
+                <Animated.View entering={FadeInDown.duration(600)} style={styles.emptyContainer} needsOffscreenAlphaCompositing={true}>
+                    <View style={[styles.emptyIconCircle, { backgroundColor: Colors.secondary + '12' }]}>
+                        <Ionicons name="cart-outline" size={52} color={Colors.secondary} />
+                    </View>
+                    <Text style={styles.emptyTitle}>Your cart is empty</Text>
+                    <Text style={styles.emptySubtitle}>Add items from a restaurant to get started</Text>
+                    <AnimatedPressable
+                        style={styles.browseBtn}
+                        onPress={() => router.push('/(tabs)')}
+                    >
+                        <Text style={styles.browseBtnText}>Browse Restaurants</Text>
+                    </AnimatedPressable>
+                </Animated.View>
+            </View>
         );
     }
 
@@ -323,7 +360,7 @@ export default function CartScreen() {
 
                 {/* ── Wallet Balance Indicator ───────────────────────── */}
                 {selectedMode === 'WALLET' && (
-                    <Animated.View entering={FadeInDown} style={styles.walletIndicator}>
+                    <Animated.View entering={FadeInDown} style={styles.walletIndicator} needsOffscreenAlphaCompositing={true}>
                         {walletLoading ? (
                             <ActivityIndicator size="small" color={Colors.success} />
                         ) : (
@@ -385,12 +422,15 @@ export default function CartScreen() {
                     <>
                         {/* Address card */}
                         <AnimatedPressable
-                            style={styles.confirmedAddressChip}
+                            style={[
+                                styles.confirmedAddressChip,
+                                isOutOfRange && styles.confirmedAddressChipOutOfRange
+                            ]}
                             onPress={() => setAddressModalVisible(true)}
                             scaleIn={0.98}
                         >
                             <View style={styles.addressContent}>
-                                <Text style={styles.confirmedAddrType}>
+                                <Text style={[styles.confirmedAddrType, isOutOfRange && { color: Colors.danger }]}>
                                     {selectedAddress.type === 'HOME' ? '🏠 Home' : selectedAddress.type === 'WORK' ? '💼 Work' : '📍 Other'}
                                 </Text>
                                 <Text style={styles.confirmedAddressText} numberOfLines={2}>
@@ -406,23 +446,32 @@ export default function CartScreen() {
                             </AnimatedPressable>
                         </AnimatedPressable>
 
+                        {isOutOfRange && (
+                            <View style={styles.rangeWarningContainer}>
+                                <Ionicons name="warning-outline" size={16} color={Colors.danger} />
+                                <Text style={styles.rangeWarningText}>
+                                    Out of delivery range ({distance?.toFixed(1)} km away. Max range is 7 km)
+                                </Text>
+                            </View>
+                        )}
+
                         {/* Checkout button */}
                         <AnimatedPressable
                             style={[
                                 styles.checkoutBtn,
                                 {
-                                    backgroundColor: Colors.secondary, // Midnight Navy
-                                    shadowColor: Colors.secondary,
+                                    backgroundColor: isOutOfRange ? Colors.border : Colors.secondary, // Gray if out of range
+                                    shadowColor: isOutOfRange ? 'transparent' : Colors.secondary,
                                 },
-                                isWalletInsufficient && styles.checkoutBtnDisabled,
-                            ]}
-                            onPress={handleCheckout}
-                            disabled={isWalletInsufficient}
+                                (isWalletInsufficient || isOutOfRange || restaurantLoading) && styles.checkoutBtnDisabled,
+                             ]}
+                             onPress={handleCheckout}
+                             disabled={isWalletInsufficient || isOutOfRange || restaurantLoading}
                         >
                             <View style={styles.payBtnContent}>
-                    
-                                <Text style={styles.checkoutBtnText}>
-                                    Proceed to Checkout 
+                                {restaurantLoading && <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />}
+                                <Text style={[styles.checkoutBtnText, isOutOfRange && { color: Colors.muted }]}>
+                                    {isOutOfRange ? 'Out of Delivery Range' : 'Proceed to Checkout'}
                                 </Text>
                             </View>
                         </AnimatedPressable>
@@ -812,6 +861,26 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Colors.text + '15',
     },
+    confirmedAddressChipOutOfRange: {
+        borderColor: Colors.danger + '60',
+        backgroundColor: Colors.danger + '05',
+    },
+    rangeWarningContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.danger + '10',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        gap: 6,
+        marginBottom: 12,
+    },
+    rangeWarningText: {
+        fontFamily: Fonts.brandMedium,
+        fontSize: 12,
+        color: Colors.danger,
+        flex: 1,
+    },
     addressContent: {
         flex: 1,
         gap: 4,
@@ -889,7 +958,6 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 40,
-        backgroundColor: Colors.surface,
         gap: 10,
     },
     emptyIconCircle: {

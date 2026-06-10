@@ -8,6 +8,7 @@ import { clearUserSessionState } from "@/utils/sessionCleanup";
 import { useVegTypeStore } from "@/store/useVegTypeStore";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useReferralStats, useApplyReferral } from "@/hooks/useReferrals";
 import React, { useState, useEffect, useMemo } from "react";
 import {
     ActivityIndicator,
@@ -38,17 +39,18 @@ export default function ProfileScreen() {
     const { data: user, isLoading, error } = useUser();
     const updateUser = useUpdateUser();
     const queryClient = useQueryClient();
-    
+
+    // Referral Hooks
+    const { data: referralStats } = useReferralStats();
+    const applyReferral = useApplyReferral();
+    const [appliedCode, setAppliedCode] = useState("");
+
     const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
     // States for Editing
     const [isUploading, setIsUploading] = useState(false);
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [isCalendarVisible, setIsCalendarVisible] = useState(false);
-    
-    // Calendar Navigation State
-    const [calendarViewerDate, setCalendarViewerDate] = useState(new Date());
-    const [isYearSelectorVisible, setIsYearSelectorVisible] = useState(false);
 
     const [editForm, setEditForm] = useState({
         name: "",
@@ -104,7 +106,7 @@ export default function ProfileScreen() {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.5,
@@ -133,14 +135,29 @@ export default function ProfileScreen() {
     };
 
     const handleShare = async () => {
-        if (!user?.referralCode) return;
+        const code = referralStats?.myCode || user?.referralCode;
+        if (!code) return;
         try {
             await Share.share({
-                message: `Hey! Order delicious food using my referral code: ${user.referralCode} and get rewards!`,
+                message: `Hey! Order delicious food using my referral code: ${code} and get rewards!`,
             });
         } catch (error) {
             console.error(error);
         }
+    };
+
+    const handleApplyCode = () => {
+        if (!appliedCode.trim()) return;
+        applyReferral.mutate({ referralCode: appliedCode.trim().toUpperCase() }, {
+            onSuccess: (res) => {
+                showAlert("Code Applied!", res.message || "Referral reward applied successfully.", [{ text: "OK" }], "success");
+                setAppliedCode("");
+            },
+            onError: (err: any) => {
+                const errMsg = err?.response?.data?.message || "Invalid referral code.";
+                showAlert("Application Failed", errMsg, [{ text: "OK" }], "error");
+            }
+        });
     };
 
     const handleSaveProfile = () => {
@@ -168,12 +185,12 @@ export default function ProfileScreen() {
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Profile Header */}
-            <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
-              
+            <Animated.View entering={FadeInDown.duration(600)} style={styles.header} needsOffscreenAlphaCompositing={true}>
+
                 <View style={styles.profileImageContainer}>
-                    <Image 
-                        source={{ uri: user.image || "https://ui-avatars.com/api/?name=" + user.name }} 
-                        style={styles.profileImage} 
+                    <Image
+                        source={{ uri: user.image || "https://ui-avatars.com/api/?name=" + user.name }}
+                        style={styles.profileImage}
                     />
                     <AnimatedPressable style={styles.cameraIcon} onPress={handleImagePicker} disabled={isUploading}>
                         {isUploading ? <ActivityIndicator size="small" color={isDark ? Colors.secondary : Colors.white} /> : <Ionicons name="camera" size={16} color={isDark ? Colors.secondary : Colors.white} />}
@@ -181,14 +198,14 @@ export default function ProfileScreen() {
                 </View>
                 <Text style={styles.userName}>{user.name}</Text>
                 <Text style={styles.userSubInfo}>{user.email || user.phoneNumber}</Text>
-                
+
                 <AnimatedPressable style={styles.editProfileButton} onPress={() => setIsEditModalVisible(true)}>
                     <Text style={styles.editProfileButtonText}>Edit Profile</Text>
                 </AnimatedPressable>
             </Animated.View>
 
             {/* Referral Card */}
-            <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.referralCard}>
+            <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.referralCard} needsOffscreenAlphaCompositing={true}>
                 <View style={styles.referralCardTop}>
                     <View style={styles.referralBadge}>
                         <MaterialCommunityIcons name="star" size={12} color={isDark ? Colors.secondary : Colors.white} />
@@ -198,29 +215,70 @@ export default function ProfileScreen() {
                         <Ionicons name="share-social" size={20} color={Colors.primary} />
                     </AnimatedPressable>
                 </View>
-                
+
                 <Text style={styles.referralHeader}>Refer & Earn Rewards</Text>
-                <Text style={styles.referralSubHeader}>Invite your friends to Yo-Foo and earn wallet credits on their first order!</Text>
-                
-                <View style={styles.referralActionRow}>
-                    <View style={styles.referralCodeBox}>
-                        <Text style={styles.referralCodeLabel}>YOUR CODE</Text>
-                        <View style={styles.codeRow}>
-                            <Text style={styles.referralCode}>{user.referralCode}</Text>
-                            <AnimatedPressable onPress={handleShare} style={styles.copyIcon} scaleIn={0.8}>
-                                <Ionicons name="copy-outline" size={18} color={Colors.primary} />
-                            </AnimatedPressable>
-                        </View>
+                <Text style={styles.referralSubHeader}>Invite your friends to Braiiny Food and earn wallet credits on their first order!</Text>
+
+                {/* Stats row placed right below the subheader */}
+                <View style={styles.statsRow}>
+                    <View style={styles.statsPill}>
+                        <Ionicons name="people-outline" size={14} color={Colors.primary} />
+                        <Text style={styles.statsPillText}>
+                            {referralStats?.totalReferrals ?? user.referralCount} Referrals
+                        </Text>
                     </View>
-                    <View style={styles.referralStats}>
-                        <Text style={styles.statsCount}>{user.referralCount}</Text>
-                        <Text style={styles.statsLabel}>REFERRALS</Text>
+                    <View style={styles.statsPill}>
+                        <Ionicons name="cash-outline" size={14} color={Colors.primary} />
+                        <Text style={styles.statsPillText}>
+                            ₹{referralStats?.earningsEst ?? 0} Earned
+                        </Text>
                     </View>
                 </View>
+
+                {/* Full-width code box */}
+                <View style={styles.referralCodeBox}>
+                    <Text style={styles.referralCodeLabel}>YOUR REFERRAL CODE</Text>
+                    <View style={styles.codeRow}>
+                        <Text style={styles.referralCode}>{referralStats?.myCode || user.referralCode}</Text>
+                        <AnimatedPressable onPress={handleShare} style={styles.copyIcon} scaleIn={0.8}>
+                            <Ionicons name="copy-outline" size={18} color={Colors.primary} />
+                        </AnimatedPressable>
+                    </View>
+                </View>
+
+                {/* Apply Referral Code Section */}
+                {user.referredById ? (
+                    <View style={styles.appliedBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color="#81C784" />
+                        <Text style={styles.appliedBadgeText}>Referral code successfully applied</Text>
+                    </View>
+                ) : (
+                    <View style={styles.applyCodeContainer}>
+                        <TextInput
+                            style={styles.applyInput}
+                            placeholder="Friend's code (e.g. FRIEND50)"
+                            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                            value={appliedCode}
+                            onChangeText={setAppliedCode}
+                            autoCapitalize="characters"
+                        />
+                        <TouchableOpacity 
+                            style={styles.applyBtn} 
+                            onPress={handleApplyCode}
+                            disabled={applyReferral.isPending || !appliedCode.trim()}
+                        >
+                            {applyReferral.isPending ? (
+                                <ActivityIndicator size="small" color={isDark ? Colors.background : Colors.text} />
+                            ) : (
+                                <Text style={styles.applyBtnText}>Apply</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
             </Animated.View>
 
             {/* Personal Information Summary */}
-            <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.section}>
+            <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.section} needsOffscreenAlphaCompositing={true}>
                 <Text style={styles.sectionTitle}>Personal Details</Text>
                 <View style={styles.menuCard}>
                     <View style={styles.menuItem}>
@@ -245,9 +303,22 @@ export default function ProfileScreen() {
             </Animated.View>
 
             {/* Preference Section */}
-            <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.section}>
+            <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.section} needsOffscreenAlphaCompositing={true}>
                 <Text style={styles.sectionTitle}>Preferences</Text>
                 <View style={styles.menuCard}>
+                    <AnimatedPressable
+                        style={styles.menuItem}
+                        onPress={() => router.push('/favourite')}
+                        scaleIn={0.98}
+                    >
+                        <View style={styles.menuItemLeft}>
+                            <View style={[styles.iconContainer, { backgroundColor: '#FFEBEE' }]}>
+                                <Ionicons name="heart" size={20} color="#E91E63" />
+                            </View>
+                            <Text style={styles.menuItemText}>My Favorites</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.muted} />
+                    </AnimatedPressable>
                     <View style={styles.menuItem}>
                         <View style={styles.menuItemLeft}>
                             <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
@@ -276,11 +347,11 @@ export default function ProfileScreen() {
                             onValueChange={toggleTheme}
                         />
                     </View>
-                 
+
                 </View>
             </Animated.View>
 
-            <Animated.View entering={FadeInDown.delay(500).springify()}>
+            <Animated.View entering={FadeInDown.delay(500).springify()} needsOffscreenAlphaCompositing={true}>
                 <AnimatedPressable style={styles.signOutButton} onPress={handleSignOut}>
                     <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
                     <Text style={styles.signOutText}>Sign Out</Text>
@@ -397,15 +468,15 @@ export default function ProfileScreen() {
                                 <Ionicons name="close" size={20} color={Colors.text} />
                             </TouchableOpacity>
                         </View>
-                        
+
                         {/* 
                           Since we don't have a library, we'll use a simple manual year/month/day selector 
                           or a text input for better reliability in this scratchpad. 
                           Let's provide a clear instruction for the user to enter it.
                         */}
                         <View style={styles.calendarBody}>
-                             <Text style={styles.calendarNote}>Please enter date in YYYY-MM-DD format</Text>
-                             <TextInput
+                            <Text style={styles.calendarNote}>Please enter date in YYYY-MM-DD format</Text>
+                            <TextInput
                                 style={styles.calendarInput}
                                 value={editForm.dob}
                                 onChangeText={(text) => setEditForm({ ...editForm, dob: text })}
@@ -413,13 +484,13 @@ export default function ProfileScreen() {
                                 placeholderTextColor={Colors.muted}
                                 keyboardType="numeric"
                                 maxLength={10}
-                             />
-                             <AnimatedPressable 
+                            />
+                            <AnimatedPressable
                                 style={styles.calendarDoneBtn}
                                 onPress={() => setIsCalendarVisible(false)}
-                             >
+                            >
                                 <Text style={styles.calendarDoneBtnText}>Confirm</Text>
-                             </AnimatedPressable>
+                            </AnimatedPressable>
                         </View>
                     </View>
                 </View>
@@ -558,13 +629,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         lineHeight: 18,
         marginBottom: 20,
     },
-    referralActionRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
     referralCodeBox: {
-        flex: 1,
         backgroundColor: 'rgba(255,255,255,0.08)',
         paddingHorizontal: 16,
         paddingVertical: 12,
@@ -876,5 +941,74 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     calendarDoneBtnText: {
         fontFamily: Fonts.brandBold,
         color: "#0D1B2A",
+    },
+    applyCodeContainer: {
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.1)',
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'center',
+    },
+    applyInput: {
+        flex: 1,
+        height: 40,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        color: '#FFF',
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.xs,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.15)',
+    },
+    applyBtn: {
+        backgroundColor: Colors.primary,
+        height: 40,
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    applyBtnText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.xs,
+        color: '#0D1B2A',
+    },
+    appliedBadge: {
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.1)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    appliedBadgeText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.xs,
+        color: '#81C784',
+    },
+    statsRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 16,
+    },
+    statsPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 50,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        gap: 6,
+    },
+    statsPillText: {
+        fontFamily: Fonts.brandBold,
+        fontSize: FontSize.xxs,
+        color: Colors.white,
     },
 });
