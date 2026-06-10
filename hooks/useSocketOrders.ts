@@ -109,10 +109,10 @@ export function useOrderTracking(orderId: string | null) {
       return;
     }
 
-    socket.emit("join_order_tracking", orderId);
+    socket.emit("join_order_tracking", { orderId });
 
     return () => {
-      socket.emit("leave_order_tracking", orderId);
+      socket.emit("leave_order_tracking", { orderId });
     };
   }, [orderId, isConnected]);
 }
