@@ -35,7 +35,15 @@ export const getCartItemKey = (item: MenuItem, variant?: MenuVariant, addons?: A
 };
 
 export const getCartItemPrice = (item: CartItem) => {
-    const basePrice = item.selectedVariant ? item.selectedVariant.price : (item.price ?? 0);
+    let basePrice = 0;
+    if (item.selectedVariant) {
+        basePrice = item.selectedVariant.price;
+    } else if (item.variants && item.variants.length > 0) {
+        const defaultVar = item.variants.find(v => v.isDefault) ?? item.variants[0];
+        basePrice = defaultVar.price;
+    } else {
+        basePrice = item.price ?? 0;
+    }
     const addonsPrice = item.selectedAddons
         ? item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0)
         : 0;
@@ -58,11 +66,17 @@ export const useCartStore = create<CartState>()(
                 const currentRestaurantId = get().restaurantId;
                 let newItems: CartItem[] = [];
 
+                // Auto-select the default variant if not provided but variants exist
+                let finalVariant = selectedVariant;
+                if (!finalVariant && item.variants && item.variants.length > 0) {
+                    finalVariant = item.variants.find(v => v.isDefault) ?? item.variants[0];
+                }
+
                 // Generate composite unique key
-                const uniqueKey = getCartItemKey(item, selectedVariant, selectedAddons);
+                const uniqueKey = getCartItemKey(item, finalVariant, selectedAddons);
                 
                 // Calculate item price for backward-compatibility storage
-                const basePrice = selectedVariant ? selectedVariant.price : (item.price ?? 0);
+                const basePrice = finalVariant ? finalVariant.price : (item.price ?? 0);
                 const addonsPrice = selectedAddons ? selectedAddons.reduce((sum, a) => sum + a.price, 0) : 0;
                 const computedPrice = basePrice + addonsPrice;
 
@@ -70,7 +84,7 @@ export const useCartStore = create<CartState>()(
                     ...item,
                     price: computedPrice, // Set computed price directly to support backward compatibility seamlessly
                     quantity: qty,
-                    selectedVariant,
+                    selectedVariant: finalVariant,
                     selectedAddons,
                     customUniqueId: uniqueKey,
                 };

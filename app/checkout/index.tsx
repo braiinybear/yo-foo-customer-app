@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
     ActivityIndicator,
     ScrollView,
@@ -16,21 +16,34 @@ import { AnimatedPressable } from "@/components/AnimatedPressable";
 
 import { useTheme } from "@/context/ThemeContext";
 import { Fonts, FontSize } from "@/constants/typography";
-import { useCartStore } from "@/store/useCartStore";
+import { useCartStore, getCartItemPrice } from "@/store/useCartStore";
 import { useCreatePaymentOrder, useVerifyPayment } from "@/hooks/usePayments";
 import { useCreateOrder } from "@/hooks/useOrders";
 import { useAvailableCoupons, useValidateCoupon } from "@/hooks/useCoupons";
+import { useAddresses } from "@/hooks/useAddresses";
+import { useRestaurantDetail } from "@/hooks/useRestaurants";
 import { authClient } from "@/lib/auth-client";
 import { showAlert } from "@/store/useAlertStore";
 import { Coupon, ValidateCouponResponse } from "@/types/coupons";
 import { CouponDetailModal } from "@/components/CouponDetailModal";
-import { PaymentMode } from "@/types/orders";
+import { PaymentMode, UserOrder } from "@/types/orders";
 
 // ─── Razorpay test key ────────────────────────────────────────────────────────
 const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_XXXXXXXX";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type PaymentStep = "idle" | "creating_order" | "creating_razorpay_order" | "awaiting_payment" | "verifying" | "success" | "failed";
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function CheckoutScreen() {
@@ -46,6 +59,9 @@ export default function CheckoutScreen() {
     const { Colors, isDark } = useTheme();
     const styles = React.useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
     const { items, clearCart, restaurantId } = useCartStore();
+
+    const { data: restaurant } = useRestaurantDetail(restaurantId ?? '');
+    const { data: addresses = [] } = useAddresses();
 
     const paymentMode = (paymentModeParam ?? 'RAZORPAY') as PaymentMode;
 
@@ -66,16 +82,31 @@ export default function CheckoutScreen() {
 
     const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
     const [isCouponModalVisible, setIsCouponModalVisible] = useState(false);
+    const [activeOrder, setActiveOrder] = useState<UserOrder | null>(null);
 
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
 
-    const deliveryCharge = 40;
+    const deliveryCharge = useMemo(() => {
+        let charge = 30; // Default fallback matching backend
+        const selectedAddress = addresses.find((a) => a.id === addressId);
+        if (selectedAddress && restaurant?.lat && restaurant?.lng) {
+            const distanceKm = calculateDistance(
+                selectedAddress.lat,
+                selectedAddress.lng,
+                restaurant.lat,
+                restaurant.lng
+            );
+            charge = Math.min(60, Math.round(15 + distanceKm * 7));
+        }
+        return charge;
+    }, [addressId, addresses, restaurant]);
+
     const platformFee = 5;
     const gstAndCharges = itemTotal * 0.05;
     const subTotal = itemTotal + deliveryCharge + platformFee + gstAndCharges;
-    const grandTotal = subTotal - (appliedCoupon?.discount ?? 0);
+    const grandTotal = Math.max(0, subTotal - (appliedCoupon?.discount ?? 0));
 
     // ── Payment method display helpers ────────────────────────────────────────
     const getPaymentMethodInfo = () => {
@@ -145,7 +176,7 @@ export default function CheckoutScreen() {
     };
 
     // ── Main payment handler ──────────────────────────────────────────────────
-    const handlePayNow = async () => {
+    const     handlePayNow = async () => {
         if (!restaurantId || items.length === 0) {
             showAlert("Error", "Your cart is empty. Please go back and add items.");
             return;
@@ -155,24 +186,28 @@ export default function CheckoutScreen() {
 
         try {
             // ── Step 1: Create the order on our backend ──────────────────────
-            setStep("creating_order");
+            let order = activeOrder;
+            if (!order) {
+                setStep("creating_order");
 
-            const orderPayload = {
-                restaurantId,
-                items: items.map((item) => ({ 
-                    menuItemId: item.id, 
-                    variantId: item.selectedVariant?.id,
-                    quantity: item.quantity,
-                    selectedAddons: item.selectedAddons?.map(addon => ({
-                        addonOptionId: addon.id
-                    }))
-                })),
-                paymentMode: paymentMode,
-                addressId: addressId || undefined,
-                promoCode: appliedCoupon?.code || undefined,
-            };
+                const orderPayload = {
+                    restaurantId,
+                    items: items.map((item) => ({ 
+                        menuItemId: item.id, 
+                        variantId: item.selectedVariant?.id,
+                        quantity: item.quantity,
+                        selectedAddons: item.selectedAddons?.map(addon => ({
+                            addonOptionId: addon.id
+                        }))
+                    })),
+                    paymentMode: paymentMode,
+                    addressId: addressId || undefined,
+                    promoCode: appliedCoupon?.code || undefined,
+                };
 
-            const order = await createOrderMutation.mutateAsync(orderPayload);
+                order = await createOrderMutation.mutateAsync(orderPayload);
+                setActiveOrder(order);
+            }
 
             // ── Handle payment based on mode ─────────────────────────────────
             if (paymentMode === 'COD') {
@@ -193,7 +228,16 @@ export default function CheckoutScreen() {
             // Step 2: Create Razorpay order on our backend
             setStep("creating_razorpay_order");
             const paymentData = await createPaymentOrder.mutateAsync(order.id);
-            const { razorpayOrder } = paymentData;
+            if (paymentData.isPaid) {
+                setStep("success");
+                clearCart();
+                return;
+            }
+
+            if (!paymentData.razorpayOrder) {
+                throw new Error("Razorpay order details not returned from server.");
+            }
+            const razorpayOrder = paymentData.razorpayOrder;
 
             // Step 3: Open Razorpay SDK
             setStep("awaiting_payment");
@@ -229,6 +273,13 @@ export default function CheckoutScreen() {
             setStep("success");
             clearCart();
         } catch (error: any) {
+            // Handle Razorpay payment cancellation separately from failure
+            const cancelled = error?.code === 0 || /cancel/i.test(error?.description ?? "");
+            if (cancelled && step === "awaiting_payment") {
+                setStep("idle"); // let them just tap Pay again, no error
+                return;
+            }
+
             setStep("failed");
             // Razorpay SDK errors surface as { code, description }
             const description =
@@ -263,7 +314,7 @@ export default function CheckoutScreen() {
             
             successOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
         }
-    }, [step]);
+    }, [step, successScale, successRingScale, successRingOpacity, successOpacity]);
 
     const rSuccessIconStyle = useAnimatedStyle(() => ({
         transform: [{ scale: successScale.value }],
@@ -371,7 +422,7 @@ export default function CheckoutScreen() {
                             </View>
                             <Text style={[styles.summaryQty, { marginTop: 2 }]}>×{item.quantity}</Text>
                             <Text style={[styles.summaryPrice, { marginTop: 2 }]}>
-                                {formatCurrency((item.price ?? 0) * item.quantity)}
+                                {formatCurrency(getCartItemPrice(item) * item.quantity)}
                             </Text>
                         </View>
                     ))}
@@ -392,8 +443,8 @@ export default function CheckoutScreen() {
                                 </View>
                                 <Text style={styles.couponSavings}>Savings: {formatCurrency(appliedCoupon.discount)}</Text>
                             </View>
-                            <TouchableOpacity onPress={handleRemoveCoupon}>
-                                <Text style={styles.removeCouponText}>Remove</Text>
+                            <TouchableOpacity onPress={handleRemoveCoupon} disabled={!!activeOrder}>
+                                <Text style={[styles.removeCouponText, !!activeOrder && { opacity: 0.5 }]}>Remove</Text>
                             </TouchableOpacity>
                         </View>
                     ) : null}
@@ -407,12 +458,15 @@ export default function CheckoutScreen() {
                                         key={c.id}
                                         style={styles.availableItem}
                                         onPress={() => {
-                                            setSelectedCoupon(c);
-                                            setIsCouponModalVisible(true);
+                                            if (!activeOrder) {
+                                                setSelectedCoupon(c);
+                                                setIsCouponModalVisible(true);
+                                            }
                                         }}
+                                        disabled={!!activeOrder}
                                         scaleIn={0.9}
                                     >
-                                        <Text style={styles.availableItemText}>{c.code}</Text>
+                                        <Text style={[styles.availableItemText, !!activeOrder && { opacity: 0.5 }]}>{c.code}</Text>
                                     </AnimatedPressable>
                                 ))}
                             </ScrollView>

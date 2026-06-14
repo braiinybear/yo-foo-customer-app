@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useCartStore, CartItem } from '@/store/useCartStore';
+import { useCartStore, CartItem, getCartItemPrice } from '@/store/useCartStore';
 
 import { useWalletBalance } from '@/hooks/usePayments';
 import { useAddresses } from '@/hooks/useAddresses';
@@ -233,7 +233,7 @@ export default function CartScreen() {
                                         ) : null}
 
                                         <Text style={styles.itemPrice}>
-                                            ₹{((item.price ?? 0) * item.quantity).toFixed(0)}
+                                            ₹{(getCartItemPrice(item) * item.quantity).toFixed(0)}
                                         </Text>
                                     </View>
 
@@ -536,7 +536,7 @@ export default function CartScreen() {
                                     <View style={styles.detailsTotalRow}>
                                         <Text style={styles.detailsTotalLabel}>Unit Total</Text>
                                         <Text style={styles.detailsTotalValue}>
-                                            ₹{(viewDetailsItem.price ?? 0).toFixed(0)}
+                                            ₹{getCartItemPrice(viewDetailsItem).toFixed(0)}
                                         </Text>
                                     </View>
                                 </View>

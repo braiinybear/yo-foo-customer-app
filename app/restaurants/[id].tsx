@@ -10,7 +10,6 @@ import React, { useCallback, useState, useMemo, useRef, useEffect } from "react"
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import {
-    ActivityIndicator,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -40,8 +39,33 @@ import Animated, {
 } from "react-native-reanimated";
 import { AnimatedPressable } from "@/components/AnimatedPressable";
 import { useToastStore } from "@/store/useToastStore";
-import LoadingLottie from "@/components/LoadingLottie";
 import RestaurantDetailSkeleton from "@/components/loadingSkelton/RestaurantDetailSkeleton";
+
+const getCuisineEmoji = (cuisine: string): string => {
+    const lower = cuisine.toLowerCase();
+    if (lower.includes("sweet") || lower.includes("dessert") || lower.includes("bakery")) return "🍬";
+    if (lower.includes("chaat") || lower.includes("spicy") || lower.includes("street")) return "🌶️";
+    if (lower.includes("pizza")) return "🍕";
+    if (lower.includes("burger")) return "🍔";
+    if (lower.includes("chinese") || lower.includes("noodle")) return "🥢";
+    if (lower.includes("south indian") || lower.includes("dosa")) return "🍛";
+    if (lower.includes("beverage") || lower.includes("juice") || lower.includes("drink")) return "🥤";
+    return "🍛";
+};
+
+const getCategoryEmoji = (name: string): string => {
+    const lower = name.toLowerCase();
+    if (lower.includes("chaat") || lower.includes("spicy") || lower.includes("starter")) return "🌶️";
+    if (lower.includes("sweet") || lower.includes("dessert") || lower.includes("shake") || lower.includes("ice cream")) return "🍨";
+    if (lower.includes("pizza")) return "🍕";
+    if (lower.includes("burger")) return "🍔";
+    if (lower.includes("chinese") || lower.includes("noodle") || lower.includes("momo")) return "🥢";
+    if (lower.includes("biryani") || lower.includes("rice")) return "🍚";
+    if (lower.includes("beverage") || lower.includes("drink") || lower.includes("juice") || lower.includes("tea") || lower.includes("coffee")) return "🥤";
+    if (lower.includes("south indian") || lower.includes("dosa") || lower.includes("idli")) return "🍛";
+    if (lower.includes("bread") || lower.includes("roti") || lower.includes("naan")) return "🫓";
+    return "🍽️";
+};
 
 export default function RestaurantDetailScreen() {
     const { Colors, isDark } = useTheme();
@@ -52,23 +76,25 @@ export default function RestaurantDetailScreen() {
     // Fetch dynamic restaurant details
     const { data: fetchedRestaurant, isPending, error, refetch } = useRestaurantDetail(id);
     const showToast = useToastStore((state) => state.showToast);
+    console.log(fetchedRestaurant);
+    
 
     // Merge API data with requested fallback/provided JSON
     const restaurant = useMemo(() => {
         if (!fetchedRestaurant) return null;
         return {
             ...fetchedRestaurant,
-            address: fetchedRestaurant.address || "Mussoorie Road, Dehradun",
-            description: fetchedRestaurant.description || "Traditional Indian sweets, Desi Ghee Jalebi, and spicy Samosa Chaat.",
-            cuisineTypes: fetchedRestaurant.cuisineTypes?.length ? fetchedRestaurant.cuisineTypes : ["Sweets", "Chaat", "Street Food"],
-            costForTwo: fetchedRestaurant.costForTwo || 250,
-            rating: fetchedRestaurant.rating || 4.7,
+            address: fetchedRestaurant.address || "",
+            description: fetchedRestaurant.description || "",
+            cuisineTypes: fetchedRestaurant.cuisineTypes || [],
+            costForTwo: fetchedRestaurant.costForTwo || 0,
+            rating: fetchedRestaurant.rating || 0,
             ratingCount: fetchedRestaurant.ratingCount || 0,
-            isOpen: fetchedRestaurant.isOpen ?? true,
-            isVerified: fetchedRestaurant.isVerified ?? true,
-            distance: (fetchedRestaurant as any).distance || "9km",
-            lat: fetchedRestaurant.lat ?? (fetchedRestaurant as any).latitude ?? 30.4214,
-            lng: fetchedRestaurant.lng ?? (fetchedRestaurant as any).longitude ?? 78.0507,
+            isOpen: fetchedRestaurant.isOpen ?? false,
+            isVerified: fetchedRestaurant.isVerified ?? false,
+            distance: (fetchedRestaurant as any).distance || "",
+            lat: fetchedRestaurant.lat ?? (fetchedRestaurant as any).latitude ?? 0,
+            lng: fetchedRestaurant.lng ?? (fetchedRestaurant as any).longitude ?? 0,
         };
     }, [fetchedRestaurant]);
 
@@ -96,7 +122,7 @@ export default function RestaurantDetailScreen() {
         return (restaurant?.reviews || []).map((rev: any) => ({
             id: rev.id,
             userName: rev.user?.name || "Customer",
-            userAvatar: rev.user?.image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
+            userAvatar: rev.user?.image || null,
             rating: rev.foodRating,
             date: new Date(rev.createdAt).toLocaleDateString("en-US", {
                 month: "short",
@@ -104,8 +130,8 @@ export default function RestaurantDetailScreen() {
                 year: "numeric",
             }),
             comment: rev.comment || "",
-            photos: [],
-            isVerified: true,
+            photos: rev.photos || [],
+            isVerified: rev.isVerified ?? false,
         }));
     }, [restaurant?.reviews]);
 
@@ -255,8 +281,11 @@ export default function RestaurantDetailScreen() {
     const handleShare = async () => {
         if (!restaurant) return;
         try {
+            const ratingStr = restaurant.rating ? `\nRating: ⭐ ${restaurant.rating}` : '';
+            const cuisinesStr = restaurant.cuisineTypes.length ? `\nCuisines: ${restaurant.cuisineTypes.join(", ")}` : '';
+            const addressStr = restaurant.address ? `\nAddress: ${restaurant.address}` : '';
             await Share.share({
-                message: `Order delicious food from "${restaurant.name}" on Yo!Foo! 🍕🍔\nCuisines: ${restaurant.cuisineTypes.join(", ")}\nRating: ⭐ ${restaurant.rating}\nAddress: ${restaurant.address}`,
+                message: `Order delicious food from "${restaurant.name}" on Yo!Foo! 🍕🍔${cuisinesStr}${ratingStr}${addressStr}`,
             });
         } catch (error) {
             console.error("Error sharing:", error);
@@ -422,38 +451,7 @@ export default function RestaurantDetailScreen() {
 
 
 
-    // Similar cuisines/restaurants carousel data
-    const similarRestaurants = useMemo(() => {
-        return [
-            {
-                id: "sim-1",
-                name: "Sardarji Malai Chaat Corner",
-                cuisineTypes: ["Chaat", "Street Food"],
-                rating: 4.6,
-                costForTwo: 180,
-                distance: "3.4km",
-                image: "https://images.unsplash.com/photo-1601050690597-df056fb4ce78?w=300"
-            },
-            {
-                id: "sim-2",
-                name: "Kwality Sweets & Restaurant",
-                cuisineTypes: ["Sweets", "Street Food"],
-                rating: 4.5,
-                costForTwo: 300,
-                distance: "2.1km",
-                image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=300"
-            },
-            {
-                id: "sim-3",
-                name: "Bikanervala Dehradun",
-                cuisineTypes: ["Sweets", "Chaat"],
-                rating: 4.4,
-                costForTwo: 400,
-                distance: "4.8km",
-                image: "https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=300"
-            }
-        ];
-    }, []);
+
 
     // Filtered menu items calculation
     const filteredCategories = useMemo(() => {
@@ -612,7 +610,7 @@ export default function RestaurantDetailScreen() {
                     <Ionicons name="search" size={20} color={Colors.muted} style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search dishes, desserts or chaat..."
+                        placeholder="Search dishes or cuisines..."
                         placeholderTextColor={Colors.muted}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
@@ -781,119 +779,124 @@ export default function RestaurantDetailScreen() {
                     <View style={styles.restaurantMainCard}>
                         <View style={styles.nameHeaderRow}>
                             <Text style={styles.restaurantTitle}>{restaurant.name}</Text>
-                            <View style={styles.verifiedBadge}>
-                                <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                                <Text style={styles.verifiedText}>Verified</Text>
-                            </View>
+                            {restaurant.isVerified && (
+                                <View style={styles.verifiedBadge}>
+                                    <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                                    <Text style={styles.verifiedText}>Verified</Text>
+                                </View>
+                            )}
                         </View>
 
-                        <Text style={styles.descriptionText}>{restaurant.description}</Text>
+                        {!!restaurant.description && (
+                            <Text style={styles.descriptionText}>{restaurant.description}</Text>
+                        )}
 
                         {/* Cuisine Chips */}
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.cuisinesContainer}
-                        >
-                            {restaurant.cuisineTypes.map((cuisine, index) => {
-                                let emoji = "🍛";
-                                if (cuisine.toLowerCase().includes("sweet")) emoji = "🍬";
-                                else if (cuisine.toLowerCase().includes("chaat")) emoji = "🌶";
-                                else if (cuisine.toLowerCase().includes("street")) emoji = "🍢";
-                                return (
-                                    <View key={index} style={styles.cuisineChip}>
-                                        <Text style={styles.cuisineEmoji}>{emoji}</Text>
-                                        <Text style={styles.cuisineLabel}>{cuisine}</Text>
-                                    </View>
-                                );
-                            })}
-                        </ScrollView>
+                        {restaurant.cuisineTypes.length > 0 && (
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.cuisinesContainer}
+                            >
+                                {restaurant.cuisineTypes.map((cuisine, index) => {
+                                    const emoji = getCuisineEmoji(cuisine);
+                                    return (
+                                        <View key={index} style={styles.cuisineChip}>
+                                            <Text style={styles.cuisineEmoji}>{emoji}</Text>
+                                            <Text style={styles.cuisineLabel}>{cuisine}</Text>
+                                        </View>
+                                    );
+                                })}
+                            </ScrollView>
+                        )}
 
-                        {/* Location and Timing bar */}
+                        {/* Location and Timing info */}
                         <View style={styles.locationTimingStrip}>
-                            <View style={styles.stripItem}>
-                                <Ionicons name="location" size={16} color={Colors.primary} />
-                                <Text style={styles.stripText} numberOfLines={1}>{restaurant.address}</Text>
-                            </View>
-                            <View style={styles.stripDivider} />
-                            <View style={styles.stripItem}>
-                                <Ionicons name="time-outline" size={16} color={restaurant.isOpen ? Colors.success : Colors.muted} />
+                            {!!restaurant.address && (
+                                <View style={styles.stripItemRow}>
+                                    <Ionicons name="location" size={16} color={Colors.primary} style={{ marginTop: 2 }} />
+                                    <Text style={styles.stripText}>{restaurant.address}</Text>
+                                </View>
+                            )}
+                            <View style={styles.stripItemRow}>
+                                <View style={[styles.statusDot, { backgroundColor: restaurant.isOpen ? Colors.success : Colors.muted }]} />
                                 <Text style={[styles.stripText, { color: restaurant.isOpen ? Colors.success : Colors.muted }]}>
-                                    {restaurant.isOpen ? "Open Now" : "Closed"}
+                                    {restaurant.isOpen ? "Open Now" : "Currently Closed"}
                                 </Text>
                             </View>
                         </View>
                     </View>
 
                     {/* Horizontal Dynamic Scrolling Badges Row */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.badgesScrollRow}
-                    >
-                        <View style={styles.badgeChip}>
-                            <Text style={styles.badgeEmoji}>⭐</Text>
-                            <Text style={styles.badgeText}>Highly Rated</Text>
-                        </View>
-                        {restaurant.cuisineTypes.includes("Sweets") && (
-                            <View style={styles.badgeChip}>
-                                <Text style={styles.badgeEmoji}>🍬</Text>
-                                <Text style={styles.badgeText}>Sweet Specialist</Text>
-                            </View>
-                        )}
-                        {restaurant.cuisineTypes.includes("Chaat") && (
-                            <View style={styles.badgeChip}>
-                                <Text style={styles.badgeEmoji}>🌶</Text>
-                                <Text style={styles.badgeText}>Chaat Expert</Text>
-                            </View>
-                        )}
-                        {restaurant.costForTwo <= 300 && (
-                            <View style={styles.badgeChip}>
-                                <Text style={styles.badgeEmoji}>💸</Text>
-                                <Text style={styles.badgeText}>Budget Friendly</Text>
-                            </View>
-                        )}
-                        {restaurant.isVerified && (
-                            <View style={styles.badgeChip}>
-                                <Text style={styles.badgeEmoji}>✅</Text>
-                                <Text style={styles.badgeText}>Verified Kitchen</Text>
-                            </View>
-                        )}
-                    </ScrollView>
-
-                    {/* AI Smart Recommendation Card */}
-                    {/* <View style={styles.aiRecommendationCard}>
-                        <View style={styles.aiCardHeader}>
-                            <Ionicons name="sparkles" size={18} color={Colors.primary} />
-                            <Text style={styles.aiHeaderTitle}>AI Taste Assistant Recommendation</Text>
-                        </View>
-                        <Text style={styles.aiCardBody}>
-                            "Highly recommended destination in Dehradun for authentic evening snacks. Famous for rich Desi Ghee Jalebi and tangy street-style chaats. It scores a high value-for-money rating of 4.7 stars."
-                        </Text>
-                    </View> */}
+                    {((restaurant.rating && restaurant.rating >= 4.0) || 
+                      restaurant.cuisineTypes.some(c => c.toLowerCase().includes("sweet")) ||
+                      restaurant.cuisineTypes.some(c => c.toLowerCase().includes("chaat")) ||
+                      (restaurant.costForTwo > 0 && restaurant.costForTwo <= 300) ||
+                      restaurant.isVerified) && (
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.badgesScrollRow}
+                        >
+                            {restaurant.rating >= 4.0 && (
+                                <View style={styles.badgeChip}>
+                                    <Text style={styles.badgeEmoji}>⭐</Text>
+                                    <Text style={styles.badgeText}>Highly Rated</Text>
+                                </View>
+                            )}
+                            {restaurant.cuisineTypes.some(c => c.toLowerCase().includes("sweet")) && (
+                                <View style={styles.badgeChip}>
+                                    <Text style={styles.badgeEmoji}>🍬</Text>
+                                    <Text style={styles.badgeText}>Sweet Specialist</Text>
+                                </View>
+                            )}
+                            {restaurant.cuisineTypes.some(c => c.toLowerCase().includes("chaat")) && (
+                                <View style={styles.badgeChip}>
+                                    <Text style={styles.badgeEmoji}>🌶</Text>
+                                    <Text style={styles.badgeText}>Chaat Expert</Text>
+                                </View>
+                            )}
+                            {restaurant.costForTwo > 0 && restaurant.costForTwo <= 300 && (
+                                <View style={styles.badgeChip}>
+                                    <Text style={styles.badgeEmoji}>💸</Text>
+                                    <Text style={styles.badgeText}>Budget Friendly</Text>
+                                </View>
+                            )}
+                            {restaurant.isVerified && (
+                                <View style={styles.badgeChip}>
+                                    <Text style={styles.badgeEmoji}>✅</Text>
+                                    <Text style={styles.badgeText}>Verified Kitchen</Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                    )}
 
                     {/* Key Metrics Stats Strip */}
                     <View style={styles.statsStripGrid}>
                         <View style={styles.statCard}>
                             <Ionicons name="star" size={20} color={Colors.primary} />
-                            <Text style={styles.statValue}>{restaurant.rating}</Text>
-                            <Text style={styles.statLabel}>{restaurant.ratingCount > 0 ? `${restaurant.ratingCount}+ reviews` : "Popular Spot"}</Text>
+                            <Text style={styles.statValue}>{restaurant.rating || "N/A"}</Text>
+                            <Text style={styles.statLabel}>{restaurant.ratingCount > 0 ? `${restaurant.ratingCount}+ reviews` : "Rating"}</Text>
                         </View>
-                        <View style={styles.statCard}>
-                            <Ionicons name="wallet-outline" size={20} color="#4CAF50" />
-                            <Text style={styles.statValue}>₹{restaurant.costForTwo}</Text>
-                            <Text style={styles.statLabel}>For Two</Text>
-                        </View>
+                        {restaurant.costForTwo > 0 && (
+                            <View style={styles.statCard}>
+                                <Ionicons name="wallet-outline" size={20} color="#4CAF50" />
+                                <Text style={styles.statValue}>₹{restaurant.costForTwo}</Text>
+                                <Text style={styles.statLabel}>For Two</Text>
+                            </View>
+                        )}
                         <View style={styles.statCard}>
                             <Ionicons name="restaurant-outline" size={20} color="#FFB800" />
-                            <Text style={styles.statValue}>{restaurant.menuCategories?.length || 2}</Text>
+                            <Text style={styles.statValue}>{restaurant.menuCategories?.length || 0}</Text>
                             <Text style={styles.statLabel}>Categories</Text>
                         </View>
-                        <View style={styles.statCard}>
-                            <Ionicons name="navigate-outline" size={20} color="#00BCD4" />
-                            <Text style={styles.statValue}>{restaurant.distance}</Text>
-                            <Text style={styles.statLabel}>Distance</Text>
-                        </View>
+                        {!!restaurant.distance && (
+                            <View style={styles.statCard}>
+                                <Ionicons name="navigate-outline" size={20} color="#00BCD4" />
+                                <Text style={styles.statValue}>{restaurant.distance}</Text>
+                                <Text style={styles.statLabel}>Distance</Text>
+                            </View>
+                        )}
                     </View>
                 </View>
 
@@ -908,7 +911,7 @@ export default function RestaurantDetailScreen() {
                         <Ionicons name="search" size={20} color={Colors.muted} style={styles.searchIcon} />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search dishes, desserts or chaat..."
+                            placeholder="Search dishes or cuisines..."
                             placeholderTextColor={Colors.muted}
                             value={searchQuery}
                             onChangeText={setSearchQuery}
@@ -1070,7 +1073,7 @@ export default function RestaurantDetailScreen() {
                                                     size={14}
                                                     color={item.type === 'VEG' ? '#27ae60' : '#e74c3c'}
                                                 />
-                                                <Text style={styles.featuredTagText}>BESTSELLER</Text>
+                                                {item.isBestseller && <Text style={styles.featuredTagText}>BESTSELLER</Text>}
                                             </View>
                                             <Text style={styles.featuredItemName} numberOfLines={1}>{item.name}</Text>
                                             <Text style={styles.featuredItemPrice}>₹{getItemStartingPrice(item)}</Text>
@@ -1243,13 +1246,13 @@ export default function RestaurantDetailScreen() {
                             <Ionicons name="search" size={48} color={Colors.muted} style={{ marginBottom: 12 }} />
                             <Text style={styles.emptyStateTitle}>No Matches Found</Text>
                             <Text style={styles.emptyStateSub}>
-                                We couldn't find any dishes matching "{searchQuery}". Try searching for sweets, samosa or jalebi!
+                                We couldn't find any dishes matching "{searchQuery}". Try searching for another dish!
                             </Text>
                         </View>
                     ) : (
                         filteredCategories.map((category) => {
                             const isExpanded = !!expandedCategories[category.id];
-                            let catEmoji = category.name.toLowerCase().includes("chaat") ? "🌶️" : "🍬";
+                            const catEmoji = getCategoryEmoji(category.name);
                             
                             return (
                                 <View
@@ -1403,7 +1406,11 @@ export default function RestaurantDetailScreen() {
                                     needsOffscreenAlphaCompositing={true}
                                 >
                                     <View style={styles.reviewerHeader}>
-                                        <Image source={{ uri: rev.userAvatar }} style={styles.reviewerAvatar} />
+                                        {rev.userAvatar ? (
+                                            <Image source={{ uri: rev.userAvatar }} style={styles.reviewerAvatar} />
+                                        ) : (
+                                            <Ionicons name="person-circle" size={38} color={Colors.muted} style={styles.reviewerAvatar} />
+                                        )}
                                         <View style={styles.reviewerMeta}>
                                             <Text style={styles.reviewerName}>
                                                 {rev.userName} {rev.isVerified && "✅"}
@@ -1423,55 +1430,23 @@ export default function RestaurantDetailScreen() {
                     )}
                 </View>
 
-                {/* 8. Similar Restaurants Section */}
-                {/* <View style={styles.similarSection}>
-                    <Text style={styles.similarSectionTitle}>🍰 Similar Sweet & Chaat Outlets</Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.similarSlider}
-                    >
-                        {similarRestaurants.map((sim) => (
-                            <TouchableOpacity
-                                key={sim.id}
-                                style={styles.similarCard}
-                                onPress={() => showToast(`Opening ${sim.name}...`, "success")}
-                            >
-                                <Image source={{ uri: sim.image }} style={styles.similarImage} contentFit="cover" />
-                                <View style={styles.similarInfo}>
-                                    <Text style={styles.similarName} numberOfLines={1}>{sim.name}</Text>
-                                    <View style={styles.similarMetaRow}>
-                                        <View style={styles.simRatingBadge}>
-                                            <Ionicons name="star" size={10} color={Colors.white} />
-                                            <Text style={styles.simRatingText}>{sim.rating}</Text>
-                                        </View>
-                                        <Text style={styles.simDistanceText}>• {sim.distance}</Text>
-                                    </View>
-                                    <Text style={styles.similarCuisines} numberOfLines={1}>
-                                        {sim.cuisineTypes.join(", ")}
-                                    </Text>
-                                    <Text style={styles.similarPrice}>₹{sim.costForTwo} for two</Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View> */}
-
-                {/* FSSAI Registration Card */}
-                {/* <View style={styles.fssaiContainer}>
-                    <View style={styles.fssaiCard}>
-                        <Image
-                            source={{ uri: "https://upload.wikimedia.org/wikipedia/commons/e/e4/FSSAI_logo.png" }}
-                            style={styles.fssaiLogo}
-                            contentFit="contain"
-                        />
-                        <View style={styles.fssaiTextContainer}>
-                            <Text style={styles.fssaiLicense}>License No. 12523005000412</Text>
-                            <Text style={styles.fssaiSub}>Shree Balaji Mithai & Chaat Bhandar</Text>
+                {/* FSSAI & GST Registration Card */}
+                {((restaurant as any).fssaiCode || (restaurant as any).gstNumber) && (
+                    <View style={styles.fssaiContainer}>
+                        <View style={styles.fssaiCard}>
+                            <Ionicons name="shield-checkmark" size={28} color={Colors.primary} />
+                            <View style={styles.fssaiTextContainer}>
+                                {(restaurant as any).fssaiCode && (
+                                    <Text style={styles.fssaiLicense}>FSSAI Lic. No. {(restaurant as any).fssaiCode}</Text>
+                                )}
+                                <Text style={styles.fssaiSub}>{restaurant.name}</Text>
+                            </View>
                         </View>
+                        <Text style={styles.gstText}>
+                            {[(restaurant as any).gstNumber ? "GST Registered" : null, (restaurant as any).fssaiCode ? "FSSAI Approved Kitchen" : null].filter(Boolean).join(" · ")}
+                        </Text>
                     </View>
-                    <Text style={styles.gstText}>GST Registered · FSSAI Approved Kitchen</Text>
-                </View> */}
+                )}
 
                 {/* Cushion Height */}
                 <View style={{ height: 160 }} />
@@ -1727,7 +1702,7 @@ export default function RestaurantDetailScreen() {
                                 {restaurant.menuCategories.map((cat) => {
                                     const isActive = activeTabId === cat.id;
                                     const itemCount = cat.items?.length || 0;
-                                    let emoji = cat.name.toLowerCase().includes("chaat") ? "🌶️" : "🍬";
+                                    const emoji = getCategoryEmoji(cat.name);
                                     return (
                                         <TouchableOpacity
                                             key={cat.id}
@@ -1977,23 +1952,29 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
         color: Colors.text,
     },
     locationTimingStrip: {
-        flexDirection: "row",
-        alignItems: "center",
+        flexDirection: "column",
         borderTopWidth: 1,
         borderTopColor: Colors.border,
         paddingTop: 14,
-        gap: 12,
+        gap: 10,
     },
-    stripItem: {
+    stripItemRow: {
         flexDirection: "row",
-        alignItems: "center",
+        alignItems: "flex-start",
         gap: 6,
-        flex: 1,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginTop: 5,
     },
     stripText: {
         fontFamily: Fonts.brandMedium,
         fontSize: FontSize.xs,
         color: Colors.textSecondary,
+        flex: 1,
+        lineHeight: 18,
     },
     stripDivider: {
         width: 1,

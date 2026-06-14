@@ -370,7 +370,7 @@ export default function ProfileScreen() {
                 onRequestClose={() => setIsEditModalVisible(false)}
             >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
                     style={styles.modalOverlay}
                 >
                     <View style={styles.modalContent}>
@@ -503,7 +503,7 @@ const createStyles = (Colors: any, isDark: boolean) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,
-    },
+    }, 
     loadingContainer: {
         flex: 1,
         justifyContent: "center",

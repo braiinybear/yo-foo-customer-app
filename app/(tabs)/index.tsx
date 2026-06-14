@@ -54,18 +54,20 @@ export default function Index() {
   const { data: user } = useUser();
   const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
-  const { coords } = useUserLocation();
+  const { coords, isLoading: locationLoading, error: locationError } = useUserLocation();
 
   // ── Infinite-scroll restaurants ──────────────────────────────────────────
   const {
     data: pagedData,
-    isLoading,
+    isLoading: restaurantsLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
     refetch: refetchRestaurants,
     isError: isRestaurantsError,
   } = useRestaurants(coords?.lat, coords?.lng);
+
+  const isLoading = locationLoading || (restaurantsLoading && coords !== null);
 
   // Flatten pages → single array for FlatList
   const restaurants: Restaurant[] = useMemo(
@@ -277,6 +279,19 @@ export default function Index() {
   // ── Empty State ────────────────────────────────────────────────────────
   const ListEmpty = useMemo(() => {
     if (isLoading || isRestaurantsError) return null;
+    if (locationError) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <View style={styles.emptyStateIconCircle}>
+            <MaterialCommunityIcons name="map-marker-alert-outline" size={48} color={Colors.primary} />
+          </View>
+          <Text style={styles.emptyStateTitle}>Location Access Required</Text>
+          <Text style={styles.emptyStateSub}>
+            {locationError} Please enable location permissions in your device settings to view nearby restaurants.
+          </Text>
+        </View>
+      );
+    }
     return (
       <View style={styles.emptyStateContainer}>
         <View style={styles.emptyStateIconCircle}>
@@ -288,7 +303,7 @@ export default function Index() {
         </Text>
       </View>
     );
-  }, [isLoading, isRestaurantsError, styles, Colors.primary]);
+  }, [isLoading, isRestaurantsError, locationError, styles, Colors.primary]);
 
   // ── Footer spinner ───────────────────────────────────────────────────────
 

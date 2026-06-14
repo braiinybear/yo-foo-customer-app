@@ -18,6 +18,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from '@/hooks/useNotifications';
 import { Notification } from '@/types/notifications';
 import { useRouter, useNavigation } from 'expo-router';
+import { useNotification } from '@/context/NotificationContext';
 
 
 function getTimeAgo(dateStr: string) {
@@ -42,6 +43,7 @@ export default function NotificationScreen() {
     const { Colors, isDark } = useTheme();
     const router = useRouter();
     const navigation = useNavigation();
+    const { handleNotificationNavigation } = useNotification();
     const styles = useMemo(() => createStyles(Colors, isDark), [Colors, isDark]);
 
     const {
@@ -80,8 +82,8 @@ export default function NotificationScreen() {
             markAsRead.mutate(notification.id);
         }
 
-        if (notification.data?.orderId) {
-            router.push(`/(tabs)/orders/${notification.data.orderId}`);
+        if (handleNotificationNavigation && notification.data) {
+            handleNotificationNavigation(notification.data);
         }
     };
 

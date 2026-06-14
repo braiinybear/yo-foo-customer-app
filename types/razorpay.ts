@@ -1,14 +1,15 @@
 export interface CreatePaymentOrderResponse {
-    razorpayOrder: {
+    razorpayOrder?: {
         id: string;                  // e.g. "order_SKIgtlfSOIdxKi"
         amount: number;              // in paise   e.g. 49700
         currency: string;            // "INR"
         receipt: string;
         status: string;
     };
-    paymentId: string;              // internal payment record id
+    paymentId?: string;              // internal payment record id
     orderId: string;                // our DB order id
-    amount: number;                 // in rupees  e.g. 497
+    amount?: number;                 // in rupees  e.g. 497
+    isPaid?: boolean;
 }
 
 export interface VerifyPaymentPayload {

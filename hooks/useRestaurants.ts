@@ -42,6 +42,7 @@ export const useRestaurants = (lat?: number, lng?: number) =>
       const { page, totalPages } = lastPage.meta;
       return page < totalPages ? page + 1 : undefined;
     },
+    enabled: typeof lat === 'number' && typeof lng === 'number',
   });
 
 export const useRestaurantDetail = (id: string) =>

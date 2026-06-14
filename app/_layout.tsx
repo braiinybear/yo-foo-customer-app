@@ -230,7 +230,7 @@ function ThemedRoot() {
                   },
                   headerTitleAlign: "center",
                   headerTitleStyle: {
-                    color: Colors.primary,
+                    color: Colors.white,
                   },
                 }}
               />

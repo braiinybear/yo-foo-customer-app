@@ -21,6 +21,7 @@ interface NotificationContextType {
   pushToken: string | null;
   notification: Notifications.Notification | null;
   error: Error | null;
+  handleNotificationNavigation?: (data: any) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(
@@ -60,15 +61,146 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
   
   const { data: serverPushToken } = useGetPushToken(isAuthenticated);
 
+  // Keep track of auth status via ref for event listener callbacks
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  const pendingNavigationRef = useRef<any>(null);
+  const lastProcessedRef = useRef<{ id?: string; screen?: string; time: number } | null>(null);
+
+  // Update ref whenever authentication state changes
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+    if (isAuthenticated && pendingNavigationRef.current) {
+      const pendingData = pendingNavigationRef.current;
+      pendingNavigationRef.current = null;
+      console.log("📲 Customer authenticated, routing pending notification:");
+      setTimeout(() => {
+        handleNotificationNavigation(pendingData);
+      }, 800);
+    }
+  }, [isAuthenticated]);
+
+  // Centralized notification router helper
+  const handleNotificationNavigation = (data: any) => {
+    if (!data) return;
+
+    const id = (data.id || data.orderId || data.restaurantId) as string | undefined;
+    const screen = (data.screen || data.type) as string | undefined;
+
+    console.log("📲 Routing customer notification:", { screen, id, data });
+
+    // Prevent duplicate triggers within 2 seconds
+    const now = Date.now();
+    if (
+      lastProcessedRef.current &&
+      lastProcessedRef.current.id === id &&
+      lastProcessedRef.current.screen === screen &&
+      now - lastProcessedRef.current.time < 2000
+    ) {
+      console.log("📲 Ignoring duplicate notification tap");
+      return;
+    }
+    lastProcessedRef.current = { id, screen, time: now };
+
+    if (!isAuthenticatedRef.current) {
+      console.log("📲 User is not authenticated. Redirecting to Login and deferring route.");
+      pendingNavigationRef.current = data;
+      router.replace("/(auth)/login");
+      return;
+    }
+
+    // Determine target based on screen/type payload
+    if (
+      screen === "OrderDetails" || 
+      screen === "order_created" || 
+      screen === "delivery_status" || 
+      data.orderId
+    ) {
+      if (id) {
+        router.navigate("/(tabs)/orders");
+        setTimeout(() => {
+          router.push(`/(tabs)/orders/${id}`);
+        }, 100);
+      } else {
+        router.navigate("/(tabs)/orders");
+      }
+    } else if (screen === "Chat" || screen === "chat") {
+      // In customer app, chat is managed inline on the order details page
+      if (id) {
+        router.navigate("/(tabs)/orders");
+        setTimeout(() => {
+          router.push(`/(tabs)/orders/${id}`);
+        }, 100);
+      } else {
+        router.navigate("/(tabs)/orders");
+      }
+    } else if (
+      screen === "Offer" || 
+      screen === "Product" || 
+      screen === "offer" || 
+      data.restaurantId
+    ) {
+      if (id) {
+        router.push(`/restaurants/${id}`);
+      } else {
+        router.navigate("/(tabs)");
+      }
+    } else {
+      // Missing or invalid payload -> go to Home screen
+      router.navigate("/(tabs)");
+    }
+  };
+
+  // Standalone mount effect to listen for notification events early, handling terminated state
   useEffect(() => {
     let isMounted = true;
-    
-    // Do not request or sync push tokens if the user is not logged in!
+
+    // Listen for foreground notifications
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        console.log("📲 Notification received in foreground:", notification);
+        setNotification(notification);
+      });
+
+    // Listen for notification taps when the app is backgrounded/foregrounded
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        console.log("📲 User tapped notification:", data);
+        handleNotificationNavigation(data);
+      });
+
+    // Check if app was launched by tapping a notification (terminated state)
+    try {
+      const response = Notifications.getLastNotificationResponse();
+      if (response && isMounted) {
+        const data = response.notification.request.content.data;
+        console.log("📲 App opened via notification tap (terminated):", data);
+        setTimeout(() => {
+          handleNotificationNavigation(data);
+        }, 1000);
+      }
+    } catch (e) {
+      console.log("Error getting last notification response:", e);
+    }
+
+    return () => {
+      isMounted = false;
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
+  }, []);
+
+  // Separate effect to handle push token setup & registration sync
+  useEffect(() => {
+    let isMounted = true;
     if (!isAuthenticated) return;
 
     const setupNotifications = async () => {
       try {
-        // Check and request notification permissions if not granted
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
 
@@ -89,11 +221,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         if (token) {
           setExpoPushToken(token);
           try {
-            // First time opening app - register token
             if (!serverPushToken?.pushToken) {
               await registerPushToken({ token });
             }
-            // Token changed on subsequent opens - update token
             else if (serverPushToken?.pushToken !== token) {
               await updatePushToken({ token });
             }
@@ -110,46 +240,19 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 
     setupNotifications();
 
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
-        console.log("Notification received app is running:", notification);
-        setNotification(notification);
-      });
-
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
-        const data = response.notification.request.content.data;
-        const orderId = data?.orderId as string | undefined;
-
-        console.log("📲 User tapped notification, orderId:", orderId);
-
-        if (orderId) {
-          // Navigate to orders tab first, then push order detail
-          // This ensures the back stack is: Home → Orders List → Order Detail
-          setTimeout(() => {
-            router.navigate("/(tabs)/orders");
-            // Small extra delay so the orders tab mounts before we push the detail
-            setTimeout(() => {
-              router.push(`/(tabs)/orders/${orderId}`);
-            }, 100);
-          }, 300);
-        }
-      });
-
     return () => {
       isMounted = false;
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
-      }
     };
-  }, [expopushToken, isAuthenticated, registerPushToken, serverPushToken?.pushToken, updatePushToken]);
+  }, [isAuthenticated, registerPushToken, serverPushToken?.pushToken, updatePushToken]);
 
   return (
     <NotificationContext.Provider
-      value={{ pushToken: expopushToken, notification, error }}
+      value={{
+        pushToken: expopushToken,
+        notification,
+        error,
+        handleNotificationNavigation,
+      }}
     >
       {children}
     </NotificationContext.Provider>
